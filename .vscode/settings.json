@@ -1,0 +1,9 @@
+{
+    "Lua.diagnostics.globals": [
+        "minetest",
+        "vector",
+        "dump",
+        "player_api",
+        "ItemStack"
+    ]
+}
