@@ -113,6 +113,7 @@ local gun = {
     muzzle_flash = Guns4d.muzzle_flash
 }
 function gun:fire()
+    assert(self.instance, "attempt to call object method on a class")
     if self.rechamber_time <= 0 then
         local dir = self:get_dir()
         local pos = self:get_pos()
@@ -131,26 +132,27 @@ function gun:fire()
     end
 end
 function gun:recoil()
+    assert(self.instance, "attempt to call object method on a class")
     for axis, recoil in pairs(self.velocities.recoil) do
         for _, i in pairs({"x","y"}) do
-            print(i,self.properties.recoil.angular_velocity_bias[axis][i])
             recoil[i] = recoil[i] + (self.properties.recoil.angular_velocity[axis][i]*math.rand_sign((self.properties.recoil.angular_velocity_bias[axis][i]/2)+.5))
         end
     end
     self.time_since_last_fire = 0
 end
-function gun:get_dir(added_pos)
-    local offset
-    if added_pos then
-        offset = true
-    end
-    added_pos = Vec.new(added_pos)
+function gun:get_dir(gun_relative)
+    assert(self.instance, "attempt to call object method on a class")
     local player = self.player
-    local player_rotation = Vec.new(self.transforms.player_rotation.x, self.transforms.player_rotation.y, 0)
+    local player_rotation
+    if gun_relative then
+        player_rotation = Vec.new(gun_relative)
+    else
+        player_rotation = Vec.new(self.transforms.player_rotation.x, self.transforms.player_rotation.y, 0)
+    end
     local rotation = self.transforms.total_offset_rotation
     local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x+player_rotation.x)*math.pi/180), z=0}))
     dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y+player_rotation.y)*math.pi/180), x=0, z=0})
-    local hud_pos = dir+self:get_pos()
+    --[[local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
     if not false then
         local hud = player:hud_add({
             hud_elem_type = "image_waypoint",
@@ -163,10 +165,11 @@ function gun:get_dir(added_pos)
         minetest.after(0, function(hud)
             player:hud_remove(hud)
         end, hud)
-    end
+    end]]
     return dir
 end
 function gun:get_pos(added_pos)
+    assert(self.instance, "attempt to call object method on a class")
     added_pos = Vec.new(added_pos)
     local player = self.player
     local handler = self.handler
@@ -178,7 +181,7 @@ function gun:get_pos(added_pos)
         bone_location = Vec.new(0, handler:get_properties().eye_height, 0)+player:get_eye_offset()/10
     else
         --minetest is really wacky.
-        bone_location = Vec.new(-bone_location.x, bone_location.y, bone_location.z)
+        bone_location.x = -bone_location.x
         player_rotation.x = self.transforms.player_rotation.x*self.consts.HIP_PLAYER_GUN_ROT_RATIO
     end
     gun_offset = gun_offset+added_pos
@@ -249,6 +252,7 @@ function gun:update(dt)
     local offsets = self.transforms
     total_rot.player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + {x=offsets.breathing.player_axial,y=0,z=0} + {x=0,y=0,z=0}
     total_rot.gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
+    local dir = vector.gun
     if self.handler.controls.ads then
         if not self.useless_hud then
             self.useless_hud = {}
@@ -273,13 +277,13 @@ function gun:update(dt)
         end
         local wininfo = minetest.get_player_window_information(self.player:get_player_name())
         if wininfo then
-            local rot = total_rot.player_axial+total_rot.gun_axial
+            local dir = self:get_dir({x=0,y=0,z=0})
+            --local dir2 = self:get_dir({x=0,y=0,z=0})
             local ratio = wininfo.size.x/wininfo.size.y
-            local offset_y = ((-rot.y/(80*2))+.5)
-            local offset_x = (((-rot.x*ratio)/(80*2))+.5)
-            self.player:hud_change(self.useless_hud.reticle, "position", {x=offset_y, y=offset_x})
-            self.player:hud_change(self.useless_hud.fore, "position", {x=offset_y, y=offset_x})
-            self.player:hud_change(self.useless_hud.back, "position", {x=((4*total_rot.player_axial.y/(80*2))+.5), y=(((4*total_rot.player_axial.x*ratio)/(80*2))+.5)})
+            local v = Point_to_pixel(dir, 80, ratio)
+            self.player:hud_change(self.useless_hud.reticle, "position", {x=v.x, y=v.y})
+            self.player:hud_change(self.useless_hud.fore, "position", {x=((v.x-.5)/1.1)+.5, y=((v.x-.5)/1.1)+.5})
+            self.player:hud_change(self.useless_hud.back, "position", {x=((2*total_rot.player_axial.y/(80*2))+.5), y=(((2*total_rot.player_axial.x)/(80*2))+.5)})
         end
     elseif self.useless_hud then
         for i, v in pairs(self.useless_hud) do
@@ -304,7 +308,6 @@ function gun:update_wag(dt)
                 if i == "x" then
                     multiplier = 2
                 end
-                print(dump(self.properties.walking_offset[axis]))
                 walking_offset[axis][i] = math.sin((time/1.6)*math.pi*multiplier)*self.properties.walking_offset[axis][i]
             else
                 local old_value = walking_offset[axis][i]
@@ -390,7 +393,6 @@ function gun:update_sway(dt)
         self.transforms.sway[axis] = sway
         self.velocities.sway[axis] = sway_vel
     end
-    print(self.transforms.sway)
 end
 function gun:prepare_deletion()
     assert(self.instance, "attempt to call object method on a class")

@@ -127,3 +127,40 @@ function table.shallow_copy(t)
     end
     return new_table
 end
+
+
+--look, I didn't "steal" this code, I borrowed it.
+--sue me. Oh wait, you can't it's open source, and you
+--aren't even the copyright holder, you POS
+function Point_to_pixel(pos, fov, aspect)
+	local n = .1 --near
+	local f = 1000 --far
+    --wherever you are
+    --I WILL FOLLOWWWW YOU
+	local scale = math.tan(fov * math.pi / 360)
+	local r = scale * n * aspect
+	local t = scale * n
+	--local m = canvases.mode == "direct" and 1 or -1
+
+	--optimized matrix multiplication by removing constants
+	--looks like a mess, but its only the opengl projection multiplied by the camera
+	local a1 = n / r
+	--local a6 = n / t * m
+    local a6 = n / t
+	local fn1 = 1 / (f - n)
+	local a11 = -(f + n) * fn1
+	local a12 = -2 * f * n * fn1
+
+	--[[local mat = {
+		a1 * 1,   0,        0,         0,
+		0,        a6 * 1,   0,         0,
+		0,        0,        a11 * 1,   a12,
+		0,        0,        0,         -1
+	}]]
+    local x = (pos.x/pos.z)*a1
+    local y = (pos.y/pos.z)*a6
+    local z = (pos.z/pos.z)*a11
+    local w = -1
+
+	return vector.new((x / 2)+.5, (-y / 2)+.5, z)
+end
