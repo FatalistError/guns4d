@@ -280,7 +280,7 @@ function gun:update(dt)
             local dir = self:get_dir({x=0,y=0,z=0})
             --local dir2 = self:get_dir({x=0,y=0,z=0})
             local ratio = wininfo.size.x/wininfo.size.y
-            local v = Point_to_pixel(dir, 80, ratio)
+            local v = Point_to_hud(dir, 80, ratio)
             self.player:hud_change(self.useless_hud.reticle, "position", {x=v.x, y=v.y})
             self.player:hud_change(self.useless_hud.fore, "position", {x=((v.x-.5)/1.1)+.5, y=((v.x-.5)/1.1)+.5})
             self.player:hud_change(self.useless_hud.back, "position", {x=((2*total_rot.player_axial.y/(80*2))+.5), y=(((2*total_rot.player_axial.x)/(80*2))+.5)})
