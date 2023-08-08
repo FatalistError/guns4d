@@ -11,8 +11,6 @@ local ray = {
     ITERATION_DISTANCE = .3,
     damage = 0
 }
-function ray:validate_location()
-end
 
 function ray:record_state()
     table.insert(self.history, {
@@ -115,10 +113,6 @@ function ray:cast()
     --set "last" values.
     return pointed, next_penetration_val, next_state, end_pos, continue
 end
-function ray:apply_damage(obj)
-    local damage = math.floor((self.damage*(self.force_mmRHA/self.init_force_mmRHA))+1)
-    obj:punch(self.player, nil, {damage_groups = {fleshy = damage, penetration_mmRHA=self.force_mmRHA}}, self.dir)
-end
 function ray:iterate(initialized)
     assert(self.instance, "attempt to call obj method on a class")
     local pointed, penetration, next_state, end_pos, continue = self:cast()
@@ -134,7 +128,7 @@ function ray:iterate(initialized)
         if pointed.type == "node" then
             self.last_node_name = minetest.get_node(pointed.under).name
         elseif pointed.type == "object" then
-            ray:apply_damage(pointed.ref)
+            ray:hit_entity(pointed.ref)
         end
     end
     table.insert(self.history, {
@@ -149,7 +143,7 @@ function ray:iterate(initialized)
     end
     if not initialized then
         for i, v in pairs(self.history) do
-            --[[local hud = self.player:hud_add({
+            local hud = self.player:hud_add({
                 hud_elem_type = "waypoint",
                 text = "mmRHA:"..tostring(math.floor(v.force_mmRHA or 0)).." ",
                 number = 255255255,
@@ -161,7 +155,7 @@ function ray:iterate(initialized)
             })
             minetest.after(40, function(hud)
                 self.player:hud_remove(hud)
-            end, hud)]]
+            end, hud)
         end
     end
 end
@@ -174,6 +168,8 @@ function ray.construct(def)
         assert(def.range, "no range")
         assert(def.force_mmRHA, "no force")
         assert(def.dropoff_mmRHA, "no force dropoff")
+        --assert(def.on_node_hit, "no node hit behavior")
+        assert(def.hit_entity, "no entity hit behavior")
         def.init_force_mmRHA = def.force_mmRHA
         def.dir = vector.new(def.dir)
         def.pos = vector.new(def.pos)

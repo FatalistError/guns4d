@@ -1,0 +1,92 @@
+This document contains (hopefully) all you need to know about
+the control_handler, and any other relevant input systems
+
+The control system is designed to be simple but versatile,
+
+
+    ----------------------------------------------------------------------------
+                                basic information
+    ----------------------------------------------------------------------------
+
+    IMPORTANT: `on_use` and `on_secondary_use` are RESERVED indexes. They
+    have different behaviors and function parameters. (see special actions)
+
+    control action example:
+        ------------------------------------------------------------------------
+        (The default aim taken from gun_api.lua)
+        aim = {
+            conditions = {"RMB"},
+            loop = false,
+            timer = 0,
+            func = function(active, interrupted, data, busy_list, handler)
+                if active then
+                    handler.control_bools.ads = not handler.control_bools.ads
+                end
+            end
+        },
+        ------------------------------------------------------------------------
+
+    here's the breakdown:
+
+        `conditions = {"RMB"}` is the list of conditions (see get_player_control
+        in minetest's lua_api.txt) that need to be fufulled for the control to
+        be activated
+
+        `timer = 0` tells the handler that if condtions are met for 0 seconds
+        that it is active.
+
+        `loop = false` indicates the it only will call once if the key(s) are
+        held for the the specified amount of time `timer = 0`. In short, this
+        tells the handler to run the function one time instead of calling it
+        in (as the name implies) a loop.
+
+    additional properties:
+
+        `call_before_timer = false` if true, then the handler calls the function
+        while the timer is in progress, this is very useful if you want something
+        like a reload animation, or maybe a bow with a cocking animation, etc.
+        use the function parameters (as follows) for better information.
+
+    ----------------------------------------------------------------------------
+                          standard function parameters
+    ----------------------------------------------------------------------------
+
+    function parameters for normal actions (see special actions)
+
+        `active` indicates wether conditions or timers were met/finished, the
+        function can be called for reasons other then conditions being finished.
+        use this to check if you actually want to do an action (such as firing)
+        or finalizing reloads.
+
+        `interrupted` indicates if conditions were no longer met while the timer
+        was in progress. This cannot not be called with active as true.
+
+        `data` is actually the Control_handler's table for the control action,
+        it has `timer` which is the time left on the action and `held` which
+        indicates if the keyboard and mouse conditions are met.
+
+        `busy_list` is a list of other active actions, use this if you want to
+        only act if
+
+        `handler` is the Player_handler, this is guns4d's *everything* handler.
+        to get the gun use `handler.gun`, to get the player use `handler.player`
+
+    ----------------------------------------------------------------------------
+                                special action
+    ----------------------------------------------------------------------------
+
+        The indexes `on_use` and `on_secondary_use` are reserved for calls from
+        the default on_use and on_secondary_use of tools. By default, the on_use
+        and on_secondary_use of the itemstring provided is overwritten to contain
+        this call.
+
+        set these as functions (with the following parameters) for on_use and
+        on_secondary_use. It's not set in busy list by defaults, so if you
+        wish (or otherwise need to) add a `self.busy_list.on_use = true` to it.
+        note that the busy list is cleared each update by default.
+
+        function parameters:
+        `itemstack`, `handler`, `pointed_thing`
+        see lua_api.txt for details on `itemstack` and `pointed_thing` and
+        see "standard function parameters" for handler info.
+

@@ -4,7 +4,7 @@ function Guns4d.muzzle_flash(self)
     if self.particle_spawners.muzzle_smoke and self.particle_spawners.muzzle_smoke ~= -1 then
         minetest.delete_particlespawner(self.particle_spawners.muzzle_smoke, self.player:get_player_name())
     end
-    local dir, offset_pos = self:get_dir(), self:get_pos(self.properties.flash_offset)
+    local dir, offset_pos = self.dir, self:get_pos(self.properties.flash_offset)
     offset_pos=offset_pos+self.player:get_pos()
     local min = vector.rotate(vector.new(-2, -2, -.3), vector.dir_to_rotation(dir))
     local max = vector.rotate(vector.new(2, 2, .3), vector.dir_to_rotation(dir))

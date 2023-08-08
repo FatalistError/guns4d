@@ -34,9 +34,9 @@ function player_model:update()
     local player = self.player
     local handler = Guns4d.players[player:get_player_name()].handler
     local gun = handler.gun
-    local player_axial_offset = gun.transforms.total_offset_rotation.player_axial
-    local pitch = player_axial_offset.x+gun.transforms.player_rotation.x
-    local combined = player_axial_offset+gun.transforms.total_offset_rotation.gun_axial+Vec.new(gun.transforms.player_rotation.x,0,0)
+    local player_axial_offset = gun.offsets.total_offset_rotation.player_axial
+    local pitch = player_axial_offset.x+gun.offsets.player_rotation.x
+    local combined = player_axial_offset+gun.offsets.total_offset_rotation.gun_axial+Vec.new(gun.offsets.player_rotation.x,0,0)
     local eye_pos = vector.new(0, handler:get_properties().eye_height*10, 0)
     player:set_bone_position("guns3d_hipfire_bone", self.offsets.arm.rltv_right, vector.new(-(pitch*gun.consts.HIP_PLAYER_GUN_ROT_RATIO), 180-player_axial_offset.y, 0))
     player:set_bone_position("guns3d_aiming_bone", eye_pos, vector.new(pitch, 180-player_axial_offset.y, 0))

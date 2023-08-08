@@ -29,8 +29,8 @@ local default_def = {
             player_axial = 0,
         },
         angular_velocity = {
-            gun_axial = {x=.2, y=.25},
-            player_axial = {x=.25, y=.4},
+            gun_axial = {x=.1, y=.1},
+            player_axial = {x=.1, y=.1},
         },
     },
     firerateRPM = 600,
@@ -41,7 +41,7 @@ local default_def = {
             timer = 0,
             func = function(active, interrupted, data, busy_list, handler)
                 if active then
-                    handler.controls.ads = not handler.controls.ads
+                    handler.control_bools.ads = not handler.control_bools.ads
                 end
             end
         },
@@ -50,9 +50,17 @@ local default_def = {
             loop = true,
             timer = 0,
             func = function(active, interrupted, data, busy_list, handler)
-                handler.gun:fire()
+                if not handler.control_handler.busy_list.on_use then
+                    handler.gun:fire()
+                end
+                print(handler.control_handler.busy_list.on_use)
             end
-        }
+        },
+        on_use = function(itemstack, handler, pointed_thing)
+            print("use")
+            handler.gun:fire()
+            handler.control_handler.busy_list.on_use = true
+        end
     },
     consts = {
         HIP_PLAYER_GUN_ROT_RATIO = .6
@@ -85,10 +93,12 @@ function Guns4d.register_gun_default(def)
     --validate controls
     if new_def.properties.controls then
         for i, control in pairs(new_def.properties.controls) do
-            assert(control.conditions, "no conditions provided for control")
-            for _, condition in pairs(control.conditions) do
-                if not valid_ctrls[condition] then
-                    assert(false, "invalid key: '"..condition.."'")
+            if not (i=="on_use") and not (i=="on_secondary_use") then
+                assert(control.conditions, "no conditions provided for control")
+                for _, condition in pairs(control.conditions) do
+                    if not valid_ctrls[condition] then
+                        assert(false, "invalid key: '"..condition.."'")
+                    end
                 end
             end
         end

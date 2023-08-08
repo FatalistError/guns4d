@@ -1,0 +1,38 @@
+
+VFX, SFX:
+    Bullet hit node FX (steal mostly from 3dguns)
+    Bullet fly-by SFX
+    HUD system (most can once again be pulled from 3dguns)
+        reload progress
+        ammunition left
+        ammo type
+    gun animations (take 3dguns as an example, then completely rewrite)
+        +player model & gun model reading
+    gun sounds
+
+gun features
+    firemodes
+    gun ammo:
+        magazine relaoding
+        fractional reloading
+        magless flat reload
+    !!fix gimbal lock (ironsights broken)
+    "3d" optics
+    attachments (last before beta)
+    fix shooting through walls be pressing against them
+
+bullets
+    bullet class system
+        add blunt force properties
+        on_hitnode function callback
+
+
+auxillary (beta+/never)
+    player hitboxes
+
+    server to client lag prediction
+    possible user CSM for lag prediction
+    bullet drop (maybe bullet wind?)
+    bullet tracers
+    inverse kinematics
+    stamina

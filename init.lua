@@ -11,6 +11,7 @@ path = path .. "/classes"
 dofile(path.."/Instantiatable_class.lua")
 dofile(path.."/Bullet_ray.lua")
 dofile(path.."/Control_handler.lua")
+dofile(path.."/Sprite_scope.lua")
 dofile(path.."/Gun.lua")
 dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
@@ -18,11 +19,7 @@ dofile(path.."/Player_handler.lua")
 --load after
 path = minetest.get_modpath("guns4d")
 
-
 local player_handler = Guns4d.player_handler
-local gun = Guns4d.gun
-
-
 
 minetest.register_on_joinplayer(function(player)
     local pname = player:get_player_name()
@@ -31,11 +28,14 @@ minetest.register_on_joinplayer(function(player)
     }
     player:set_fov(80)
 end)
+
 minetest.register_on_leaveplayer(function(player)
     local pname = player:get_player_name()
     Guns4d.players[pname].handler:prepare_deletion()
     Guns4d.players[pname] = nil
 end)
+
+--ticks are rarely used, but still ideal for rare checks with minimal overhead.
 TICK = 0
 minetest.register_globalstep(function(dt)
     TICK = TICK + 1

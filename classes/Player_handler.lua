@@ -11,7 +11,7 @@ local player_handler = {
     --model_handler = player_model_handler
     look_rotation = {x=0, y=0},
     look_offset = Vec.new(),
-    ads_location = 0,
+    ads_location = 0, --interpolation scalar for gun aiming location
     controls = {},
     horizontal_offset = 0
 }
@@ -20,37 +20,54 @@ function player_handler:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     local player = self.player
     self.wielded_item = self.player:get_wielded_item()
-    local held_gun = self:holding_gun() --get the gun class that is associated with the held gun
+    local held_gun = self:is_holding_Gun() --get the gun class that is associated with the held gun
     if held_gun then
         --was there a gun last time? did the wield index change?
         local old_index = self.wield_index
         self.wield_index = player:get_wield_index()
-        --if gun has changed or was not held, then reset.
+
+        --initialize all handlers and objects
         if (not self.gun) or (self.gun.id ~= self.wielded_item:get_meta():get_string("guns4d_id")) then
             --initialize all handlers
-            ----gun handler----
+
+            ----gun (handler w/physical manifestation)----
             if self.gun then --delete gun object if present
                 self.gun:prepare_deletion()
                 self.gun = nil
             end
             self.gun = held_gun:new({itemstack=self.wielded_item, player=self.player, handler=self}) --this will set itemstack meta, and create the gun based off of meta and other data.
+
             ----model handler----
             if self.model_handler then --if model_handler present, then delete
                 self.model_handler:prepare_deletion()
                 self.model_handler = nil
             end
             self.model_handler = model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
+
             ----control handler----
             self.control_handler = Guns4d.control_handler:new({player=player, controls=self.gun.properties.controls})
             --reinitialize some handler data and set set_hud_flags
             self.horizontal_offset = self.gun.properties.ads.horizontal_offset
             player:hud_set_flags({wielditem = false, crosshair = false})
+
         end
+
+        --update some properties.
         self.look_rotation.x, self.look_rotation.y = player:get_look_vertical()*180/math.pi, -player:get_look_horizontal()*180/math.pi
+        if TICK % 10 == 0 then
+            self.wininfo = minetest.get_player_window_information(self.player:get_player_name())
+        end
+
         --update handlers
+        self.gun:update(dt) --gun should be updated first so self.dir is available.
         self.control_handler:update(dt)
         self.model_handler:update(dt)
-        self.gun:update(dt)
+
+        --this has to be checked after control handler
+        if TICK % 4 == 0 then
+            self.touching_ground = self:get_is_on_ground()
+            self.walking = self:get_is_walking()
+        end
     elseif self.gun then
         self.control_handler = nil
         --delete gun object
@@ -62,23 +79,22 @@ function player_handler:update(dt)
         self.model_handler = nil
         player:hud_set_flags({wielditem = true, crosshair = true}) --reenable hud elements
     end
-    --eye offsets
-    if self.controls.ads and (self.ads_location<1) then
+
+    --eye offsets and ads_location
+    if self.control_bools.ads and (self.ads_location<1) then
+        --if aiming, then increase ADS location
         self.ads_location = math.clamp(self.ads_location + (dt/self.gun.properties.aim_time), 0, 1)
-    elseif (not self.controls.ads) and self.ads_location>0 then
-        local divisor = .4
+    elseif (not self.control_bools.ads) and self.ads_location>0 then
+        local divisor = .2
         if self.gun then
-            divisor = self.gun.properties.aim_time
+            divisor = self.gun.properties.aim_time/self.gun.consts.AIM_OUT_AIM_IN_SPEED_RATIO
         end
         self.ads_location = math.clamp(self.ads_location - (dt/divisor), 0, 1)
     end
+
     self.look_offset.x = self.horizontal_offset*self.ads_location
     player:set_eye_offset(self.look_offset*10)
     --some status stuff
-    if TICK % 2 == 0 then
-        self.touching_ground = self:get_is_on_ground()
-    end
-    self.walking = self:get_is_walking()
     --stored properties and pos must be reset as they could be outdated.
     self.properties = nil
     self.pos = nil
@@ -111,7 +127,10 @@ function player_handler:get_is_walking()
     else
         controls = self.control_handler.player_pressed
     end
-    if (vector.length(vector.new(velocity.x, 0, velocity.z)) > .1) and (controls.up or controls.down or controls.left or controls.right) and self.touching_ground then
+    if (vector.length(vector.new(velocity.x, 0, velocity.z)) > .1)
+        and (controls.up or controls.down or controls.left or controls.right)
+        and self.touching_ground
+    then
         walking = true
     end
     return walking
@@ -119,7 +138,7 @@ end
 --resets the controls bools table for the player_handler
 function player_handler:reset_controls_table()
     assert(self.instance, "attempt to call object method on a class")
-    self.controls = table.deep_copy(default_active_controls)
+    self.control_bools = table.deep_copy(default_active_controls)
 end
 --doubt I'll ever use this... but just in case I don't want to forget.
 function player_handler:get_pos()
@@ -144,7 +163,7 @@ function player_handler:set_properties(properties)
     self.player:set_properties(properties)
     self.properties = table.fill(self.properties, properties)
 end
-function player_handler:holding_gun()
+function player_handler:is_holding_Gun()
     assert(self.instance, "attempt to call object method on a class")
     if self.wielded_item then
         for name, obj in pairs(Guns4d.gun.registered) do
@@ -189,7 +208,7 @@ function player_handler.construct(def)
             end
         end
         def.look_rotation = table.deep_copy(player_handler.look_rotation)
-        def.controls = table.deep_copy(default_active_controls)
+        def.control_bools = table.deep_copy(default_active_controls)
     end
 end
 Guns4d.player_handler = Instantiatable_class:inherit(player_handler)

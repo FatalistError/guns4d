@@ -150,5 +150,5 @@ function Point_to_hud(pos, fov, aspect)
     local x = (pos.x/pos.z)*a1
     local y = (pos.y/pos.z)*a6
     local z = (pos.z/pos.z)*a11
-	return vector.new((x / 2)+.5, (-y / 2)+.5, z)
+	return vector.new(x / 2, -y / 2, z)
 end
