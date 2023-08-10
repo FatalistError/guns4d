@@ -1,0 +1,14 @@
+The modifier class is a class that's used to specify
+specific changes to a gun's properties.
+
+to make a modifier, do something like this
+Modifier:new({
+    apply = function(properties)
+        --absolutely DO NOT EVER change properties here
+        --this function is only so you can calculate changes
+        --based on the properties of the gun.
+        return {
+
+        }
+    end
+})

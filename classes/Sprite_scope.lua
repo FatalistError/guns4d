@@ -2,7 +2,7 @@ Sprite_scope = Instantiatable_class:inherit({
     images = {
         fore = {
             texture = "scope_fore.png",
-            scale = {x=10,y=10},
+            scale = {x=11,y=11},
             movement_multiplier = 1,
         },
         back = {

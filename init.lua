@@ -15,6 +15,7 @@ dofile(path.."/Sprite_scope.lua")
 dofile(path.."/Gun.lua")
 dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
+dofile(path.."/Proxy_table.lua")
 
 --load after
 path = minetest.get_modpath("guns4d")

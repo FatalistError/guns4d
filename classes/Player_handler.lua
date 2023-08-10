@@ -20,7 +20,7 @@ function player_handler:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     local player = self.player
     self.wielded_item = self.player:get_wielded_item()
-    local held_gun = self:is_holding_Gun() --get the gun class that is associated with the held gun
+    local held_gun = self:is_holding_gun() --get the gun class that is associated with the held gun
     if held_gun then
         --was there a gun last time? did the wield index change?
         local old_index = self.wield_index
@@ -28,22 +28,21 @@ function player_handler:update(dt)
 
         --initialize all handlers and objects
         if (not self.gun) or (self.gun.id ~= self.wielded_item:get_meta():get_string("guns4d_id")) then
-            --initialize all handlers
-
+            --initialize important player data
+            self.itemstack = self.wielded_item
+            self.inventory = player:get_inventory()
             ----gun (handler w/physical manifestation)----
             if self.gun then --delete gun object if present
                 self.gun:prepare_deletion()
                 self.gun = nil
             end
-            self.gun = held_gun:new({itemstack=self.wielded_item, player=self.player, handler=self}) --this will set itemstack meta, and create the gun based off of meta and other data.
-
+            self.gun = held_gun:new({itemstack=self.wielded_item, handler=self}) --this will set itemstack meta, and create the gun based off of meta and other data.
             ----model handler----
             if self.model_handler then --if model_handler present, then delete
                 self.model_handler:prepare_deletion()
                 self.model_handler = nil
             end
             self.model_handler = model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
-
             ----control handler----
             self.control_handler = Guns4d.control_handler:new({player=player, controls=self.gun.properties.controls})
             --reinitialize some handler data and set set_hud_flags
@@ -51,7 +50,6 @@ function player_handler:update(dt)
             player:hud_set_flags({wielditem = false, crosshair = false})
 
         end
-
         --update some properties.
         self.look_rotation.x, self.look_rotation.y = player:get_look_vertical()*180/math.pi, -player:get_look_horizontal()*180/math.pi
         if TICK % 10 == 0 then
@@ -163,7 +161,7 @@ function player_handler:set_properties(properties)
     self.player:set_properties(properties)
     self.properties = table.fill(self.properties, properties)
 end
-function player_handler:is_holding_Gun()
+function player_handler:is_holding_gun()
     assert(self.instance, "attempt to call object method on a class")
     if self.wielded_item then
         for name, obj in pairs(Guns4d.gun.registered) do

@@ -53,11 +53,9 @@ local default_def = {
                 if not handler.control_handler.busy_list.on_use then
                     handler.gun:fire()
                 end
-                print(handler.control_handler.busy_list.on_use)
             end
         },
         on_use = function(itemstack, handler, pointed_thing)
-            print("use")
             handler.gun:fire()
             handler.control_handler.busy_list.on_use = true
         end

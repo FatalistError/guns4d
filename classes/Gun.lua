@@ -1,9 +1,10 @@
 local Vec = vector
-local gun = {
+local gun_default = {
     --itemstack = Itemstack
     --gun_entity = ObjRef
     name = "__template__",
     registered = {},
+    property_modifiers = {},
     properties = {
         hip = {
             offset = Vec.new(),
@@ -55,12 +56,11 @@ local gun = {
         flash_offset = Vec.new(),
         aim_time = 1,
         firerateRPM = 10000,
-        controls = {}
+        controls = {},
+        accepted_mags = {}
     },
     offsets = {
-        pos = Vec.new(),
         player_rotation = Vec.new(),
-        dir = Vec.new(),
         --I'll need all three of them, do some precalculation.
         total_offset_rotation = {
             gun_axial = Vec.new(),
@@ -93,9 +93,6 @@ local gun = {
             player_axial = Vec.new(),
         },
     },
-    particle_spawners = {
-        --muzzle_smoke
-    },
     --magic number BEGONE
     consts = {
         HIP_PLAYER_GUN_ROT_RATIO = .75,
@@ -106,7 +103,9 @@ local gun = {
         HAS_BREATHING = true,
         HAS_SWAY = true,
         HAS_WAG = true,
+        INFINITE_AMMO_IN_CREATIVE = true,
     },
+    particle_spawners = {},
     walking_tick = 0,
     time_since_last_fire = 0,
     time_since_creation = 0,
@@ -114,7 +113,9 @@ local gun = {
     muzzle_flash = Guns4d.muzzle_flash
 }
 
-function gun:fire()
+function gun_default:spend_round()
+end
+function gun_default:fire()
     assert(self.instance, "attempt to call object method on a class")
     if self.rechamber_time <= 0 then
         local dir = self.dir
@@ -138,7 +139,7 @@ function gun:fire()
     end
 end
 
-function gun:recoil()
+function gun_default:recoil()
     assert(self.instance, "attempt to call object method on a class")
     for axis, recoil in pairs(self.velocities.recoil) do
         for _, i in pairs({"x","y"}) do
@@ -148,7 +149,7 @@ function gun:recoil()
     self.time_since_last_fire = 0
 end
 
-function gun:get_dir(rltv)
+function gun_default:get_dir(rltv)
         assert(self.instance, "attempt to call object method on a class")
         local player = self.player
         local player_rotation
@@ -161,24 +162,11 @@ function gun:get_dir(rltv)
         local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x+player_rotation.x)*math.pi/180), z=0}))
         dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y+player_rotation.y)*math.pi/180), x=0, z=0})
         local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
-        if not false then
-            local hud = player:hud_add({
-                hud_elem_type = "image_waypoint",
-                text = "muzzle_flash2.png",
-                world_pos =  hud_pos,
-                scale = {x=10, y=10},
-                alignment = {x=0,y=0},
-                offset = {x=0,y=0},
-            })
-            minetest.after(0, function(hud)
-                player:hud_remove(hud)
-            end, hud)
-        end
     return dir
 end
 
 
-function gun:get_pos(added_pos)
+function gun_default:get_pos(added_pos)
     assert(self.instance, "attempt to call object method on a class")
     added_pos = Vec.new(added_pos)
     local player = self.player
@@ -217,7 +205,7 @@ function gun:get_pos(added_pos)
     return bone_pos+gun_offset+handler:get_pos(), bone_pos, gun_offset
 end
 
-function gun:add_entity()
+function gun_default:add_entity()
     assert(self.instance, "attempt to call object method on a class")
     self.entity = minetest.add_entity(self.player:get_pos(), self.name.."_visual")
     local obj = self.entity:get_luaentity()
@@ -225,7 +213,7 @@ function gun:add_entity()
     obj:on_step()
 end
 
-function gun:has_entity()
+function gun_default:has_entity()
     assert(self.instance, "attempt to call object method on a class")
     if not self.entity then return false end
     if not self.entity:get_pos() then return false end
@@ -233,7 +221,7 @@ function gun:has_entity()
 end
 
 --update the gun, da meat and da potatoes
-function gun:update(dt)
+function gun_default:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     if not self:has_entity() then self:add_entity() end
     self.pos = self:get_pos()
@@ -269,11 +257,6 @@ function gun:update(dt)
 
     --sprite scope
     if self.properties.sprite_scope then
-        if not self.sprite_scope then
-            self.sprite_scope = self.properties.sprite_scope:new({
-                gun = self
-            })
-        end
         self.sprite_scope:update()
     end
 
@@ -282,7 +265,8 @@ function gun:update(dt)
     total_rot.player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + {x=offsets.breathing.player_axial,y=0,z=0} + {x=0,y=0,z=0}
     total_rot.gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
 end
-function gun:update_wag(dt)
+
+function gun_default:update_wag(dt)
     local handler = self.handler
     if handler.walking then
         self.walking_tick = self.walking_tick + (dt*Vec.length(self.player:get_velocity()))
@@ -314,7 +298,8 @@ function gun:update_wag(dt)
         end
     end
 end
-function gun:update_recoil(dt)
+
+function gun_default:update_recoil(dt)
     for axis, _ in pairs(self.offsets.recoil) do
         for _, i in pairs({"x","y"}) do
             local recoil = self.offsets.recoil[axis][i]
@@ -351,7 +336,8 @@ function gun:update_recoil(dt)
         end
     end
 end
-function gun:update_breathing(dt)
+
+function gun_default:update_breathing(dt)
     local breathing_info = {pause=1.4, rate=4.2}
     --we want X to be between 0 and 4.2. Since math.pi is a positive crest, we want X to be above it before it reaches our-
     --"length" (aka rate-pause), thus it will pi/length or pi/(rate-pause) will represent out slope of our control.
@@ -364,7 +350,8 @@ function gun:update_breathing(dt)
         self.offsets.breathing.player_axial = scale*(math.sin(x))
     end
 end
-function gun:update_sway(dt)
+
+function gun_default:update_sway(dt)
     for axis, sway in pairs(self.offsets.sway) do
         local sway_vel = self.velocities.sway[axis]
         local ran
@@ -384,18 +371,25 @@ function gun:update_sway(dt)
         self.velocities.sway[axis] = sway_vel
     end
 end
-function gun:prepare_deletion()
+
+function gun_default:prepare_deletion()
     assert(self.instance, "attempt to call object method on a class")
     if self:has_entity() then self.entity:remove() end
     if self.sprite_scope then self.sprite_scope:prepare_deletion() end
 end
---construction for the gun class
-gun.construct = function(def)
+--construction for the base gun class
+gun_default.construct = function(def)
     if def.instance then
-        --remember to give gun an id
-        assert(def.itemstack, "no itemstack provided for initialized object")
-        assert(def.player, "no player provided")
+        --make some quick checks.
+        assert(def.handler, "no player handler object provided")
+
+        --initialize some variables
+        def.player = def.handler.player
         local meta = def.itemstack:get_meta()
+        def.meta = meta
+        local out = {}
+
+        --create ID so we can track switches between weapons
         if meta:get_string("guns4d_id") == "" then
             local id = tostring(Unique_id.generate())
             meta:set_string("guns4d_id", id)
@@ -404,30 +398,55 @@ gun.construct = function(def)
         else
             def.id = meta:get_string("guns4d_id")
         end
-        --make sure there's nothing missing, aka copy over all of the properties.
-        def.properties = table.fill(gun.properties, def.properties)
-        --so, we copy the offsets table so we have all of the offsets
-        --then we create new vectors for gun_axial and player_axial.
-        def.offsets = table.deep_copy(gun.offsets)
-        for i, tbl in pairs(def.offsets) do
-            if tbl.gun_axial and tbl.player_axial and (not i=="breathing") then
-                tbl.gun_axial = Vec.new(tbl.gun_axial)
-                tbl.player_axial = Vec.new(tbl.player_axial)
+
+        --unavoidable table instancing
+        def.properties = table.fill(def.base_class.properties, def.properties)
+        def.particle_spawners = {} --Instantiatable_class only shallow copies. So tables will not change, and thus some need to be initialized.
+        def.property_modifiers = {}
+
+        --initialize all offsets
+       --def.offsets = table.deep_copy(def.base_class.offsets)
+        def.offsets = {}
+        for i, tbl in pairs(def.base_class.offsets) do
+            if (tbl.gun_axial and tbl.player_axial) then
+                local ty = type(tbl.gun_axial)
+                if (ty=="table") and tbl.gun_axial.x and tbl.gun_axial.y and tbl.gun_axial.z then
+                    def.offsets[i] = {}
+                    def.offsets[i].gun_axial = Vec.new()
+                    def.offsets[i].player_axial = Vec.new()
+                else
+                    def.offsets[i] = {}
+                    def.offsets[i] = table.deep_copy(def.offsets[i])
+                end
+            elseif tbl.x and tbl.y and tbl.z then
+                def.offsets[i] = Vec.new()
             end
         end
-        def.velocities = table.deep_copy(gun.velocities)
-        for i, tbl in pairs(def.velocities) do
+
+
+        --def.velocities = table.deep_copy(def.base_class.velocities)
+        def.velocities = {}
+        for i, tbl in pairs(def.base_class.velocities) do
+            def.velocities[i] = {}
             if tbl.gun_axial and tbl.player_axial then
-                tbl.gun_axial = Vec.new(tbl.gun_axial)
-                tbl.player_axial = Vec.new(tbl.player_axial)
+                def.velocities[i].gun_axial = Vec.new()
+                def.velocities[i].player_axial = Vec.new()
             end
         end
+        --properties have been assigned, create necessary objects
+        if def.properties.sprite_scope then
+            if not def.sprite_scope then
+                def.sprite_scope = def.properties.sprite_scope:new({
+                    gun = def
+                })
+            end
+        end
+
     elseif def.name ~= "__template__" then
         local props = def.properties
         assert(def.name, "no name provided")
         assert(def.itemstring, "no itemstring provided")
         assert(minetest.registered_items[def.itemstring], "item is not registered, check dependencies.")
-
         --override methods so control handler can do it's job
         local old_on_use = minetest.registered_items[def.itemstring].on_use
         local old_on_s_use = minetest.registered_items[def.itemstring].on_secondary_use
@@ -445,8 +464,9 @@ gun.construct = function(def)
                 Guns4d.players[user:get_player_name()].handler.control_handler:on_secondary_use(itemstack, pointed_thing)
             end
         })
+        def.properties = table.fill(def.parent_class.properties, def.properties or {})
+        def.consts = table.fill(def.parent_class.consts, def.consts or {})
 
-        --(this tableref is ephermeral after constructor is called, see instantiatable_class)
         Guns4d.gun.registered[def.name] = def
         minetest.register_entity(def.name.."_visual", {
             initial_properties = {
@@ -480,14 +500,14 @@ gun.construct = function(def)
                 if handler.control_bools.ads  then
 
                     local normal_pos = (props.ads.offset+Vec.new(props.ads.horizontal_offset,0,0))*10
-                    obj:set_attach(player, gun.consts.AIMING_BONE, normal_pos, -axial_rot, visibility)
+                    obj:set_attach(player, lua_object.consts.AIMING_BONE, normal_pos, -axial_rot, visibility)
                 else
                     local normal_pos = Vec.new(props.hip.offset)*10
                     -- Vec.multiply({x=normal_pos.x, y=normal_pos.z, z=-normal_pos.y}, 10)
-                    obj:set_attach(player, gun.consts.HIPFIRE_BONE, normal_pos, -axial_rot, visibility)
+                    obj:set_attach(player, lua_object.consts.HIPFIRE_BONE, normal_pos, -axial_rot, visibility)
                 end
             end
         })
     end
 end
-Guns4d.gun = Instantiatable_class:inherit(gun)
+Guns4d.gun = Instantiatable_class:inherit(gun_default)

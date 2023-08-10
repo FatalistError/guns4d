@@ -1,0 +1,18 @@
+
+z = reload
+tap shift+z = switch fire mode
+
+while aiming
+    q-e = aux switch leaning side/aiming side (default is always right)
+
+while hip
+    e = aux
+    hold shift+z = open gun menu
+    q = drop the weapon
+
+gun menu
+    turn safety on (can be turned off with shift+z)
+    unload weapon
+    set preferred ammo type(s)
+    set preferred ammo type weighting(?) (allow for control over when there's not enough ammo in a mag to prefer it)
+    add modifications

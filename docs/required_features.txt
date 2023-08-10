@@ -1,4 +1,6 @@
 
+
+
 VFX, SFX:
     Bullet hit node FX (steal mostly from 3dguns)
     Bullet fly-by SFX
@@ -20,6 +22,8 @@ gun features
     "3d" optics
     attachments (last before beta)
     fix shooting through walls be pressing against them
+    correct player look-down
+    gun leaning
 
 bullets
     bullet class system

@@ -4,7 +4,8 @@ Instantiatable_class = {
 --not that construction change is NOT called for inheriting an object.
 function Instantiatable_class:inherit(def)
     --construction chain for inheritance
-    if not def then def = {} else def = table.shallow_copy(def) end
+    --if not def then def = {} else def = table.shallow_copy(def) end
+    def.parent_class = self
     def.instance = false
     def._construct_low = def.construct
     --this effectively creates a construction chain by overwriting .construct
@@ -17,13 +18,15 @@ function Instantiatable_class:inherit(def)
             self.construct(parameters)
         end
     end
+    --print("CONSTRUCTED")
     def.construct(def)
     --iterate through table properties
     setmetatable(def, {__index = self})
     return def
 end
 function Instantiatable_class:new(def)
-    if not def then def = {} else def = table.shallow_copy(def) end
+    --if not def then def = {} else def = table.shallow_copy(def) end
+    def.base_class = self
     def.instance = true
     function def:inherit(def)
         assert(false, "cannot inherit instantiated object")
