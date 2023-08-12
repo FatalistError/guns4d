@@ -40,3 +40,4 @@ auxillary (beta+/never)
     bullet tracers
     inverse kinematics
     stamina
+    a better system for reloading magazine (something like a inventory that fractionally reloads magazines so it takes time.)

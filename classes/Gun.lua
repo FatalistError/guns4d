@@ -298,7 +298,6 @@ function gun_default:update_wag(dt)
         end
     end
 end
-
 function gun_default:update_recoil(dt)
     for axis, _ in pairs(self.offsets.recoil) do
         for _, i in pairs({"x","y"}) do

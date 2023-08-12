@@ -7,6 +7,7 @@ dofile(path.."/misc_helpers.lua")
 dofile(path.."/visual_effects.lua")
 dofile(path.."/gun_api.lua")
 dofile(path.."/block_values.lua")
+dofile(path.."/register_ammo.lua")
 path = path .. "/classes"
 dofile(path.."/Instantiatable_class.lua")
 dofile(path.."/Bullet_ray.lua")

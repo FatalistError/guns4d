@@ -1,4 +1,4 @@
-Gun_ammo = Instantiatable_class:inherit({
+Ammo_handler = Instantiatable_class:inherit({
     name = "Gun_ammo_handler",
     construct = function(def)
         assert(def.gun)
