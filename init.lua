@@ -12,6 +12,7 @@ path = path .. "/classes"
 dofile(path.."/Instantiatable_class.lua")
 dofile(path.."/Bullet_ray.lua")
 dofile(path.."/Control_handler.lua")
+dofile(path.."/Ammo_handler.lua")
 dofile(path.."/Sprite_scope.lua")
 dofile(path.."/Gun.lua")
 dofile(path.."/Player_model_handler.lua")

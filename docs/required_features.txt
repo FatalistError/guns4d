@@ -41,3 +41,4 @@ auxillary (beta+/never)
     inverse kinematics
     stamina
     a better system for reloading magazine (something like a inventory that fractionally reloads magazines so it takes time.)
+    create a non-player gun API

@@ -6,6 +6,7 @@ function math.clamp(val, lower, upper)
     if lower > upper then lower, upper = upper, lower end
     return math.max(lower, math.min(upper, val))
 end
+--I need to store this so there arent duplicates lol
 function Unique_id.generate()
     local genned_ids = Unique_id.generated
     local id = string.sub(tostring(math.random()), 3)
@@ -15,12 +16,36 @@ function Unique_id.generate()
     genned_ids[id] = true
     return id
 end
+function math.weighted_randoms(tbl)
+    local total_weight = 0
+    local new_tbl = {}
+    for i, v in pairs(tbl) do
+        total_weight=total_weight+v
+        table.insert(new_tbl, {i, v})
+    end
+    local ran = math.random()*total_weight
+    --[[the point of the new table is so we can have them
+    sorted in order of weight, so we can check if the random
+    fufills the lower values first.]]
+    table.sort(new_tbl, function(a, b) return a[2] > b[2] end)
+    local scaled_weight = 0 --[[so this is added to the weight so it's chances are proportional
+    to it's actual weight as opposed to being wether the lower values are picked- if you have
+    weight 19 and 20, 20 would have a 1/20th chance of being picked if we didn't do this]]
+    for i, v in pairs(tbl) do
+        if (v[2]+scaled_weight) > ran then
+            return v[1]
+        end
+        scaled_weight = scaled_weight + v[2]
+    end
+end
 function math.rand_sign(b)
     b = b or .5
     local int = 1
     if math.random() > b then int=-1 end
     return int
 end
+--weighted randoms
+
 --for table vectors that aren't vector objects
 ---@diagnostic disable-next-line: lowercase-global
 function tolerance_check(a,b,tolerance)
@@ -133,28 +158,6 @@ function table.fill(tbl, replacement, preserve_reference, indexed_tables)
     end
     return new_table
 end
---fill "holes" in the tables.
-function table.fill_in(tbl, replacement, preserve_reference, indexed_tables)
-    if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
-    local new_table = tbl
-    if not preserve_reference then
-        new_table = table.deep_copy(tbl)
-    end
-    for i, v in pairs(replacement) do
-        if new_table[i]==nil then
-            if type(v)=="table" then
-                new_table[i] = table.deep_copy(v)
-            else
-                new_table[i] = v
-            end
-        else
-            if (type(new_table[i]) == "table") and (type(v) == "table") then
-                table.fill_in(new_table[i], v, true, indexed_tables)
-            end
-        end
-    end
-    return new_table
-end
 --for class based OOP, ensure values containing a table in btbl are tables in a_tbl- instantiate, but do not fill.
 function table.instantiate_struct(tbl, btbl, indexed_tables)
     if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
@@ -178,6 +181,8 @@ function table.shallow_copy(t)
     return new_table
 end
 
+function weighted_randoms()
+end
 
 --for the following code and functions only:
 --for license see the link on the next line.

@@ -34,32 +34,6 @@ local default_def = {
         },
     },
     firerateRPM = 600,
-    controls = {
-        aim = {
-            conditions = {"RMB"},
-            loop = false,
-            timer = 0,
-            func = function(active, interrupted, data, busy_list, handler)
-                if active then
-                    handler.control_bools.ads = not handler.control_bools.ads
-                end
-            end
-        },
-        fire = {
-            conditions = {"LMB"},
-            loop = true,
-            timer = 0,
-            func = function(active, interrupted, data, busy_list, handler)
-                if not handler.control_handler.busy_list.on_use then
-                    handler.gun:fire()
-                end
-            end
-        },
-        on_use = function(itemstack, handler, pointed_thing)
-            handler.gun:fire()
-            handler.control_handler.busy_list.on_use = true
-        end
-    },
     consts = {
         HIP_PLAYER_GUN_ROT_RATIO = .6
     },

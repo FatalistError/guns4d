@@ -53,11 +53,41 @@ local gun_default = {
             gun_axial = {x=.2, y=-.2},
             player_axial = {x=1,y=1},
         },
+        controls = {
+            aim = {
+                conditions = {"RMB"},
+                loop = false,
+                timer = 0,
+                func = function(active, interrupted, data, busy_list, handler)
+                    if active then
+                        handler.control_bools.ads = not handler.control_bools.ads
+                    end
+                end
+            },
+            fire = {
+                conditions = {"LMB"},
+                loop = true,
+                timer = 0,
+                func = function(active, interrupted, data, busy_list, handler)
+                    if not handler.control_handler.busy_list.on_use then
+                        handler.gun:attempt_fire()
+                    end
+                end
+            },
+            on_use = function(itemstack, handler, pointed_thing)
+                handler.gun:attempt_fire()
+                handler.control_handler.busy_list.on_use = true
+            end
+        },
+        magazine = {
+            magazine_only = false,
+            accepted_magazines = {}
+        },
+        accepted_bullets = {},
         flash_offset = Vec.new(),
         aim_time = 1,
         firerateRPM = 10000,
-        controls = {},
-        accepted_mags = {}
+        ammo_handler = Ammo_handler
     },
     offsets = {
         player_rotation = Vec.new(),
@@ -115,9 +145,9 @@ local gun_default = {
 
 function gun_default:spend_round()
 end
-function gun_default:fire()
+function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
-    if self.rechamber_time <= 0 then
+    if self.rechamber_time <= 0 and self.ammo_handler:spend_round() then
         local dir = self.dir
         local pos = self:get_pos()
         Guns4d.bullet_ray:new({
@@ -421,7 +451,14 @@ gun_default.construct = function(def)
                 def.offsets[i] = Vec.new()
             end
         end
-
+        def.accepted_bullets = {}
+        for i, v in pairs(def.properties.accepted_bullets) do
+            def.accepted_bullets[i] = true
+        end
+        def.accepted_magazines = {}
+        for i, v in pairs(def.properties.magazine.accepted_magazines) do
+            def.accepted_bullets[i] = true
+        end
 
         --def.velocities = table.deep_copy(def.base_class.velocities)
         def.velocities = {}
@@ -440,7 +477,14 @@ gun_default.construct = function(def)
                 })
             end
         end
+        if def.properties.entity_scope then
+            if not def.sprite_scope then
 
+            end
+        end
+        def.ammo_handler = def.properties.ammo_handler:new({
+            gun = def
+        })
     elseif def.name ~= "__template__" then
         local props = def.properties
         assert(def.name, "no name provided")
@@ -467,6 +511,7 @@ gun_default.construct = function(def)
         def.consts = table.fill(def.parent_class.consts, def.consts or {})
 
         Guns4d.gun.registered[def.name] = def
+        --register the visual entity
         minetest.register_entity(def.name.."_visual", {
             initial_properties = {
                 visual = "mesh",
@@ -497,7 +542,6 @@ gun_default.construct = function(def)
                     visibility = false
                 end
                 if handler.control_bools.ads  then
-
                     local normal_pos = (props.ads.offset+Vec.new(props.ads.horizontal_offset,0,0))*10
                     obj:set_attach(player, lua_object.consts.AIMING_BONE, normal_pos, -axial_rot, visibility)
                 else

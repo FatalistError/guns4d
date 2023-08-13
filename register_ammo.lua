@@ -11,6 +11,8 @@ Default_mag = {
     craft_reload = true
 }
 Guns4d.ammo = {
+    default_empty_loaded_bullets = {
+    },
     registered_bullets = {
 
     },
@@ -20,7 +22,7 @@ Guns4d.ammo = {
 }
 local max_wear = 65535
 function Guns4d.ammo.register_bullet(def)
-    assert(def.itemstring)
+    assert(def.itemstring, "no itemstring")
     assert(minetest.registered_items[def.itemstring], "no item '"..def.itemstring.."' found. Must be a registered item (check dependencies?)")
     Guns4d.ammo.registered_bullets[def.itemstring] = table.fill(Default_bullet, def)
 end
@@ -32,16 +34,21 @@ function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     end
     return itemstack
 end
-function Guns4d.ammo.update_mag_wear(def, itemstack, meta)
+function Guns4d.ammo.update_mag(def, itemstack, meta)
     meta = meta or itemstack:get_meta()
     local bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
     local count = 0
+    local current_bullet = "empty"
     for i, v in pairs(bullets) do
+        current_bullet = i
         count = count + v
     end
     itemstack:set_wear(max_wear-(max_wear*count/def.capacity))
+    meta:set_int("guns4d_total_bullets", count)
+    meta:set_string("guns4d_next_bullet", current_bullet)
     return itemstack
 end
+
 function Guns4d.ammo.register_magazine(def)
     def = table.fill(Default_mag, def)
     assert(def.accepted_bullets, "missing property def.accepted_bullets. Need specified bullets to allow for loading")
@@ -60,7 +67,7 @@ function Guns4d.ammo.register_magazine(def)
                 old_on_use(itemstack, user, pointed_thing)
             end
             local meta = itemstack:get_meta()
-            local ammo = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
+            local ammo = meta:get_int("guns4d_total_bullets")
             if ammo then
                 minetest.chat_send_player(user:get_player_name(), "rounds in magazine:")
                 for i, v in pairs(ammo) do
@@ -149,8 +156,9 @@ function Guns4d.ammo.register_magazine(def)
                 end
                 mag_stack:set_count(mag_stack:get_count()-1)
                 craft_inv:set_stack("craft", mag_stack_index, mag_stack)
-                new_stack:get_meta():set_string("guns4d_loaded_bullets", minetest.serialize(new_ammo_table))
-                new_stack = Guns4d.ammo.update_mag_wear(def, new_stack)
+                local meta = new_stack:get_meta()
+                meta:set_string("guns4d_loaded_bullets", minetest.serialize(new_ammo_table))
+                new_stack = Guns4d.ammo.update_mag(def, new_stack, meta)
                 --print(new_stack:get_string())
                 return new_stack
             end
