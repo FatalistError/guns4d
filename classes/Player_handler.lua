@@ -13,6 +13,7 @@ local player_handler = {
     look_offset = Vec.new(),
     ads_location = 0, --interpolation scalar for gun aiming location
     controls = {},
+    fov = 80,
     horizontal_offset = 0
 }
 local model_handler = Guns4d.player_model_handler
@@ -49,9 +50,11 @@ function player_handler:update(dt)
             self.horizontal_offset = self.gun.properties.ads.horizontal_offset
             player:hud_set_flags({wielditem = false, crosshair = false})
 
+            --for the gun's scopes to work properly we need predictable offsets.
+            player:set_fov(self.fov)
         end
         --update some properties.
-        self.look_rotation.x, self.look_rotation.y = player:get_look_vertical()*180/math.pi, -player:get_look_horizontal()*180/math.pi
+        self.look_rotation.x, self.look_rotation.y = math.clamp((player:get_look_vertical() or 0)*180/math.pi, -80, 80), -player:get_look_horizontal()*180/math.pi
         if TICK % 10 == 0 then
             self.wininfo = minetest.get_player_window_information(self.player:get_player_name())
         end

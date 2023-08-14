@@ -74,6 +74,21 @@ local gun_default = {
                     end
                 end
             },
+            reload = {
+                conditions = {"zoom"},
+                loop = false,
+                timer = 0,
+                func = function(active, interrupted, data, busy_list, handler)
+                    if not handler.control_handler.busy_list.on_use then
+                        local props = handler.gun.properties
+                        handler.gun.ammo_handler:load_magazine()
+                        if not props.magazine.magazine_only then
+                            --flat reload?
+                        end
+                        handler.player:set_wielded_item(handler.gun.itemstack)
+                    end
+                end
+            },
             on_use = function(itemstack, handler, pointed_thing)
                 handler.gun:attempt_fire()
                 handler.control_handler.busy_list.on_use = true
@@ -147,25 +162,28 @@ function gun_default:spend_round()
 end
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
-    if self.rechamber_time <= 0 and self.ammo_handler:spend_round() then
-        local dir = self.dir
-        local pos = self:get_pos()
-        Guns4d.bullet_ray:new({
-            player = self.player,
-            pos = pos,
-            dir = dir,
-            range = 100,
-            gun = self,
-            force_mmRHA = 1,
-            dropoff_mmRHA = 0,
-            hit_entity = function(pointed)
-                local damage = math.floor((self.damage*(self.force_mmRHA/self.init_force_mmRHA))+1)
-                pointed.ref:punch(self.player, nil, {damage_groups = {fleshy = damage, penetration_mmRHA=self.force_mmRHA}}, self.dir)
-            end
-        })
-        self:recoil()
-        self:muzzle_flash()
-        self.rechamber_time = 60/self.properties.firerateRPM
+    if self.rechamber_time <= 0 then
+        if self.ammo_handler:spend_round() then
+            local dir = self.dir
+            local pos = self:get_pos()
+            Guns4d.bullet_ray:new({
+                player = self.player,
+                pos = pos,
+                dir = dir,
+                range = 100,
+                gun = self,
+                force_mmRHA = 1,
+                dropoff_mmRHA = 0,
+                hit_entity = function(pointed)
+                    local damage = math.floor((self.damage*(self.force_mmRHA/self.init_force_mmRHA))+1)
+                    pointed.ref:punch(self.player, nil, {damage_groups = {fleshy = damage, penetration_mmRHA=self.force_mmRHA}}, self.dir)
+                end
+            })
+            self:recoil()
+            self:muzzle_flash()
+            self.rechamber_time = 60/self.properties.firerateRPM
+        end
+        self.player:set_wielded_item(self.itemstack)
     end
 end
 
@@ -178,7 +196,37 @@ function gun_default:recoil()
     end
     self.time_since_last_fire = 0
 end
-
+--all of this dir shit needs to be optimized HARD
+function gun_default:get_gun_axial_dir()
+    assert(self.instance, "attempt to call object method on a class")
+    local rotation = self.offsets.total_offset_rotation
+    local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=rotation.gun_axial.x*math.pi/180, z=0}))
+    dir = Vec.rotate(dir, {y=rotation.gun_axial.y*math.pi/180, x=0, z=0})
+    return dir
+end
+function gun_default:get_player_axial_dir(rltv)
+    assert(self.instance, "attempt to call object method on a class")
+    local player = self.player
+    local player_rotation = 0
+    if not rltv then player_rotation = self.offsets.player_rotation.x end
+    local rotation = self.offsets.total_offset_rotation
+    local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.player_axial.x)*math.pi/180), z=0}))
+    dir = Vec.rotate(dir, {y=((rotation.player_axial.y)*math.pi/180), x=0, z=0})
+    dir = Vec.rotate(dir, {x=player_rotation*(math.pi/180),y=0,z=0})
+    --[[local hud_pos = Vec.rotate(dir, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})
+    local hud = player:hud_add({
+        hud_elem_type = "image_waypoint",
+        text = "muzzle_flash2.png",
+        world_pos =  hud_pos,
+        scale = {x=10, y=10},
+        alignment = {x=0,y=0},
+        offset = {x=0,y=0},
+    })
+    minetest.after(0, function(hud)
+        player:hud_remove(hud)
+    end, hud)]]
+    return dir
+end
 function gun_default:get_dir(rltv)
         assert(self.instance, "attempt to call object method on a class")
         local player = self.player
@@ -189,9 +237,23 @@ function gun_default:get_dir(rltv)
             player_rotation = Vec.new(self.offsets.player_rotation.x, self.offsets.player_rotation.y, 0)
         end
         local rotation = self.offsets.total_offset_rotation
-        local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x+player_rotation.x)*math.pi/180), z=0}))
-        dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y+player_rotation.y)*math.pi/180), x=0, z=0})
-        local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
+        local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0}))
+        dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
+        --for it to be relative the the camera, rotation by player look occours post.
+        dir = Vec.rotate(dir, {x=player_rotation.x*math.pi/180,y=player_rotation.y*math.pi/180,z=0})
+        --local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
+        --[[local hud = player:hud_add({
+            hud_elem_type = "image_waypoint",
+            text = "muzzle_flash2.png",
+            world_pos =  hud_pos,
+            scale = {x=10, y=10},
+            alignment = {x=0,y=0},
+            offset = {x=0,y=0},
+        })
+        minetest.after(0, function(hud)
+            player:hud_remove(hud)
+        end, hud)]]
+
     return dir
 end
 
@@ -292,7 +354,7 @@ function gun_default:update(dt)
 
     player_rot.y = -handler.look_rotation.y
     local offsets = self.offsets
-    total_rot.player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + {x=offsets.breathing.player_axial,y=0,z=0} + {x=0,y=0,z=0}
+    total_rot.player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + {x=offsets.breathing.player_axial,y=0,z=0}
     total_rot.gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
 end
 
@@ -452,12 +514,13 @@ gun_default.construct = function(def)
             end
         end
         def.accepted_bullets = {}
-        for i, v in pairs(def.properties.accepted_bullets) do
-            def.accepted_bullets[i] = true
+        for _, v in pairs(def.properties.accepted_bullets) do
+            def.accepted_bullets[v] = true
         end
         def.accepted_magazines = {}
-        for i, v in pairs(def.properties.magazine.accepted_magazines) do
-            def.accepted_bullets[i] = true
+        print(dump(def.properties.magazine.accepted_magazines))
+        for _, v in pairs(def.properties.magazine.accepted_magazines) do
+            def.accepted_magazines[v] = true
         end
 
         --def.velocities = table.deep_copy(def.base_class.velocities)
@@ -542,7 +605,7 @@ gun_default.construct = function(def)
                     visibility = false
                 end
                 if handler.control_bools.ads  then
-                    local normal_pos = (props.ads.offset+Vec.new(props.ads.horizontal_offset,0,0))*10
+                    local normal_pos = (props.ads.offset)*10
                     obj:set_attach(player, lua_object.consts.AIMING_BONE, normal_pos, -axial_rot, visibility)
                 else
                     local normal_pos = Vec.new(props.hip.offset)*10

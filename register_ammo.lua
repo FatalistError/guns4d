@@ -43,7 +43,7 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
         current_bullet = i
         count = count + v
     end
-    itemstack:set_wear(max_wear-(max_wear*count/def.capacity))
+    itemstack:set_wear((max_wear-(max_wear*count/def.capacity))+1)
     meta:set_int("guns4d_total_bullets", count)
     meta:set_string("guns4d_next_bullet", current_bullet)
     return itemstack
@@ -67,7 +67,7 @@ function Guns4d.ammo.register_magazine(def)
                 old_on_use(itemstack, user, pointed_thing)
             end
             local meta = itemstack:get_meta()
-            local ammo = meta:get_int("guns4d_total_bullets")
+            local ammo = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
             if ammo then
                 minetest.chat_send_player(user:get_player_name(), "rounds in magazine:")
                 for i, v in pairs(ammo) do
@@ -89,21 +89,23 @@ function Guns4d.ammo.register_magazine(def)
                 end
             end
             print(num_mags)
-            if itemstack:get_name()=="" then
-                for i, v in pairs(craft_inv:get_list("craft")) do
-                    local name =v:get_name()
-                    if name == def.itemstring then
-                        craft_inv:set_stack("craft", i, Guns4d.ammo.initialize_mag_data(v))
+            if num_mags > 0 then
+                if itemstack:get_name()=="" then
+                    for i, v in pairs(craft_inv:get_list("craft")) do
+                        local name =v:get_name()
+                        if name == def.itemstring then
+                            craft_inv:set_stack("craft", i, Guns4d.ammo.initialize_mag_data(v))
+                        end
+                        if (name~=def.itemstring) and Guns4d.ammo.registered_magazines[name] then
+                            return
+                        end
+                        if (name~="") and (not (name == def.itemstring)) and (not def.accepted_bullets_set[name]) then
+                            print("name:", dump(def.accepted_bullets_set))
+                            return
+                        end
                     end
-                    if (name~=def.itemstring) and Guns4d.ammo.registered_magazines[name] then
-                        return
-                    end
-                    if (name~="") and (not (name == def.itemstring)) and (not def.accepted_bullets_set[name]) then
-                        print("name:", dump(def.accepted_bullets_set))
-                        return
-                    end
+                    return def.itemstring
                 end
-                return def.itemstring
             end
         end)
         minetest.register_on_craft(function(itemstack, player, old_craft_grid, craft_inv)

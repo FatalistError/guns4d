@@ -16,6 +16,7 @@ function Unique_id.generate()
     genned_ids[id] = true
     return id
 end
+--i probably should stop violating the math namespace, but I'll worry about that *later*
 function math.weighted_randoms(tbl)
     local total_weight = 0
     local new_tbl = {}
@@ -31,13 +32,31 @@ function math.weighted_randoms(tbl)
     local scaled_weight = 0 --[[so this is added to the weight so it's chances are proportional
     to it's actual weight as opposed to being wether the lower values are picked- if you have
     weight 19 and 20, 20 would have a 1/20th chance of being picked if we didn't do this]]
-    for i, v in pairs(tbl) do
+    for i, v in pairs(new_tbl) do
         if (v[2]+scaled_weight) > ran then
             return v[1]
         end
         scaled_weight = scaled_weight + v[2]
     end
 end
+--[[function math.get_rotation(dir)
+    local x = math.atan2(dir.y, dir.z)
+    local y =-math.atan2(dir.x, dir.z)
+    return vector.new(
+        x,
+        y,
+        0
+    )
+end]]
+--from luatic's old modlib, doesn't work to fix gimble lock, actually makes things worse (somehow)
+function math.get_rotation(dir)
+    return vector.new(
+        math.atan2(dir.y, math.sqrt(dir.x^2 + dir.z^2)),
+        -math.atan2(dir.x, dir.z),
+        0
+    )
+end
+
 function math.rand_sign(b)
     b = b or .5
     local int = 1

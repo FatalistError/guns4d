@@ -143,7 +143,7 @@ function ray:iterate(initialized)
     end
     if not initialized then
         for i, v in pairs(self.history) do
-            local hud = self.player:hud_add({
+            --[[local hud = self.player:hud_add({
                 hud_elem_type = "waypoint",
                 text = "mmRHA:"..tostring(math.floor(v.force_mmRHA or 0)).." ",
                 number = 255255255,
@@ -155,7 +155,7 @@ function ray:iterate(initialized)
             })
             minetest.after(40, function(hud)
                 self.player:hud_remove(hud)
-            end, hud)
+            end, hud)]]
         end
     end
 end

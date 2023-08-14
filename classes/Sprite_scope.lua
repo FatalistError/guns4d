@@ -1,12 +1,12 @@
 Sprite_scope = Instantiatable_class:inherit({
     images = {
         fore = {
-            texture = "scope_fore.png",
+            texture = "blank.png",
             scale = {x=11,y=11},
             movement_multiplier = 1,
         },
         back = {
-            texture = "scope_back.png",
+            texture = "blank.png",
             scale = {x=10,y=10},
             movement_multiplier = -1,
         },
@@ -19,7 +19,7 @@ Sprite_scope = Instantiatable_class:inherit({
         },
         --mask = "blank.png",
     },
-    hide_gun = true,
+    hide_gun = false,
     construct = function(def)
         if def.instance then
             assert(def.gun, "no gun instance provided")

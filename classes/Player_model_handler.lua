@@ -37,11 +37,18 @@ function player_model:update()
     local player_axial_offset = gun.offsets.total_offset_rotation.player_axial
     local pitch = player_axial_offset.x+gun.offsets.player_rotation.x
     local combined = player_axial_offset+gun.offsets.total_offset_rotation.gun_axial+Vec.new(gun.offsets.player_rotation.x,0,0)
-    local eye_pos = vector.new(0, handler:get_properties().eye_height*10, 0)
+
+    local first, second = player:get_eye_offset()
+    local eye_pos = vector.new(0, handler:get_properties().eye_height*10, 0)+first
     player:set_bone_position("guns3d_hipfire_bone", self.offsets.arm.rltv_right, vector.new(-(pitch*gun.consts.HIP_PLAYER_GUN_ROT_RATIO), 180-player_axial_offset.y, 0))
-    player:set_bone_position("guns3d_aiming_bone", eye_pos, vector.new(pitch, 180-player_axial_offset.y, 0))
     player:set_bone_position("guns3d_reticle_bone", eye_pos, vector.new(combined.x, 180-combined.y, 0))
     player:set_bone_position("guns3d_head", self.offsets.head, {x=pitch,z=0,y=0})
+
+    local dir = gun:get_player_axial_dir()
+    dir = vector.normalize(dir)
+    local rot = vector.dir_to_rotation(dir)*180/math.pi
+    minetest.chat_send_all(dump(rot))
+    player:set_bone_position("guns3d_aiming_bone", eye_pos, {x=rot.x,y=-rot.y+180,z=0})
 end
 function player_model:prepare_deletion()
     assert(self.instance, "attempt to call object method on a class")

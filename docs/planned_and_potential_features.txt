@@ -15,21 +15,25 @@ VFX, SFX:
 gun features
     firemodes
     gun ammo:
-        magazine relaoding
+        ~magazine relaoding
         fractional reloading
         magless flat reload
-    !!fix gimbal lock (ironsights broken)
+    *!!fix gimbal lock (ironsights broken)*
     "3d" optics
     attachments (last before beta)
     fix shooting through walls be pressing against them
     correct player look-down
     gun leaning
-
+    cap aimed look angles <80 - >-80 (gun bugs out)
+    add hip and aim bone offsets (this is for guns or modifiers that add stuff like "laser sights" or hud that simulates holographic sights, could be cool for futuristic type shooters)
+    movement rotation
 bullets
     bullet class system
         add blunt force properties
         on_hitnode function callback
 
+optimization
+    !!hardcore optimization of get_dir() type functions required- super inefficient.
 
 auxillary (beta+/never)
     player hitboxes
