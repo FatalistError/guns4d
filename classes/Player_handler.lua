@@ -46,8 +46,11 @@ function player_handler:update(dt)
             self.model_handler = model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
             ----control handler----
             self.control_handler = Guns4d.control_handler:new({player=player, controls=self.gun.properties.controls})
-            --reinitialize some handler data and set set_hud_flags
+
+            --this needs to be stored for when the gun is unset!
             self.horizontal_offset = self.gun.properties.ads.horizontal_offset
+
+            --set_hud_flags
             player:hud_set_flags({wielditem = false, crosshair = false})
 
             --for the gun's scopes to work properly we need predictable offsets.
@@ -84,11 +87,11 @@ function player_handler:update(dt)
     --eye offsets and ads_location
     if self.control_bools.ads and (self.ads_location<1) then
         --if aiming, then increase ADS location
-        self.ads_location = math.clamp(self.ads_location + (dt/self.gun.properties.aim_time), 0, 1)
+        self.ads_location = math.clamp(self.ads_location + (dt/self.gun.properties.ads.aim_time), 0, 1)
     elseif (not self.control_bools.ads) and self.ads_location>0 then
         local divisor = .2
         if self.gun then
-            divisor = self.gun.properties.aim_time/self.gun.consts.AIM_OUT_AIM_IN_SPEED_RATIO
+            divisor = self.gun.properties.ads.aim_time/self.gun.consts.AIM_OUT_AIM_IN_SPEED_RATIO
         end
         self.ads_location = math.clamp(self.ads_location - (dt/divisor), 0, 1)
     end

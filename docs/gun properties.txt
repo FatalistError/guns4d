@@ -12,12 +12,9 @@
 
 
 ----------------------------------AMMUNITION--------------------------------------
-    (praise the lord and pass the ammunition can't afford to be a politician)
-
     --note: internally clips are the same as a magazine (sort of)
 
-
-    --Ammo_handler derived class to handle ammunition, can be changed for modularity- not reccomended.
+    --Ammo_handler derived class to handle ammunition, can be changed for modularity- not reccomended, it should provide everything you need.
     ammo_handler = Ammo_handler
 
     --a table containing info about the magazines this gun may use.
@@ -29,7 +26,7 @@
         comes_with = "modname:itemstring",
 
         --a list of magazines that this gun takes. These must be registered via Guns4d.ammo.register_magazine()
-        --note that if the magazine contains unaccepted bullets (properties.accepted_bullets), the magazine won't be accepted.
+        --note that if the magazine contains unaccepted bullets (properties.ammo.accepted_bullets), the magazine won't be accepted.
         accepted_mags = {
             "modname:itemstring",
             "modname:itemstring"
@@ -37,7 +34,7 @@
     }
 
     --list of bullets this gun accepts. These must be registered via Guns4d.ammo.register_bullet()
-    accepted_bullets = {
+    ammo.accepted_bullets = {
         "modname:itemstring",
         "modname:itemstring"
     }

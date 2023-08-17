@@ -2,19 +2,21 @@ local Vec = vector
 local gun_default = {
     --itemstack = Itemstack
     --gun_entity = ObjRef
-    name = "__template__",
+    name = "__guns4d:default__",
+    itemstring = "",
     registered = {},
     property_modifiers = {},
     properties = {
-        hip = {
+        hip = { --used by gun entity (attached offset)
             offset = Vec.new(),
         },
-        ads = {
+        ads = { --used by player_handler, animation handler (eye bone offset from horizontal_offset), gun entity (attached offset)
             offset = Vec.new(),
             horizontal_offset = 0,
+            aim_time = 1,
         },
-        recoil = {
-            velocity_correction_factor = {
+        recoil = { --used by update_recoil()
+            velocity_correction_factor = { --velocity correction factor is currently very broken.
                 gun_axial = 1,
                 player_axial = 1,
             },
@@ -22,7 +24,7 @@ local gun_default = {
                 gun_axial = 1,
                 player_axial = 1,
             },
-            angular_velocity_max = {
+            angular_velocity_max = { --max velocity, so your gun doesnt "spin me right round baby round round"
                 gun_axial = 1,
                 player_axial = 1,
             },
@@ -39,7 +41,7 @@ local gun_default = {
                 player_axial = 1,
             },
         },
-        sway = {
+        sway = { --used by update_sway()
             max_angle = {
                 gun_axial = 0,
                 player_axial = 0,
@@ -49,59 +51,34 @@ local gun_default = {
                 player_axial = 0,
             },
         },
-        walking_offset = {
-            gun_axial = {x=.2, y=-.2},
+        walking_offset = { --used by update_walking() (or something)
+            gun_axial = {x=1, y=-1},
             player_axial = {x=1,y=1},
         },
-        controls = {
-            aim = {
-                conditions = {"RMB"},
-                loop = false,
-                timer = 0,
-                func = function(active, interrupted, data, busy_list, handler)
-                    if active then
-                        handler.control_bools.ads = not handler.control_bools.ads
-                    end
-                end
-            },
-            fire = {
-                conditions = {"LMB"},
-                loop = true,
-                timer = 0,
-                func = function(active, interrupted, data, busy_list, handler)
-                    if not handler.control_handler.busy_list.on_use then
-                        handler.gun:attempt_fire()
-                    end
-                end
-            },
-            reload = {
-                conditions = {"zoom"},
-                loop = false,
-                timer = 0,
-                func = function(active, interrupted, data, busy_list, handler)
-                    if not handler.control_handler.busy_list.on_use then
-                        local props = handler.gun.properties
-                        handler.gun.ammo_handler:load_magazine()
-                        if not props.magazine.magazine_only then
-                            --flat reload?
-                        end
-                        handler.player:set_wielded_item(handler.gun.itemstack)
-                    end
-                end
-            },
-            on_use = function(itemstack, handler, pointed_thing)
-                handler.gun:attempt_fire()
-                handler.control_handler.busy_list.on_use = true
-            end
+        controls = { --used by control_handler
+            __overfill=true, --if present, this table will not be filled in.
+            aim = Guns4d.default_controls.aim,
+            --fire = Guns4d.default_controls.fire,
+            reload = Guns4d.default_controls.reload,
+            on_use = Guns4d.default_controls.on_use
         },
-        magazine = {
+        reload = { --used by defualt controls. Still provides usefulness elsewhere.
+            __overfill=true, --if present, this table will not be filled in.
+            {type="unload", time=1, anim="unload", interupt="to_ground", hold = true},
+            {type="load", time=1, anim="load"}
+        },
+        ammo = { --used by ammo_handler
             magazine_only = false,
+            accepted_bullets = {},
             accepted_magazines = {}
         },
-        accepted_bullets = {},
-        flash_offset = Vec.new(),
-        aim_time = 1,
-        firerateRPM = 10000,
+        animations = { --used by animations handler for idle, and default controls
+            empty = {x=0,y=0},
+            loaded = {x=1,y=1},
+        },
+         --used by ammo_handler
+        flash_offset = Vec.new(), --used by fire() (for fsx and ray start pos) [RENAME NEEDED]
+        firerateRPM = 600, --used by update() and by extent fire() + default controls
         ammo_handler = Ammo_handler
     },
     offsets = {
@@ -149,6 +126,15 @@ local gun_default = {
         HAS_SWAY = true,
         HAS_WAG = true,
         INFINITE_AMMO_IN_CREATIVE = true,
+        DEFAULT_FPS = 20,
+        LOOP_IDLE_ANIM = false
+    },
+    animation_data = { --where animations data is stored.
+        anim_runtime = 0,
+        length = 0,
+        fps = 0,
+        animations_frames = {0,0},
+        current_frame = 0,
     },
     particle_spawners = {},
     walking_tick = 0,
@@ -158,32 +144,27 @@ local gun_default = {
     muzzle_flash = Guns4d.muzzle_flash
 }
 
-function gun_default:spend_round()
-end
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
     if self.rechamber_time <= 0 then
-        if self.ammo_handler:spend_round() then
+        local spent_bullet = self.ammo_handler:spend_round()
+        if spent_bullet then
             local dir = self.dir
             local pos = self:get_pos()
-            Guns4d.bullet_ray:new({
+            --[[print(dump(Guns4d.ammo.registered_bullets))
+            print(self.ammo_handler.next_bullet)
+            print(Guns4d.ammo.registered_bullets[self.ammo_handler.next_bullet])]]
+            local bullet_def = table.fill(Guns4d.ammo.registered_bullets[spent_bullet], {
                 player = self.player,
                 pos = pos,
                 dir = dir,
-                range = 100,
-                gun = self,
-                force_mmRHA = 1,
-                dropoff_mmRHA = 0,
-                hit_entity = function(pointed)
-                    local damage = math.floor((self.damage*(self.force_mmRHA/self.init_force_mmRHA))+1)
-                    pointed.ref:punch(self.player, nil, {damage_groups = {fleshy = damage, penetration_mmRHA=self.force_mmRHA}}, self.dir)
-                end
+                gun = self
             })
+            Guns4d.bullet_ray:new(bullet_def)
             self:recoil()
             self:muzzle_flash()
             self.rechamber_time = 60/self.properties.firerateRPM
         end
-        self.player:set_wielded_item(self.itemstack)
     end
 end
 
@@ -207,12 +188,12 @@ end
 function gun_default:get_player_axial_dir(rltv)
     assert(self.instance, "attempt to call object method on a class")
     local player = self.player
-    local player_rotation = 0
-    if not rltv then player_rotation = self.offsets.player_rotation.x end
     local rotation = self.offsets.total_offset_rotation
     local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.player_axial.x)*math.pi/180), z=0}))
     dir = Vec.rotate(dir, {y=((rotation.player_axial.y)*math.pi/180), x=0, z=0})
-    dir = Vec.rotate(dir, {x=player_rotation*(math.pi/180),y=0,z=0})
+    if not rltv then
+        dir = Vec.rotate(dir, {x=self.offsets.player_rotation.x*(math.pi/180),y=0,z=0})
+    end
     --[[local hud_pos = Vec.rotate(dir, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})
     local hud = player:hud_add({
         hud_elem_type = "image_waypoint",
@@ -229,18 +210,13 @@ function gun_default:get_player_axial_dir(rltv)
 end
 function gun_default:get_dir(rltv)
         assert(self.instance, "attempt to call object method on a class")
-        local player = self.player
-        local player_rotation
-        if rltv then
-            player_rotation = Vec.new()
-        else
-            player_rotation = Vec.new(self.offsets.player_rotation.x, self.offsets.player_rotation.y, 0)
-        end
         local rotation = self.offsets.total_offset_rotation
         local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0}))
         dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
         --for it to be relative the the camera, rotation by player look occours post.
-        dir = Vec.rotate(dir, {x=player_rotation.x*math.pi/180,y=player_rotation.y*math.pi/180,z=0})
+        if not rltv then
+            dir = Vec.rotate(dir, {x=self.offsets.player_rotation.x*math.pi/180,y=self.offsets.player_rotation.y*math.pi/180,z=0})
+        end
         --local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
         --[[local hud = player:hud_add({
             hud_elem_type = "image_waypoint",
@@ -253,7 +229,6 @@ function gun_default:get_dir(rltv)
         minetest.after(0, function(hud)
             player:hud_remove(hud)
         end, hud)]]
-
     return dir
 end
 
@@ -321,14 +296,18 @@ function gun_default:update(dt)
     local look_rotation = {x=handler.look_rotation.x,y=handler.look_rotation.y}
     local total_rot = self.offsets.total_offset_rotation
     local player_rot = self.offsets.player_rotation
-    local constant = 1.4
+    local constant = 6
 
-    --player look rotation
-    local next_vert_aim = ((player_rot.x+look_rotation.x)/(1+((constant*10)*dt)))-look_rotation.x
-    if math.abs(look_rotation.x-next_vert_aim) > .005 then
-        player_rot.x = next_vert_aim
+    --player look rotation. I'm going to keep it real, I don't remember what this equation does.
+    if not self.sprite_scope then
+        local next_vert_aim = ((player_rot.x+look_rotation.x)/(1+constant*dt))-look_rotation.x
+        if math.abs(look_rotation.x-next_vert_aim) > .005 then
+            player_rot.x = next_vert_aim
+        else
+            player_rot.x = -look_rotation.x
+        end
     else
-        player_rot.x = look_rotation.x
+        player_rot.x = -look_rotation.x
     end
     --timers
     if self.rechamber_time > 0 then
@@ -346,6 +325,8 @@ function gun_default:update(dt)
     if self.consts.HAS_WAG then self:update_wag(dt) end
     self.dir = self:get_dir()
     self.local_dir = self:get_dir(true)
+    self.paxial_dir = self:get_player_axial_dir()
+    self.local_paxial_dir = self:get_player_axial_dir(true)
 
     --sprite scope
     if self.properties.sprite_scope then
@@ -427,7 +408,66 @@ function gun_default:update_recoil(dt)
         end
     end
 end
-
+local animation_data = {
+    anim_runtime = 0,
+    length = 0,
+    fps = 0,
+    animations_frames = {0,0},
+    current_frame = 0,
+}
+function gun_default:animation_update(dt)
+    local ent = self.entity
+    local data = self.animation_data
+    local anim_range, frame_speed, frame_blend, frame_loop = ent:get_animation()
+    if (not data.animation_frames) or (anim_range.x ~= data.x) or (anim_range.y ~= data.y) then
+        data.runtime = 0
+        data.animations_frames = false
+    elseif data.animation_frames then
+        data.runtime = data.runtime + dt
+        data.current_frame = math.clamp(data.runtime*data.fps, data.animation_frames.x, data.animation_frames.y)
+    end
+end
+function gun_default:set_animation(frames, length, fps, loop)
+    loop = loop or false --why the fuck default is loop? I DONT FUCKIN KNOW
+    assert(type(frames)=="table" and frames.x and frames.y, "frames invalid or nil in set_animation()!")
+    assert(length or fps, "need either length or FPS for animation")
+    assert(not (length and fps), "cannot play animation with both specified length and specified fps. Only one parameter can be used.")
+    local num_frames = math.abs(frames.x-frames.y)
+    local data = self.animation_data
+    if length then
+        fps = num_frames/length
+    elseif fps then
+        length = num_frames/fps
+    else
+        fps = self.consts.DEFAULT_FPS
+        length = num_frames/self.consts.DEFAULT_FPS
+    end
+    data.runtime = 0
+    data.length = length
+    self.entity:set_animation(frames, fps, 0, loop)
+end
+function gun_default:clear_animation()
+    local loaded = false
+    for i, v in pairs(self.ammo_handler) do
+        print(i,v )
+    end
+    if self.properties.ammo.magazine_only then
+        if self.ammo_handler.ammo.loaded_mag ~= "empty" then
+            loaded = true
+        end
+    elseif self.ammo_handler.ammo.total_bullets > 0 then
+        loaded = true
+    end
+    if loaded then
+        self.entity:set_animation({x=self.properties.animations.loaded.x, y=self.properties.animations.loaded.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
+    else
+        self.entity:set_animation({x=self.properties.animations.empty.x, y=self.properties.animations.empty.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
+    end
+    local data = self.animation_data
+    data.runtime = 0
+    data.length = false
+    data.animations_frames = false
+end
 function gun_default:update_breathing(dt)
     local breathing_info = {pause=1.4, rate=4.2}
     --we want X to be between 0 and 4.2. Since math.pi is a positive crest, we want X to be above it before it reaches our-
@@ -469,6 +509,20 @@ function gun_default:prepare_deletion()
     if self.sprite_scope then self.sprite_scope:prepare_deletion() end
 end
 --construction for the base gun class
+local valid_ctrls = {
+    up=true,
+    down=true,
+    left=true,
+    right=true,
+    jump=true,
+    aux1=true,
+    sneak=true,
+    dig=true,
+    place=true,
+    LMB=true,
+    RMB=true,
+    zoom=true,
+}
 gun_default.construct = function(def)
     if def.instance then
         --make some quick checks.
@@ -513,15 +567,6 @@ gun_default.construct = function(def)
                 def.offsets[i] = Vec.new()
             end
         end
-        def.accepted_bullets = {}
-        for _, v in pairs(def.properties.accepted_bullets) do
-            def.accepted_bullets[v] = true
-        end
-        def.accepted_magazines = {}
-        print(dump(def.properties.magazine.accepted_magazines))
-        for _, v in pairs(def.properties.magazine.accepted_magazines) do
-            def.accepted_magazines[v] = true
-        end
 
         --def.velocities = table.deep_copy(def.base_class.velocities)
         def.velocities = {}
@@ -541,39 +586,73 @@ gun_default.construct = function(def)
             end
         end
         if def.properties.entity_scope then
-            if not def.sprite_scope then
+            if not def.entity_scope then
 
             end
         end
         def.ammo_handler = def.properties.ammo_handler:new({
             gun = def
         })
-    elseif def.name ~= "__template__" then
+    elseif def.name ~= "__guns4d:default__" then
         local props = def.properties
-        assert(def.name, "no name provided")
-        assert(def.itemstring, "no itemstring provided")
-        assert(minetest.registered_items[def.itemstring], "item is not registered, check dependencies.")
-        --override methods so control handler can do it's job
-        local old_on_use = minetest.registered_items[def.itemstring].on_use
-        local old_on_s_use = minetest.registered_items[def.itemstring].on_secondary_use
-        minetest.override_item(def.itemstring, {
-            on_use = function(itemstack, user, pointed_thing)
-                if old_on_use then
-                    old_on_use(itemstack, user, pointed_thing)
-                end
-                Guns4d.players[user:get_player_name()].handler.control_handler:on_use(itemstack, pointed_thing)
-            end,
-            on_secondary_use = function(itemstack, user, pointed_thing)
-                if old_on_s_use then
-                    old_on_s_use(itemstack, user, pointed_thing)
-                end
-                Guns4d.players[user:get_player_name()].handler.control_handler:on_secondary_use(itemstack, pointed_thing)
-            end
-        })
-        def.properties = table.fill(def.parent_class.properties, def.properties or {})
-        def.consts = table.fill(def.parent_class.consts, def.consts or {})
 
+        --validate controls, done before properties are filled to avoid duplication.
+        if props.controls then
+            for i, control in pairs(props.controls) do
+                if not (i=="on_use") and not (i=="on_secondary_use") then
+                    assert(control.conditions, "no conditions provided for control")
+                    for _, condition in pairs(control.conditions) do
+                        if not valid_ctrls[condition] then
+                            assert(false, "invalid key: '"..condition.."'")
+                        end
+                    end
+                end
+            end
+        end
+
+        --fill in the properties.
+        def.properties = table.fill(def.parent_class.properties, props or {})
+        print(table.tostring(def.properties))
+        def.consts = table.fill(def.parent_class.consts, def.consts or {})
+        props = def.properties --have to reinitialize this as the reference is replaced.
+
+        if def.name ~= "__template" then
+            assert(rawget(def, "name"), "no name provided in new class")
+            assert(rawget(def, "itemstring"), "no itemstring provided in new class")
+            assert(not((props.ammo.capacity) and (not props.ammo.magazine_only)), "gun does not accept magazines, but has no set capcity! Please define ammo.capacity")
+            assert(minetest.registered_items[def.itemstring], def.itemstring.." : item is not registered, check dependencies.")
+
+            --override methods so control handler can do it's job
+            local old_on_use = minetest.registered_items[def.itemstring].on_use
+            local old_on_s_use = minetest.registered_items[def.itemstring].on_secondary_use
+            --override the item to hook in controls. (on_drop needed)
+            minetest.override_item(def.itemstring, {
+                on_use = function(itemstack, user, pointed_thing)
+                    if old_on_use then
+                        old_on_use(itemstack, user, pointed_thing)
+                    end
+                    Guns4d.players[user:get_player_name()].handler.control_handler:on_use(itemstack, pointed_thing)
+                end,
+                on_secondary_use = function(itemstack, user, pointed_thing)
+                    if old_on_s_use then
+                        old_on_s_use(itemstack, user, pointed_thing)
+                    end
+                    Guns4d.players[user:get_player_name()].handler.control_handler:on_secondary_use(itemstack, pointed_thing)
+                end
+            })
+        end
+
+        def.accepted_bullets = {}
+        for _, v in pairs(def.properties.ammo.accepted_bullets) do
+            def.accepted_bullets[v] = true
+        end
+        def.accepted_magazines = {}
+        for _, v in pairs(def.properties.ammo.accepted_magazines) do
+            def.accepted_magazines[v] = true
+        end
+        --add gun def to the registered table
         Guns4d.gun.registered[def.name] = def
+
         --register the visual entity
         minetest.register_entity(def.name.."_visual", {
             initial_properties = {

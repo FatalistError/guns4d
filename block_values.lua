@@ -23,14 +23,14 @@ minetest.register_on_mods_loaded(function()
         local random_deviation = 1
         local behavior_type = "normal"
         if groups.wood then
-            RHA = RHA*groups.wood*.1
+            RHA = RHA*.1
             random_deviation = random_deviation/groups.wood
         end
         if groups.oddly_breakable_by_hand then
             RHA = RHA / groups.oddly_breakable_by_hand
         end
         if groups.choppy then
-            RHA = RHA*(1+(groups.choppy*.5))
+            RHA = RHA*.5
         end
         if groups.flora or groups.grass then
             RHA = 0
@@ -42,12 +42,12 @@ minetest.register_on_mods_loaded(function()
             random_deviation = .005
         end
         if groups.stone then
-            RHA = groups.stone
+            RHA = 1/groups.stone
             random_deviation = .5
         end
         if groups.cracky then
-            RHA = RHA*groups.cracky
-            random_deviation = random_deviation*(groups.cracky*.5)
+            RHA = RHA*(.5/groups.cracky)
+            random_deviation = random_deviation*(.5/groups.cracky)
         end
         if groups.crumbly then
             RHA = RHA/groups.crumbly

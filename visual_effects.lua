@@ -6,8 +6,8 @@ function Guns4d.muzzle_flash(self)
     end
     local dir, offset_pos = self.dir, self:get_pos(self.properties.flash_offset)
     offset_pos=offset_pos+self.player:get_pos()
-    local min = vector.rotate(vector.new(-2, -2, -.3), vector.dir_to_rotation(dir))
-    local max = vector.rotate(vector.new(2, 2, .3), vector.dir_to_rotation(dir))
+    local min = vector.rotate(vector.new(-1, -1, -.15), {x=0,y=self.offsets.player_rotation.y,z=0})
+    local max = vector.rotate(vector.new(1, 1, .15), {x=0,y=self.offsets.player_rotation.y,z=0})
     minetest.add_particlespawner({
         exptime = .18,
         time = .1,
@@ -16,7 +16,7 @@ function Guns4d.muzzle_flash(self)
         pos = self.properties.flash_offset,
         radius = .04,
         glow = 3.5,
-        vel = {min=vector.new(-1, -1, -.15), max=vector.new(1, 1, .15), bias=0},
+        vel = {min=min, max=max, bias=0},
         texpool = {
             { name = "smoke.png", alpha_tween = {.25, 0}, scale = 2, blend = "alpha",
             animation = {

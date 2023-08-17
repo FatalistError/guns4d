@@ -24,20 +24,24 @@ gun features
     fix shooting through walls be pressing against them
     correct player look-down
     gun leaning
-    cap aimed look angles <80 - >-80 (gun bugs out)
     add hip and aim bone offsets (this is for guns or modifiers that add stuff like "laser sights" or hud that simulates holographic sights, could be cool for futuristic type shooters)
     movement rotation
+    sprite scopes: fix player aim delay being present with sprite scopes
 bullets
     bullet class system
         add blunt force properties
         on_hitnode function callback
 
+compatibility
+    add consts for player inv use in Ammo_handler
+    make monoid for player properties, player look offsets (especially needed for vehicle mods)
+
 optimization
-    !!hardcore optimization of get_dir() type functions required- super inefficient.
+    hardcore optimization of get_dir() type functions required- super inefficient.
+    optimization of sprite scopes needed, buffering for relative dirs needed for when inactive. Potentially remove the global table for them (if possible.)
 
 auxillary (beta+/never)
     player hitboxes
-
     server to client lag prediction
     possible user CSM for lag prediction
     bullet drop (maybe bullet wind?)
@@ -46,3 +50,5 @@ auxillary (beta+/never)
     stamina
     a better system for reloading magazine (something like a inventory that fractionally reloads magazines so it takes time.)
     create a non-player gun API
+    bullets, mags: add meta data support? (probably not)
+    jamming

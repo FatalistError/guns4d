@@ -10,13 +10,17 @@ Guns4d.control_handler = {
             call_before_timer = false,
             loop = false,
             func=function(active, interrupted, data, busy_controls)
-            data = {
-
-            }
         }
     }
     ]]
 }
+--data table:
+--[[
+    {
+        held = bool
+        timer = float
+    }
+]]
 local controls = Guns4d.control_handler
 --[[-modify controls (future implementation if needed)
 function controls.modify()
@@ -46,7 +50,7 @@ function controls:update(dt)
                 if data.timer <= 0 and ((not data.held) or def.loop) then
                     data.held = true
                     table.insert(call_queue, {control=def, active=true, interrupt=false, data=data})
-                elseif def.call_before_timer then --this is useful for functionst that need to play animations for their progress.
+                elseif def.call_before_timer and not data.held then --this is useful for functions that need to play animations for their progress.
                     table.insert(call_queue, {control=def, active=false, interrupt=false, data=data})
                 end
             else
@@ -60,7 +64,6 @@ function controls:update(dt)
             end
         end
     end
-    local count = 0
     --busy list is so we can tell if a function should be allowed or not
     if #busy_list == 0 then busy_list = nil end
     for i, tbl in pairs(call_queue) do

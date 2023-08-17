@@ -5,7 +5,7 @@ Guns4d = {
 local path = minetest.get_modpath("guns4d")
 dofile(path.."/misc_helpers.lua")
 dofile(path.."/visual_effects.lua")
-dofile(path.."/gun_api.lua")
+dofile(path.."/default_controls.lua")
 dofile(path.."/block_values.lua")
 dofile(path.."/register_ammo.lua")
 path = path .. "/classes"

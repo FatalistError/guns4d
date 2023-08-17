@@ -21,6 +21,8 @@ Guns4d.ammo = {
     }
 }
 local max_wear = 65535
+function Guns4d.ammo.on_hit_player(bullet, force_mmRHA)
+end
 function Guns4d.ammo.register_bullet(def)
     assert(def.itemstring, "no itemstring")
     assert(minetest.registered_items[def.itemstring], "no item '"..def.itemstring.."' found. Must be a registered item (check dependencies?)")
@@ -35,6 +37,7 @@ function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     return itemstack
 end
 function Guns4d.ammo.update_mag(def, itemstack, meta)
+    def = def or Guns4d.ammo.registered_magazines[itemstack:get_name()]
     meta = meta or itemstack:get_meta()
     local bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
     local count = 0
@@ -43,7 +46,8 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
         current_bullet = i
         count = count + v
     end
-    itemstack:set_wear((max_wear-(max_wear*count/def.capacity))+1)
+    local new_wear = max_wear-(max_wear*count/def.capacity)
+    itemstack:set_wear(math.clamp(new_wear, 1, max_wear-1))
     meta:set_int("guns4d_total_bullets", count)
     meta:set_string("guns4d_next_bullet", current_bullet)
     return itemstack
@@ -88,7 +92,6 @@ function Guns4d.ammo.register_magazine(def)
                     Guns4d.ammo.initialize_mag_data(v)
                 end
             end
-            print(num_mags)
             if num_mags > 0 then
                 if itemstack:get_name()=="" then
                     for i, v in pairs(craft_inv:get_list("craft")) do
@@ -100,7 +103,6 @@ function Guns4d.ammo.register_magazine(def)
                             return
                         end
                         if (name~="") and (not (name == def.itemstring)) and (not def.accepted_bullets_set[name]) then
-                            print("name:", dump(def.accepted_bullets_set))
                             return
                         end
                     end
@@ -124,7 +126,6 @@ function Guns4d.ammo.register_magazine(def)
                     end
                     if not def.accepted_bullets_set[name] then
                         if (name ~= "") and (name~=def.itemstring) then
-                            print("return", "'"..name.."'")
                             return
                         end
                     end
@@ -161,7 +162,6 @@ function Guns4d.ammo.register_magazine(def)
                 local meta = new_stack:get_meta()
                 meta:set_string("guns4d_loaded_bullets", minetest.serialize(new_ammo_table))
                 new_stack = Guns4d.ammo.update_mag(def, new_stack, meta)
-                --print(new_stack:get_string())
                 return new_stack
             end
         end)

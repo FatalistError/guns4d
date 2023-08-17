@@ -152,7 +152,7 @@ function table.tostring(tbl, shallow, tables, depth)
 end
 
 
---replace elements in tbl with elements in replacement, but preserve the rest
+--replace fields (and fill sub-tables) in `tbl` with elements in `replacement`. Recursively iterates all sub-tables. use property __overfill=true for subtables that don't want to be overfilled.
 function table.fill(tbl, replacement, preserve_reference, indexed_tables)
     if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
     local new_table = tbl
@@ -161,13 +161,23 @@ function table.fill(tbl, replacement, preserve_reference, indexed_tables)
     end
     for i, v in pairs(replacement) do
         if new_table[i] then
-            if type(v) == "table" and type(replacement[i]) == "table" then
-                if not indexed_tables[v] then
-                    indexed_tables[v] = true
-                    new_table[i] = table.fill(tbl[i], replacement[i], false, indexed_tables)
+            local replacement_type = type(v)
+            if replacement_type == "table" then
+                if type(new_table[i]) == "table" then
+                    if not indexed_tables[v] then
+                        if not new_table[i].__overfill then
+                            indexed_tables[v] = true
+                            new_table[i] = table.fill(tbl[i], replacement[i], false, indexed_tables)
+                        else --if overfill is present, we don't want to preserve the old table.
+                            new_table[i] = table.deep_copy(replacement[i])
+                        end
+                    end
+                elseif not replacement[i].__no_copy then
+                    new_table[i] = table.deep_copy(replacement[i])
+                else
+                    new_table[i] = replacement[i]
                 end
-            elseif type(replacement[i]) == "table" then
-                new_table[i] = table.deep_copy(replacement[i])
+                new_table[i].__overfill = nil
             else
                 new_table[i] = replacement[i]
             end
