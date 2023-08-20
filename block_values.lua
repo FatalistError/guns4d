@@ -17,20 +17,18 @@ Guns4d.node_properties = {}
 --in a perfect world you could perfectly balance each node, but a aproximation will have to do
 --luckily its still an option, if you are literally out of your fucking mind.
 minetest.register_on_mods_loaded(function()
+    print(table.tostring(minetest.registered_nodes["stairs:slab_wood"].groups))
+    print(table.tostring(minetest.registered_nodes["default:wood"].groups))
     for i, v in pairs(minetest.registered_nodes) do
         local groups = v.groups
         local RHA = 1
         local random_deviation = 1
         local behavior_type = "normal"
-        if groups.wood then
-            RHA = RHA*.1
-            random_deviation = random_deviation/groups.wood
-        end
         if groups.oddly_breakable_by_hand then
             RHA = RHA / groups.oddly_breakable_by_hand
         end
         if groups.choppy then
-            RHA = RHA*.5
+            RHA = RHA/(5*groups.choppy)
         end
         if groups.flora or groups.grass then
             RHA = 0

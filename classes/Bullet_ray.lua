@@ -3,6 +3,7 @@ local ray = {
     state = "free",
     --pos = pos,
     last_node = "",
+    hole_entity = "guns4d:bullet_hole",
     normal = vector.new(),
     --last_dir
     --exit_direction = dir,
@@ -19,18 +20,17 @@ function ray:record_state()
     })
 end
 --find (valid) edge. Slabs or other nodeboxes that are not the last hit position are not considered (to account for holes) TODO: update to account for hollow nodes
-function ray:find_transverse_end_point()
+function ray:find_transverse_edge()
     assert(self.instance, "attempt to call obj method on a class")
     local pointed
-    local cast = minetest.raycast(self.pos+(self.dir*(self.ITERATION_DISTANCE+.01)), self.pos, false, false)
-    for hit in cast do
+    local cast1 = minetest.raycast(self.pos+(self.dir*(self.ITERATION_DISTANCE+.001)), self.pos, false, false)
+    for hit in cast1 do
         --we can't solidly predict all nodes, so ignore them as the distance will be solved regardless. If node name is different then
-        if hit.type == "node" and (vector.equals(hit.under, self.last_pointed.under) or not minetest.registered_nodes[self.last_node_name].node_box) then
+        if hit.type == "node" and (vector.distance(hit.intersection_point, self.pos) > 0.0001) and (vector.equals(hit.under, self.last_pointed_node.under) or not minetest.registered_nodes[self.last_node_name].node_box) then
             pointed = hit
-            break
         end
     end
-    if pointed and vector.distance(pointed.intersection_point, self.pos) < self.ITERATION_DISTANCE then
+    if (pointed) and (vector.distance(pointed.intersection_point, self.pos) < self.ITERATION_DISTANCE) then
         return pointed.intersection_point, pointed.intersection_normal
     end
 end
@@ -42,12 +42,11 @@ function ray:_cast()
 
     local end_pos
     local edge
-    --if block ends early, then we find it and set end position of the ray accordingly.
-    --edge is where the section of solid blocks ends and becomes open air again.
+    --detect the "edge" of the block
     if self.state == "transverse" then
-        edge, end_normal = self:find_transverse_end_point()
+        edge, end_normal = self:find_transverse_edge()
         if edge then
-            end_pos = edge
+            end_pos = edge+(self.dir*.001) --give it a tolerance, it still needs to intersect with any node edges connected to the edge's block.
             next_state = "free"
         else
             end_pos = self.pos+(self.dir*self.ITERATION_DISTANCE)
@@ -58,23 +57,33 @@ function ray:_cast()
     --do the main raycast. We don't account for mmRHA dropoff here.
     local continue = true --indicates wether to :_iterate wether the Bullet_ray has ended
     local cast = minetest.raycast(self.pos, end_pos, true, true)
-    local pointed
+    local edge_length
+    if edge then
+        edge_length = vector.distance(edge, self.pos)
+    end
+    local pointed_node
+    local pointed_object
     for hit in cast do
-        if vector.distance(hit.intersection_point, self.pos) > 0.0005 and vector.distance(hit.intersection_point, self.pos) < self.range then
+        local h_length = vector.distance(hit.intersection_point, self.pos)
+        if ( (not hit.ref) and h_length > 0.0001) and h_length < self.range then
             --if it's a node, check that it's note supposed to be ignored according to it's generated properties
             if hit.type == "node" then
                 if self.state == "free" and Guns4d.node_properties[minetest.get_node(hit.under).name].behavior ~= "ignore" then
                     next_state = "transverse"
-                    pointed = hit
+                    pointed_node = hit
                     end_normal = hit.intersection_normal
-                    end_pos = pointed.intersection_point
+                    end_pos = pointed_node.intersection_point
                     break
                 end
                 if self.state == "transverse" then
                     --if it isn't the same name as the last node we intersected, then it's a different block with different stats for penetration
+                    pointed_node = hit
                     if minetest.get_node(hit.under).name ~= self.last_node_name then
-                        pointed = hit
-                        end_pos = pointed.intersection_point
+                        end_pos = pointed_node.intersection_point
+                    elseif edge then
+                        if h_length-edge_length < 0.01 then
+                            next_state = "transverse"
+                        end
                     end
                     --make sure it's set to transverse if the edge has a block infront of it
                     if Guns4d.node_properties[minetest.get_node(hit.under).name].behavior == "ignore" then
@@ -87,76 +96,65 @@ function ray:_cast()
             end
             --if it's an object, make sure it's not the player object
             --note that while it may seem like this will create a infinite hit loop, it resolves itself as the intersection_point of the next ray will be close enough as to skip the pointed. See first line of iterator.
-            if (hit.type == "object") and (hit.ref ~= self.player) and ((not self.last_pointed) or (hit.ref ~= self.last_pointed.ref)) then
+            if (hit.type == "object") and (hit.ref ~= self.player) and ((not self.last_pointed_object) or (hit.ref ~= self.last_pointed_object.ref)) then
+                minetest.chat_send_all("ent hit, ray")
+                end_pos = pointed_object.intersection_point
                 if self.over_penetrate then
-                    pointed = hit
+                    pointed_object = hit
                     break
                 else
-                    pointed = hit
+                    pointed_object = hit
                     continue = false
                     break
                 end
-                end_pos = pointed.intersection_point
             end
         end
     end
-    --[[if pointed then
-        end_pos = pointed.intersection_point
-        if self.state == "transverse" then
-            next_penetration_val = self.energy-(vector.distance(self.pos, end_pos)*Guns4d.node_properties[self.last_node_name].mmRHA)
-        else -- transverse
-            next_penetration_val = self.energy-(vector.distance(self.pos, end_pos)*self.dropoff_mmRHA)
-        end
-    else
-        --if there is no pointed, and it's not transverse, then the ray has ended.
-        if self.state == "transverse" then
-            next_penetration_val = self.energy-(vector.distance(self.pos, end_pos)*Guns4d.node_properties[self.last_node_name].mmRHA)
-        else --free
-            continue = false
-            next_penetration_val = self.energy-(self.range*self.dropoff_mmRHA)
-        end
-    end]]
-
     --set "last" values.
-    return pointed, next_state, end_pos, end_normal, continue
+    return pointed_node, pointed_object, next_state, end_pos, end_normal, continue
 end
 --the main function.
 function ray:_iterate(initialized)
     assert(self.instance, "attempt to call obj method on a class")
-    local pointed, next_state, end_pos, end_normal, continue = self:_cast()
+    local pointed_node, pointed_object, next_state, end_pos, end_normal, continue = self:_cast()
 
     local distance = vector.distance(self.pos, end_pos)
     if self.state == "free" then
         self.energy = self.energy-(distance*self.energy_dropoff)
+        if distance ~= self.pos+(self.dir*self.range) then
+            self:bullet_hole(end_pos, end_normal)
+        end
     else
+        if self.history[#self.history].state == "free" then
+            self:bullet_hole(self.pos, self.history[#self.history-1].normal)
+        end
+        if next_state == "free" then
+            self:bullet_hole(end_pos, end_normal)
+        end
         local penetration_loss = distance*Guns4d.node_properties[self.last_node_name].mmRHA
         --calculate our energy loss based on the percentage of energy our penetration represents.
-        minetest.chat_send_all(penetration_loss/self.init_penetration)
-        minetest.chat_send_all(distance)
-        minetest.chat_send_all(Guns4d.node_properties[self.last_node_name].mmRHA)
-        --minetest.chat_send_all(penetration_loss)
         self.energy = self.energy-((self.init_energy*self.energy_sharp_ratio)*(penetration_loss/self.init_penetration))
+    end
+    if self.state ~= self.next_state then
+
     end
     --set values for next iteration.
     self.range = self.range-distance
     if self.range <= 0.0005 or self.energy < 0 then
         continue = false
-        minetest.chat_send_all("range ended, dist:"); minetest.chat_send_all(tostring(distance))
     end
 ---@diagnostic disable-next-line: assign-type-mismatch
     self.state = next_state
-    if pointed then
-        self.last_pointed = pointed
-        self.pos = pointed.intersection_point
-        if self.energy > 0 then
-            if pointed.type == "node" then
-                self.last_node_name = minetest.get_node(pointed.under).name
-            elseif pointed.type == "object" then
-                ray:hit_entity(pointed.ref)
-            end
-        end
+    if pointed_object then
+        self.pos = pointed_object.intersection_point
+        self.last_pointed_object = pointed_object
+        ray:hit_entity(pointed_object.ref)
     else
         self.pos = end_pos
+    end
+    if pointed_node then
+        self.last_node_name = minetest.get_node(pointed_node.under).name
+        self.last_pointed_node = pointed_node
     end
     table.insert(self.history, {
         pos = self.pos,
@@ -172,7 +170,7 @@ function ray:_iterate(initialized)
         for i, v in pairs(self.history) do
             local hud = self.player:hud_add({
                 hud_elem_type = "waypoint",
-                text = "mmRHA:"..tostring(v.energy).." ",
+                text = "   "..self.history[i].energy,
                 number = 255255255,
                 precision = 1,
                 world_pos =  v.pos,
@@ -180,20 +178,39 @@ function ray:_iterate(initialized)
                 alignment = {x=0,y=0},
                 offset = {x=0,y=0},
             })
-            minetest.after(40, function(hud)
+            minetest.after(15, function(hud)
                 self.player:hud_remove(hud)
             end, hud)
         end
     end
 end
-function ray:calculate_blunt_damage(bullet, armor, groups)
-end
 function ray:calculate_sharp_conversion(bullet, armor, groups)
 end
 function ray:calculate_sharp_damage(bullet, armor, groups)
 end
+function ray:calculate_blunt_damage(bullet, armor, groups)
+end
 function ray:apply_damage(object, blunt_pen, sharp_pen, blunt_dmg, sharp_dmg)
+    minetest.chat_send_all("ent hit")
     object:punch()
+end
+function ray:bullet_hole(pos, normal)
+    local nearby_players = false
+    for pname, player in pairs(minetest.get_connected_players()) do
+        if vector.distance(player:get_pos(), pos) < 50 then
+            nearby_players = true; break
+        end
+    end
+    --if it's close enough to any players, then add it
+    if nearby_players then
+        --this entity will keep track of itself.
+        local ent = minetest.add_entity(pos+(normal*(.0001+math.random()/1000)), self.hole_entity)
+        ent:set_rotation(vector.dir_to_rotation(normal))
+        local lua_ent = ent:get_luaentity()
+        lua_ent.block_pos = pos
+    else
+        Guns4d.effects.spawn_bullet_hole_particle(pos, self.hole_scale, '(bullet_hole_1.png^(bullet_hole_2.png^[opacity:129))')
+    end
 end
 function ray.construct(def)
     if def.instance then

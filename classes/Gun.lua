@@ -141,7 +141,7 @@ local gun_default = {
     time_since_last_fire = 0,
     time_since_creation = 0,
     rechamber_time = 0,
-    muzzle_flash = Guns4d.muzzle_flash
+    muzzle_flash = Guns4d.effects.muzzle_flash
 }
 
 function gun_default:attempt_fire()
@@ -290,7 +290,7 @@ end
 --update the gun, da meat and da potatoes
 function gun_default:update(dt)
     assert(self.instance, "attempt to call object method on a class")
-    if not self:has_entity() then self:add_entity() end
+    if not self:has_entity() then self:add_entity(); self:clear_animation() end
     self.pos = self:get_pos()
     local handler = self.handler
     local look_rotation = {x=handler.look_rotation.x,y=handler.look_rotation.y}
@@ -448,9 +448,6 @@ function gun_default:set_animation(frames, length, fps, loop)
 end
 function gun_default:clear_animation()
     local loaded = false
-    for i, v in pairs(self.ammo_handler) do
-        print(i,v )
-    end
     if self.properties.ammo.magazine_only then
         if self.ammo_handler.ammo.loaded_mag ~= "empty" then
             loaded = true
@@ -612,7 +609,6 @@ gun_default.construct = function(def)
 
         --fill in the properties.
         def.properties = table.fill(def.parent_class.properties, props or {})
-        print(table.tostring(def.properties))
         def.consts = table.fill(def.parent_class.consts, def.consts or {})
         props = def.properties --have to reinitialize this as the reference is replaced.
 

@@ -2,7 +2,6 @@ Instantiatable_class = {
     instance = false,
     __no_copy = true
 }
---not that construction change is NOT called for inheriting an object.
 function Instantiatable_class:inherit(def)
     --construction chain for inheritance
     --if not def then def = {} else def = table.shallow_copy(def) end
