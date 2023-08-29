@@ -144,13 +144,69 @@ local gun_default = {
     muzzle_flash = Guns4d.effects.muzzle_flash
 }
 
+--update the gun, da meat and da potatoes
+function gun_default:update(dt)
+    assert(self.instance, "attempt to call object method on a class")
+    if not self:has_entity() then self:add_entity(); self:clear_animation() end
+    local handler = self.handler
+    local look_rotation = {x=handler.look_rotation.x,y=handler.look_rotation.y}
+    local total_rot = self.offsets.total_offset_rotation
+    local player_rot = self.offsets.player_rotation
+    local constant = 6
+
+    --player look rotation. I'm going to keep it real, I don't remember what this equation does.
+    if not self.sprite_scope then
+        local next_vert_aim = ((player_rot.x+look_rotation.x)/(1+constant*dt))-look_rotation.x
+        if math.abs(look_rotation.x-next_vert_aim) > .005 then
+            player_rot.x = next_vert_aim
+        else
+            player_rot.x = -look_rotation.x
+        end
+    else
+        player_rot.x = -look_rotation.x
+    end
+    --timers
+    if self.rechamber_time > 0 then
+        self.rechamber_time = self.rechamber_time - dt
+    else
+        self.rechamber_time = 0
+    end
+    self.time_since_creation = self.time_since_creation + dt
+    self.time_since_last_fire = self.time_since_last_fire + dt
+
+    --update some vectors
+    if self.consts.HAS_SWAY then self:update_sway(dt) end
+    if self.consts.HAS_RECOIL then self:update_recoil(dt) end
+    if self.consts.HAS_BREATHING then self:update_breathing(dt) end
+    if self.consts.HAS_WAG then self:update_wag(dt) end
+    self.dir = self:get_dir()
+    self.local_dir = self:get_dir(true)
+    self.paxial_dir = self:get_player_axial_dir()
+    self.local_paxial_dir = self:get_player_axial_dir(true)
+    self.pos = self:get_pos()
+
+    local bone, quat = self.model_handler:get_bone_global("Magazine")
+    minetest.chat_send_all(dump(bone))
+    --minetest.chat_send_all(dump(quat))
+    self:get_pos(bone/10, true)
+    --sprite scope
+    if self.properties.sprite_scope then
+        self.sprite_scope:update()
+    end
+
+    player_rot.y = -handler.look_rotation.y
+    local offsets = self.offsets
+    total_rot.player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + {x=offsets.breathing.player_axial,y=0,z=0}
+    total_rot.gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
+end
+
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
     if self.rechamber_time <= 0 then
         local spent_bullet = self.ammo_handler:spend_round()
         if spent_bullet then
             local dir = self.dir
-            local pos = self:get_pos()
+            local pos = self.pos
             --[[print(dump(Guns4d.ammo.registered_bullets))
             print(self.ammo_handler.next_bullet)
             print(Guns4d.ammo.registered_bullets[self.ammo_handler.next_bullet])]]
@@ -192,7 +248,7 @@ function gun_default:get_player_axial_dir(rltv)
     local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.player_axial.x)*math.pi/180), z=0}))
     dir = Vec.rotate(dir, {y=((rotation.player_axial.y)*math.pi/180), x=0, z=0})
     if not rltv then
-        dir = Vec.rotate(dir, {x=self.offsets.player_rotation.x*(math.pi/180),y=0,z=0})
+        dir = Vec.rotate(dir, {x=self.offsets.player_rotation.x*math.pi/180,y=self.offsets.player_rotation.y*math.pi/180,z=0})
     end
     --[[local hud_pos = Vec.rotate(dir, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})
     local hud = player:hud_add({
@@ -232,30 +288,35 @@ function gun_default:get_dir(rltv)
     return dir
 end
 
-
-function gun_default:get_pos(added_pos)
+--broken! doesn't properly reflect values.
+function gun_default:get_pos(added_pos, debug)
     assert(self.instance, "attempt to call object method on a class")
-    added_pos = Vec.new(added_pos)
     local player = self.player
     local handler = self.handler
-    local bone_location = Vec.new(handler.model_handler.offsets.arm.right)/10
-    local gun_offset = Vec.new(self.properties.hip.offset)
-    local player_rotation = Vec.new(self.offsets.player_rotation.x, self.offsets.player_rotation.y, 0)
+    local bone_location
+    local gun_offset
     if handler.control_bools.ads then
         gun_offset = self.properties.ads.offset
-        bone_location = Vec.new(0, handler:get_properties().eye_height, 0)+player:get_eye_offset()/10
+        bone_location, _ = player:get_eye_offset() or vector.zero(), nil
+        bone_location.y = bone_location.y + handler:get_properties().eye_height
+        bone_location.x = handler.horizontal_offset
     else
         --minetest is really wacky.
-        bone_location.x = -bone_location.x
-        player_rotation.x = self.offsets.player_rotation.x*self.consts.HIP_PLAYER_GUN_ROT_RATIO
+        gun_offset = self.properties.hip.offset
+        bone_location = handler.model_handler.offsets.arm.right
+        bone_location.x = -bone_location.x / 10
+        bone_location.z = bone_location.z / 10
+        bone_location.y = bone_location.y / 10
     end
-    gun_offset = gun_offset+added_pos
+    if added_pos then
+        gun_offset = gun_offset+added_pos
+    end
     --dir needs to be rotated twice seperately to avoid weirdness
     local rotation = self.offsets.total_offset_rotation
-    local bone_pos = Vec.rotate(bone_location, {x=0, y=player_rotation.y*math.pi/180, z=0})
-    local gun_offset = Vec.rotate(Vec.rotate(gun_offset, {x=(rotation.player_axial.x+player_rotation.x)*math.pi/180,y=0,z=0}), {x=0,y=(rotation.player_axial.y+player_rotation.y)*math.pi/180,z=0})
-    --[[local hud_pos = bone_pos+gun_offset+handler:get_pos()
-    if not false then
+    local pos = Vec.rotate(bone_location, {x=0, y=-handler.look_rotation.y*math.pi/180, z=0})
+    pos = pos+Vec.rotate(gun_offset, Vec.dir_to_rotation(self.paxial_dir))
+    local hud_pos = pos+handler:get_pos()
+    if debug then
         local hud = player:hud_add({
             hud_elem_type = "image_waypoint",
             text = "muzzle_flash2.png",
@@ -267,9 +328,9 @@ function gun_default:get_pos(added_pos)
         minetest.after(0, function(hud)
             player:hud_remove(hud)
         end, hud)
-    end]]
+    end
     --world pos, position of bone, offset of gun from bone (with added_pos)
-    return bone_pos+gun_offset+handler:get_pos(), bone_pos, gun_offset
+    return pos
 end
 
 function gun_default:add_entity()
@@ -277,6 +338,7 @@ function gun_default:add_entity()
     self.entity = minetest.add_entity(self.player:get_pos(), self.name.."_visual")
     local obj = self.entity:get_luaentity()
     obj.parent_player = self.player
+    Guns4d.gun_by_ObjRef[self.entity] = self
     obj:on_step()
 end
 
@@ -286,59 +348,6 @@ function gun_default:has_entity()
     if not self.entity:get_pos() then return false end
     return true
 end
-
---update the gun, da meat and da potatoes
-function gun_default:update(dt)
-    assert(self.instance, "attempt to call object method on a class")
-    if not self:has_entity() then self:add_entity(); self:clear_animation() end
-    self.pos = self:get_pos()
-    local handler = self.handler
-    local look_rotation = {x=handler.look_rotation.x,y=handler.look_rotation.y}
-    local total_rot = self.offsets.total_offset_rotation
-    local player_rot = self.offsets.player_rotation
-    local constant = 6
-
-    --player look rotation. I'm going to keep it real, I don't remember what this equation does.
-    if not self.sprite_scope then
-        local next_vert_aim = ((player_rot.x+look_rotation.x)/(1+constant*dt))-look_rotation.x
-        if math.abs(look_rotation.x-next_vert_aim) > .005 then
-            player_rot.x = next_vert_aim
-        else
-            player_rot.x = -look_rotation.x
-        end
-    else
-        player_rot.x = -look_rotation.x
-    end
-    --timers
-    if self.rechamber_time > 0 then
-        self.rechamber_time = self.rechamber_time - dt
-    else
-        self.rechamber_time = 0
-    end
-    self.time_since_creation = self.time_since_creation + dt
-    self.time_since_last_fire = self.time_since_last_fire + dt
-
-    --update some vectors
-    if self.consts.HAS_SWAY then self:update_sway(dt) end
-    if self.consts.HAS_RECOIL then self:update_recoil(dt) end
-    if self.consts.HAS_BREATHING then self:update_breathing(dt) end
-    if self.consts.HAS_WAG then self:update_wag(dt) end
-    self.dir = self:get_dir()
-    self.local_dir = self:get_dir(true)
-    self.paxial_dir = self:get_player_axial_dir()
-    self.local_paxial_dir = self:get_player_axial_dir(true)
-
-    --sprite scope
-    if self.properties.sprite_scope then
-        self.sprite_scope:update()
-    end
-
-    player_rot.y = -handler.look_rotation.y
-    local offsets = self.offsets
-    total_rot.player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + {x=offsets.breathing.player_axial,y=0,z=0}
-    total_rot.gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
-end
-
 function gun_default:update_wag(dt)
     local handler = self.handler
     if handler.walking then
@@ -531,6 +540,8 @@ gun_default.construct = function(def)
         def.meta = meta
         local out = {}
 
+
+
         --create ID so we can track switches between weapons
         if meta:get_string("guns4d_id") == "" then
             local id = tostring(Unique_id.generate())
@@ -612,6 +623,9 @@ gun_default.construct = function(def)
         def.consts = table.fill(def.parent_class.consts, def.consts or {})
         props = def.properties --have to reinitialize this as the reference is replaced.
 
+        --print(table.tostring(props))
+        def.model_handler = Guns4d.Model_bone_handler:new({modelpath = props.mesh})
+
         if def.name ~= "__template" then
             assert(rawget(def, "name"), "no name provided in new class")
             assert(rawget(def, "itemstring"), "no itemstring provided in new class")
@@ -687,8 +701,9 @@ gun_default.construct = function(def)
                     -- Vec.multiply({x=normal_pos.x, y=normal_pos.z, z=-normal_pos.y}, 10)
                     obj:set_attach(player, lua_object.consts.HIPFIRE_BONE, normal_pos, -axial_rot, visibility)
                 end
-            end
+            end,
         })
+        --I don't know why lua's syntax makes me make it anon, but uh, fuck you.
     end
 end
 Guns4d.gun = Instantiatable_class:inherit(gun_default)

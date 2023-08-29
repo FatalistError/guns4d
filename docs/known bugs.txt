@@ -1,2 +1,3 @@
-when spamming on_use, sometimes RMB in get_player_control will become stuck
-when aim >75 <-75 it gets wonky, no idea how this happens, seemingly defies laws of math.
+when spamming on_use, sometimes RMB in get_player_control will become stuck (engine)
+
+classes that pollute global environment: Sprite_scope, Bullet_ray, Sprite_scope

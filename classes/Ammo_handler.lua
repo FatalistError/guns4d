@@ -82,7 +82,6 @@ function Ammo_handler:load_magazine()
             if ammo > highest_ammo then
                 highest_ammo = ammo
                 local has_unaccepted = false
-                print(meta:get_string("guns4d_loaded_bullets"))
                 for bullet, _ in pairs(minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))) do
                     if not gun.accepted_bullets[bullet] then
                         has_unaccepted = true
@@ -138,7 +137,6 @@ end
 function Ammo_handler:unload_magazine(to_ground)
     assert(self.instance, "attempt to call object method on a class")
     if self.ammo.loaded_mag ~= "empty" then
-        minetest.chat_send_all("not empty")
         local inv = self.handler.inventory
         local magstack = ItemStack(self.ammo.loaded_mag)
         local magmeta = magstack:get_meta()

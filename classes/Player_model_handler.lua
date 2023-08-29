@@ -47,7 +47,9 @@ function player_model:update()
     player:set_bone_position("guns3d_reticle_bone", eye_pos, vector.new(combined.x, 180-combined.y, 0))
     player:set_bone_position("guns3d_head", self.offsets.head, {x=pitch,z=0,y=0})
 
-    local rot = vector.dir_to_rotation(gun.paxial_dir)*180/math.pi
+    --can't use paxial dir as it needs to be relative on Y still.
+    local dir = vector.rotate(gun.local_paxial_dir, {x=gun.offsets.player_rotation.x*math.pi/180,y=0,z=0})
+    local rot = vector.dir_to_rotation(dir)*180/math.pi
     player:set_bone_position("guns3d_aiming_bone", eye_pos, {x=rot.x,y=-rot.y+180,z=0})
 end
 function player_model:prepare_deletion()

@@ -2,26 +2,23 @@
 
 
 VFX, SFX:
-    Bullet hit node FX (steal mostly from 3dguns)
+    ~Bullet hit node FX (steal mostly from 3dguns)
     Bullet fly-by SFX
     HUD system (most can once again be pulled from 3dguns)
         reload progress
         ammunition left
         ammo type
-    gun animations (take 3dguns as an example, then completely rewrite)
-        +player model & gun model reading
+    player model & gun model reading
     gun sounds
 
 gun features
     firemodes
     gun ammo:
-        ~magazine relaoding
         fractional reloading
         magless flat reload
-    *!!fix gimbal lock (ironsights broken)*
     "3d" optics
     attachments (last before beta)
-    fix shooting through walls be pressing against them
+    fix shooting through walls while pressing against them
     correct player look-down
     gun leaning
     add hip and aim bone offsets (this is for guns or modifiers that add stuff like "laser sights" or hud that simulates holographic sights, could be cool for futuristic type shooters)
@@ -33,8 +30,9 @@ bullets
         on_hitnode function callback
 
 compatibility
-    add consts for player inv use in Ammo_handler
-    make monoid for player properties, player look offsets (especially needed for vehicle mods)
+    add consts for player inv use in Ammo_handler (i.e. "main", "craft_inv")
+    make monoid or use for player properties, player look offsets (especially needed for vehicle mods)
+    possibly make a library for overriding core functions.
 
 optimization
     hardcore optimization of get_dir() type functions required- super inefficient.

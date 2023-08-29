@@ -148,7 +148,6 @@ minetest.register_entity("guns4d:bullet_hole", {
         if self.timer < 30 then
             if self.timer < 0 then
                 self.object:remove()
-                minetest.chat_send_all("removed")
                 return
             end
             local properties = self.object:get_properties()
