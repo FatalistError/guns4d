@@ -59,6 +59,7 @@ function Guns4d.ammo.register_magazine(def)
     assert(def.itemstring, "missing item name")
     def.accepted_bullets_set = {} --this table is a "lookup" table, I didn't go to college so I have no idea
     for i, v in pairs(def.accepted_bullets) do
+        --TODO: make an actual error/minetest.log
         if not Guns4d.ammo.registered_bullets[v] then print("guns4D: WARNING! bullet "..v.." not registered! is this a mistake?") end
         def.accepted_bullets_set[v] = true
     end

@@ -151,9 +151,11 @@ Guns4d.default_controls.reload = {
                 data.held = false
                 local anim = next_state.anim
                 if type(next_state.anim) == "string" then
-                    anim = props.animations[next_state.anim]
+                    anim = props.visuals.animations[next_state.anim]
                 end
-                gun:set_animation(anim, next_state.time)
+                if anim then
+                    gun:set_animation(anim, next_state.time)
+                end
             end
         elseif interrupted then
             local this_state = props.reload[data.state]

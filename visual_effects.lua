@@ -10,8 +10,8 @@ function Guns4d.effects.muzzle_flash(self)
     end
     local dir, offset_pos = self.dir, self:get_pos(self.properties.flash_offset)
     offset_pos=offset_pos+self.player:get_pos()
-    local min = vector.rotate(vector.new(-1, -1, -.15), {x=0,y=self.offsets.player_rotation.y,z=0})
-    local max = vector.rotate(vector.new(1, 1, .15), {x=0,y=self.offsets.player_rotation.y,z=0})
+    local min = vector.rotate(vector.new(-1, -1, -.15), {x=0,y=self.player_rotation.y,z=0})
+    local max = vector.rotate(vector.new(1, 1, .15), {x=0,y=self.player_rotation.y,z=0})
     minetest.add_particlespawner({
         exptime = .18,
         time = .1,

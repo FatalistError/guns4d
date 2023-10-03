@@ -209,8 +209,8 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
     local sharp_dmg = self.raw_sharp_damage*sharp_ratio
 
     local hp = (object:get_hp()-blunt_dmg)-sharp_dmg
-    print(blunt_dmg, sharp_dmg, blunt_ratio, sharp_ratio)
-    print(self.blunt_penetration, self.sharp_penetration)
+    --print(blunt_dmg, sharp_dmg, blunt_ratio, sharp_ratio)
+    --print(self.blunt_penetration, self.sharp_penetration)
     if hp < 0 then hp = 0 end
     object:set_hp(hp, {type="set_hp", from="guns4d"})
 

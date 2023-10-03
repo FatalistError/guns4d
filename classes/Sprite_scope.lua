@@ -1,4 +1,4 @@
-Sprite_scope = Instantiatable_class:inherit({
+local Sprite_scope = Instantiatable_class:inherit({
     images = {
         fore = {
             texture = "blank.png",
@@ -52,6 +52,8 @@ Sprite_scope = Instantiatable_class:inherit({
         end
     end
 })
+Guns4d.sprite_scope = Sprite_scope
+--rename to draw?
 function Sprite_scope:update()
     local handler = self.handler
     if handler.wininfo and self.handler.control_bools.ads then
@@ -69,7 +71,7 @@ function Sprite_scope:update()
         self.player:hud_change(self.elements.reticle, "position", {x=(v1.x*self.images.reticle.movement_multiplier)+.5, y=(v1.y*self.images.reticle.movement_multiplier)+.5})
         --update textures
     end
-    local angle =math.sqrt(self.gun.offsets.total_offset_rotation.gun_axial.x^2+self.gun.offsets.total_offset_rotation.gun_axial.y^2)
+    local angle =math.sqrt(self.gun.total_offset_rotation.gun_axial.x^2+self.gun.total_offset_rotation.gun_axial.y^2)
     for i, v in pairs(self.elements) do
         local def = self.images[i]
         local tex = def.texture

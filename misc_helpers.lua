@@ -120,7 +120,7 @@ local function parse_index(i)
     end
 end
 --dump() sucks.
-function table.tostring(tbl, shallow, tables, depth)
+function table.tostring(tbl, shallow, long_lists, tables, depth)
     --create a list of tables that have been tostringed in this chain
     if not table then return "nil" end
     if not tables then tables = {this_table = tbl} end
@@ -131,7 +131,12 @@ function table.tostring(tbl, shallow, tables, depth)
     for i = 1, depth do
         initial_string = initial_string .. "    "
     end
+    if depth > 20 then
+        return "(TABLE): depth limited reached"
+    end
+    local iterations = 0
     for i, v in pairs(tbl) do
+        iterations = iterations + 1
         local val_type = type(v)
         if val_type == "string" then
             str = str..initial_string..parse_index(i).." = \""..v.."\","
@@ -140,17 +145,63 @@ function table.tostring(tbl, shallow, tables, depth)
             --to avoid infinite loops, make sure that the table has not been tostringed yet
             if not contains then
                 tables[i] = v
-                str = str..initial_string..parse_index(i).." = "..table.tostring(v, shallow, tables, depth)..","
+                str = str..initial_string..parse_index(i).." = "..table.tostring(v, shallow, long_lists, tables, depth)..","
             else
-                str = str..initial_string..parse_index(i).." = "..tostring(v).." ("..contains.."),"
+                str = str..initial_string..parse_index(i).." = "..tostring(v).." (index: '"..tostring(contains).."'),"
             end
         else
             str = str..initial_string..parse_index(i).." = "..tostring(v)..","
         end
     end
+    if iterations > 100 and not long_lists then
+        return "(TABLE): too long, 100+ indices"
+    end
     return str..string.sub(initial_string, 1, -5).."}"
 end
-
+function table.tostring_structure_only(tbl, shallow, tables, depth)
+    --create a list of tables that have been tostringed in this chain
+    if not table then return "nil" end
+    if not tables then tables = {this_table = tbl} end
+    if not depth then depth = 0 end
+    depth = depth + 1
+    local str = ""
+    local initial_string = "\n"
+    for i = 1, depth do
+        initial_string = initial_string .. "    "
+    end
+    if depth > 20 then
+        return "(TABLE): depth limited reached (20 nested tables)"
+    end
+    local iterations = 0
+    if tbl.name then
+        str = str..initial_string.."[\"name\"] = \""..tbl.name.."\","
+    end
+    if tbl.type then
+        str = str..initial_string.."[\"type\"] = \""..tbl.type.."\","
+    end
+    for i, v in pairs(tbl) do
+        iterations = iterations + 1
+        local val_type = type(v)
+        if val_type == "table" then
+            local contains = table.contains(tables, v)
+            --to avoid infinite loops, make sure that the table has not been tostringed yet
+            if not contains then
+                tables[parse_index(i).." ["..tostring(v).."]"] = v
+                str = str..initial_string..parse_index(i).."("..tostring(v)..") = "..table.tostring_structure_only(v, shallow, tables, depth)..","
+            elseif type(v) == "table" then
+                str = str..initial_string..parse_index(i).." = "..tostring(v)
+            else
+                str = str..initial_string..parse_index(i).." = "..tostring(v).." ("..tostring(v).."),"
+            end
+        end
+    end
+    if iterations == 0 then
+        return "{}"
+    elseif iterations > 100 then
+        return "table too long"
+    end
+    return "{"..str..string.sub(initial_string, 1, -5).."}"
+end
 
 --replace fields (and fill sub-tables) in `tbl` with elements in `replacement`. Recursively iterates all sub-tables. use property __overfill=true for subtables that don't want to be overfilled.
 function table.fill(tbl, replacement, preserve_reference, indexed_tables)
@@ -210,9 +261,6 @@ function table.shallow_copy(t)
     return new_table
 end
 
-function weighted_randoms()
-end
-
 --for the following code and functions only:
 --for license see the link on the next line.
 --https://github.com/3dreamengine/3DreamEngine
@@ -234,5 +282,5 @@ function Point_to_hud(pos, fov, aspect)
     local x = (pos.x/pos.z)*a1
     local y = (pos.y/pos.z)*a6
     local z = (pos.z/pos.z)*a11
-	return vector.new(x / 2, -y / 2, z)
+	return {x=x / 2,y=-y / 2,}
 end

@@ -43,10 +43,13 @@ function Ammo_handler:spend_round()
     local meta = self.gun.meta
     --subtract the bullet
     if self.ammo.total_bullets > 0 then
-        self.ammo.loaded_bullets[bullet_spent] = self.ammo.loaded_bullets[bullet_spent]-1
-        if self.ammo.loaded_bullets[bullet_spent] == 0 then self.ammo.loaded_bullets[bullet_spent] = nil end
-        self.ammo.total_bullets = self.ammo.total_bullets - 1
-        --set the new current bullet
+        --only actually subtract the round if INFINITE_AMMO_IN_CREATIVE isnt true or they arent creative.
+        if not (self.gun.consts.INFINITE_AMMO_IN_CREATIVE and minetest.check_player_privs(self.gun.player, "creative")) then
+            self.ammo.loaded_bullets[bullet_spent] = self.ammo.loaded_bullets[bullet_spent]-1
+            if self.ammo.loaded_bullets[bullet_spent] == 0 then self.ammo.loaded_bullets[bullet_spent] = nil end
+            self.ammo.total_bullets = self.ammo.total_bullets - 1
+        end
+            --set the new current bullet
         if next(self.ammo.loaded_bullets) then
             self.ammo.next_bullet = math.weighted_randoms(self.ammo.loaded_bullets)
             meta:set_string("guns4d_next_bullet", self.ammo.next_bullet)
@@ -66,7 +69,7 @@ function Ammo_handler:load_magazine()
     local highest_ammo = -1
     local gun = self.gun
     local gun_accepts = gun.accepted_magazines
-    if self.ammo.loaded_mag ~= "empty" then
+    if self.ammo.loaded_mag ~= "empty" or self.ammo.total_bullets > 0 then
         --it's undefined, make assumptions.
         self:unload_all()
     end

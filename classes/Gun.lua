@@ -9,6 +9,8 @@ local gun_default = {
     properties = {
         hip = { --used by gun entity (attached offset)
             offset = Vec.new(),
+            sway_vel_mul = 5, --these are multipliers for various attributes. Does support fractional vals (which can be useful if you want to make hipfire more random with spread.)
+            sway_angle_mul = 1,
         },
         ads = { --used by player_handler, animation handler (eye bone offset from horizontal_offset), gun entity (attached offset)
             offset = Vec.new(),
@@ -28,17 +30,21 @@ local gun_default = {
                 gun_axial = 1,
                 player_axial = 1,
             },
-            angular_velocity = {
+            angular_velocity = { --the velocity added per shot. This is the real "recoil" part of the recoil
                 gun_axial = {x=0, y=0},
                 player_axial = {x=0, y=0},
             },
-            angular_velocity_bias = {
+            bias = { --dictates the distribution bias for the direction angular_velocity is in. I.e. if you want recoil to always go up you set x to 1, more often to the right? y to -.5
                 gun_axial = {x=1, y=0},
                 player_axial = {x=1, y=0},
             },
-            target_correction_max_rate = { --the cap for time_since_fire*target_correction_factor
+            target_correction_max_rate = { --the cap for target_correction_fire (i.e. this is the maximum amount it will ever correct per second.)
                 gun_axial = 1,
                 player_axial = 1,
+            },
+            hipfire_multiplier = { --the mutliplier for recoil (angular_velocity) at hipfire (can be fractional)
+                gun_axial = 1,
+                player_axial = 1
             },
         },
         sway = { --used by update_sway()
@@ -50,15 +56,24 @@ local gun_default = {
                 gun_axial = 0,
                 player_axial = 0,
             },
+            hipfire_angle_multiplier = { --the mutliplier for sway max_angle at hipfire (can be fractional)
+                gun_axial = 2,
+                player_axial = 2
+            },
+            hipfire_velocity_multiplier = { --same as above but for velocity.
+                gun_axial = 2,
+                player_axial = 2
+            }
         },
         walking_offset = { --used by update_walking() (or something)
             gun_axial = {x=1, y=-1},
             player_axial = {x=1,y=1},
         },
+        breathing_scale = .5, --the max angluler offset caused by breathing.
         controls = { --used by control_handler
             __overfill=true, --if present, this table will not be filled in.
             aim = Guns4d.default_controls.aim,
-            --fire = Guns4d.default_controls.fire,
+            fire = Guns4d.default_controls.fire,
             reload = Guns4d.default_controls.reload,
             on_use = Guns4d.default_controls.on_use
         },
@@ -72,9 +87,14 @@ local gun_default = {
             accepted_bullets = {},
             accepted_magazines = {}
         },
-        animations = { --used by animations handler for idle, and default controls
-            empty = {x=0,y=0},
-            loaded = {x=1,y=1},
+        visuals = {
+            --mesh
+            arm_right = "right_aimpoint",
+            arm_left = "left_aimpoint",
+            animations = { --used by animations handler for idle, and default controls
+                empty = {x=0,y=0},
+                loaded = {x=1,y=1},
+            },
         },
          --used by ammo_handler
         flash_offset = Vec.new(), --used by fire() (for fsx and ray start pos) [RENAME NEEDED]
@@ -82,12 +102,6 @@ local gun_default = {
         ammo_handler = Ammo_handler
     },
     offsets = {
-        player_rotation = Vec.new(),
-        --I'll need all three of them, do some precalculation.
-        total_offset_rotation = {
-            gun_axial = Vec.new(),
-            player_axial = Vec.new(),
-        },
         recoil = {
             gun_axial = Vec.new(),
             player_axial = Vec.new(),
@@ -99,12 +113,22 @@ local gun_default = {
         walking = {
             gun_axial = Vec.new(),
             player_axial = Vec.new(),
+            tick = 0,
+            --velocity
         },
         breathing = {
-            gun_axial = 1,
-            player_axial = 1,
+            gun_axial = Vec.new(), --gun axial unimplemented...
+            player_axial = Vec.new(),
         }
     },
+    spread = {
+
+    },
+    total_offset_rotation = { --can't be in offsets, as they're added automatically.
+        gun_axial = Vec.new(),
+        player_axial = Vec.new(),
+    },
+    player_rotation = Vec.new(),
     velocities = {
         recoil = {
             gun_axial = Vec.new(),
@@ -119,22 +143,31 @@ local gun_default = {
     consts = {
         HIP_PLAYER_GUN_ROT_RATIO = .75,
         AIM_OUT_AIM_IN_SPEED_RATIO = 2.5,
-        HIPFIRE_BONE = "guns3d_hipfire_bone",
+        HIPFIRE_BONE = "guns3d_hipfire_bone", --these shouldn't be here at all, these need to be model determinant.
         AIMING_BONE = "guns3d_aiming_bone",
+        KEYFRAME_SAMPLE_PRECISION = 1, --[[what frequency to take precalcualted keyframe samples. The lower this is the higher the memory allocation it will need- though minimal.
+        This will fuck shit up if you change it after gun construction/inheritence (interpolation between precalculated vectors will not work right)]]
         HAS_RECOIL = true,
         HAS_BREATHING = true,
         HAS_SWAY = true,
         HAS_WAG = true,
+        WAG_CYCLE_SPEED = 1.6,
+        WAG_DECAY = 1, --divisions per second
+        HAS_GUN_AXIAL_OFFSETS = true,
         INFINITE_AMMO_IN_CREATIVE = true,
-        DEFAULT_FPS = 20,
+        DEFAULT_FPS = 60,
         LOOP_IDLE_ANIM = false
     },
     animation_data = { --where animations data is stored.
         anim_runtime = 0,
         length = 0,
         fps = 0,
-        animations_frames = {0,0},
+        frames = {0,0},
         current_frame = 0,
+    --[[animations = {
+
+        }
+    ]]
     },
     particle_spawners = {},
     walking_tick = 0,
@@ -143,25 +176,24 @@ local gun_default = {
     rechamber_time = 0,
     muzzle_flash = Guns4d.effects.muzzle_flash
 }
-
+function gun_default.multiplier_coefficient(multiplier, ratio)
+    return 1+((multiplier*ratio)-ratio)
+end
 --update the gun, da meat and da potatoes
 function gun_default:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     if not self:has_entity() then self:add_entity(); self:clear_animation() end
     local handler = self.handler
-    local look_rotation = {x=handler.look_rotation.x,y=handler.look_rotation.y}
-    local total_rot = self.offsets.total_offset_rotation
-    local player_rot = self.offsets.player_rotation
-    local constant = 6
+    local look_rotation = handler.look_rotation --remember that this is in counterclock-wise rotation. For 4dguns we use clockwise so it makes a bit more sense for recoil. So it needs to be inverted.
+    local total_rot = self.total_offset_rotation
+    local player_rot = self.player_rotation
+    local constant = 5 --make this a config setting
 
-    --player look rotation. I'm going to keep it real, I don't remember what this equation does.
-    if not self.sprite_scope then
-        local next_vert_aim = ((player_rot.x+look_rotation.x)/(1+constant*dt))-look_rotation.x
-        if math.abs(look_rotation.x-next_vert_aim) > .005 then
-            player_rot.x = next_vert_aim
-        else
-            player_rot.x = -look_rotation.x
-        end
+    --player look rotation. I'm going to keep it real, I don't remember what this math does. Player handler just stores the player's rotation from MT in degrees, which is for some reason inverted
+    player_rot.y = -handler.look_rotation.y
+    local next_vert_aim = ((player_rot.x+look_rotation.x)/(1+constant*dt))-look_rotation.x
+    if math.abs(look_rotation.x-next_vert_aim) > .005 then
+        player_rot.x = next_vert_aim
     else
         player_rot.x = -look_rotation.x
     end
@@ -179,37 +211,44 @@ function gun_default:update(dt)
     if self.consts.HAS_RECOIL then self:update_recoil(dt) end
     if self.consts.HAS_BREATHING then self:update_breathing(dt) end
     if self.consts.HAS_WAG then self:update_wag(dt) end
+
+    --dynamic crosshair needs to be updated BEFORE wag
+    if self.properties.sprite_scope then
+        self.sprite_scope:update()
+    end
+    if self.properties.crosshair then
+        self.crosshair:update()
+    end
+
+    self:update_animation(dt)
     self.dir = self:get_dir()
     self.local_dir = self:get_dir(true)
     self.paxial_dir = self:get_player_axial_dir()
     self.local_paxial_dir = self:get_player_axial_dir(true)
-    self.pos = self:get_pos()
+    self.pos = self:get_pos()+self.handler:get_pos()
 
-    local bone, quat = self.model_handler:get_bone_global("Magazine")
-    minetest.chat_send_all(dump(bone))
-    --minetest.chat_send_all(dump(quat))
-    self:get_pos(bone/10, true)
-    --sprite scope
-    if self.properties.sprite_scope then
-        self.sprite_scope:update()
-    end
-
-    player_rot.y = -handler.look_rotation.y
     local offsets = self.offsets
-    total_rot.player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + {x=offsets.breathing.player_axial,y=0,z=0}
-    total_rot.gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
+    --local player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + offsets.breathing.player_axial
+    --local gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
+    --apply the offsets.
+    total_rot.player_axial.x = 0; total_rot.player_axial.y = 0
+    total_rot.gun_axial.x = 0; total_rot.gun_axial.y = 0
+    for type, _ in pairs(total_rot) do
+        for i, offset in pairs(offsets) do
+            if self.consts.HAS_GUN_AXIAL_OFFSETS or type~="gun_axial" then
+                total_rot[type] = total_rot[type]+offset[type]
+            end
+        end
+    end
 end
 
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
     if self.rechamber_time <= 0 then
         local spent_bullet = self.ammo_handler:spend_round()
-        if spent_bullet then
+        if spent_bullet and spent_bullet ~= "empty" then
             local dir = self.dir
             local pos = self.pos
-            --[[print(dump(Guns4d.ammo.registered_bullets))
-            print(self.ammo_handler.next_bullet)
-            print(Guns4d.ammo.registered_bullets[self.ammo_handler.next_bullet])]]
             local bullet_def = table.fill(Guns4d.ammo.registered_bullets[spent_bullet], {
                 player = self.player,
                 pos = pos,
@@ -217,6 +256,10 @@ function gun_default:attempt_fire()
                 gun = self
             })
             Guns4d.bullet_ray:new(bullet_def)
+            if self.properties.visuals.animations.fire then
+                minetest.chat_send_all(dump(self.properties.visuals.animations.fire))
+                self:set_animation(self.properties.visuals.animations.fire, nil, false)
+            end
             self:recoil()
             self:muzzle_flash()
             self.rechamber_time = 60/self.properties.firerateRPM
@@ -226,9 +269,12 @@ end
 
 function gun_default:recoil()
     assert(self.instance, "attempt to call object method on a class")
+    local rprops = self.properties.recoil
     for axis, recoil in pairs(self.velocities.recoil) do
         for _, i in pairs({"x","y"}) do
-            recoil[i] = recoil[i] + (self.properties.recoil.angular_velocity[axis][i]*math.rand_sign((self.properties.recoil.angular_velocity_bias[axis][i]/2)+.5))
+            recoil[i] = recoil[i] + (rprops.angular_velocity[axis][i]
+                *math.rand_sign((rprops.bias[axis][i]/2)+.5))
+                *self.multiplier_coefficient(rprops.hipfire_multiplier[axis], 1-self.handler.ads_location)
         end
     end
     self.time_since_last_fire = 0
@@ -236,21 +282,26 @@ end
 --all of this dir shit needs to be optimized HARD
 function gun_default:get_gun_axial_dir()
     assert(self.instance, "attempt to call object method on a class")
-    local rotation = self.offsets.total_offset_rotation
+    local rotation = self.total_offset_rotation
     local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=rotation.gun_axial.x*math.pi/180, z=0}))
     dir = Vec.rotate(dir, {y=rotation.gun_axial.y*math.pi/180, x=0, z=0})
     return dir
 end
 function gun_default:get_player_axial_dir(rltv)
     assert(self.instance, "attempt to call object method on a class")
-    local player = self.player
-    local rotation = self.offsets.total_offset_rotation
+    local handler = self.handler
+    local rotation = self.total_offset_rotation
     local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.player_axial.x)*math.pi/180), z=0}))
     dir = Vec.rotate(dir, {y=((rotation.player_axial.y)*math.pi/180), x=0, z=0})
     if not rltv then
-        dir = Vec.rotate(dir, {x=self.offsets.player_rotation.x*math.pi/180,y=self.offsets.player_rotation.y*math.pi/180,z=0})
+        if (self.properties.sprite_scope and handler.control_bools.ads) or (self.properties.crosshair and not handler.control_bools.ads) then
+            --we need the head rotation in either of these cases, as that's what they're showing.
+            dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
+        else
+            dir = Vec.rotate(dir, {x=self.player_rotation.x*math.pi/180,y=self.player_rotation.y*math.pi/180,z=0})
+        end
     end
-    --[[local hud_pos = Vec.rotate(dir, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=self.offsets.player_rotation.y*math.pi/180,z=0})
+    --[[local hud_pos = Vec.rotate(dir, {x=0,y=self.player_rotation.y*math.pi/180,z=0})+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=self.player_rotation.y*math.pi/180,z=0})
     local hud = player:hud_add({
         hud_elem_type = "image_waypoint",
         text = "muzzle_flash2.png",
@@ -266,13 +317,20 @@ function gun_default:get_player_axial_dir(rltv)
 end
 function gun_default:get_dir(rltv)
         assert(self.instance, "attempt to call object method on a class")
-        local rotation = self.offsets.total_offset_rotation
+        local rotation = self.total_offset_rotation
+        local handler = self.handler
+        --rotate x and then y.
         local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0}))
         dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
-        --for it to be relative the the camera, rotation by player look occours post.
         if not rltv then
-            dir = Vec.rotate(dir, {x=self.offsets.player_rotation.x*math.pi/180,y=self.offsets.player_rotation.y*math.pi/180,z=0})
+            if (self.properties.sprite_scope and handler.control_bools.ads) or (self.properties.crosshair and not handler.control_bools.ads) then
+                --we need the head rotation in either of these cases, as that's what they're showing.
+                dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
+            else
+                dir = Vec.rotate(dir, {x=self.player_rotation.x*math.pi/180,y=self.player_rotation.y*math.pi/180,z=0})
+            end
         end
+
         --local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
         --[[local hud = player:hud_add({
             hud_elem_type = "image_waypoint",
@@ -289,7 +347,7 @@ function gun_default:get_dir(rltv)
 end
 
 --broken! doesn't properly reflect values.
-function gun_default:get_pos(added_pos, debug)
+function gun_default:get_pos(added_pos, relative, debug)
     assert(self.instance, "attempt to call object method on a class")
     local player = self.player
     local handler = self.handler
@@ -297,14 +355,14 @@ function gun_default:get_pos(added_pos, debug)
     local gun_offset
     if handler.control_bools.ads then
         gun_offset = self.properties.ads.offset
-        bone_location, _ = player:get_eye_offset() or vector.zero(), nil
+        bone_location = player:get_eye_offset() or vector.zero()
         bone_location.y = bone_location.y + handler:get_properties().eye_height
         bone_location.x = handler.horizontal_offset
     else
         --minetest is really wacky.
         gun_offset = self.properties.hip.offset
-        bone_location = handler.model_handler.offsets.arm.right
-        bone_location.x = -bone_location.x / 10
+        bone_location = vector.new(handler.player_model_handler.offsets.global.hipfire)
+        bone_location.x = bone_location.x / 10
         bone_location.z = bone_location.z / 10
         bone_location.y = bone_location.y / 10
     end
@@ -312,11 +370,20 @@ function gun_default:get_pos(added_pos, debug)
         gun_offset = gun_offset+added_pos
     end
     --dir needs to be rotated twice seperately to avoid weirdness
-    local rotation = self.offsets.total_offset_rotation
-    local pos = Vec.rotate(bone_location, {x=0, y=-handler.look_rotation.y*math.pi/180, z=0})
-    pos = pos+Vec.rotate(gun_offset, Vec.dir_to_rotation(self.paxial_dir))
-    local hud_pos = pos+handler:get_pos()
+    local pos
+    if not relative then
+        pos = Vec.rotate(bone_location, {x=0, y=-handler.look_rotation.y*math.pi/180, z=0})
+        pos = pos+Vec.rotate(gun_offset, Vec.dir_to_rotation(self.paxial_dir))
+    else
+        pos = Vec.rotate(gun_offset, Vec.dir_to_rotation(self.local_paxial_dir)+{x=self.player_rotation.x*math.pi/180,y=0,z=0})+bone_location
+    end
     if debug then
+        local hud_pos
+        if relative then
+            hud_pos = vector.rotate(pos, {x=0,y=player:get_look_horizontal(),z=0})+handler:get_pos()
+        else
+            hud_pos = pos+handler:get_pos()
+        end
         local hud = player:hud_add({
             hud_elem_type = "image_waypoint",
             text = "muzzle_flash2.png",
@@ -350,27 +417,43 @@ function gun_default:has_entity()
 end
 function gun_default:update_wag(dt)
     local handler = self.handler
+    local wag = self.offsets.walking
+    local velocity = wag.velocity
+    local old_tick
     if handler.walking then
-        self.walking_tick = self.walking_tick + (dt*Vec.length(self.player:get_velocity()))
-    else
-        self.walking_tick = 0
+        velocity = self.player:get_velocity()
+        wag.velocity = velocity
+    end
+    old_tick = old_tick or wag.tick
+    if velocity then
+        if handler.walking then
+            wag.tick = wag.tick + (dt*Vec.length(velocity))
+        else
+            wag.tick = wag.tick + (dt*4)
+        end
     end
     local walking_offset = self.offsets.walking
-    for _, i in pairs({"x","y"}) do
-        for axis, _ in pairs(walking_offset) do
-            if handler.walking then
-                local time = self.walking_tick
+    if velocity and (not handler.walking) and (math.ceil(old_tick/self.consts.WAG_CYCLE_SPEED)+.5 < (math.ceil(wag.tick/self.consts.WAG_CYCLE_SPEED))+.5) and (wag.tick > old_tick) then
+        wag.velocity = nil
+        return
+    end
+    for _, i in ipairs({"x","y"}) do
+        for _, axis in ipairs({"player_axial", "gun_axial"}) do
+            if velocity then
                 local multiplier = 1
                 if i == "x" then
                     multiplier = 2
                 end
-                walking_offset[axis][i] = math.sin((time/1.6)*math.pi*multiplier)*self.properties.walking_offset[axis][i]
+                --if the result is negative we know that it's flipped, and thus can be ended.
+                local inp = (wag.tick/self.consts.WAG_CYCLE_SPEED)*math.pi*multiplier
+                --this is a mess, I think that 1.6 is the frequency of human steps or something
+                walking_offset[axis][i] = math.sin(inp)*self.properties.walking_offset[axis][i]
             else
                 local old_value = walking_offset[axis][i]
-                if (math.abs(walking_offset[axis][i]) > .5 and axis=="player_axial") or (math.abs(walking_offset[axis][i]) > .6 and axis=="gun_axial")  then
-                    local multiplier = (walking_offset[axis][i]/math.abs(walking_offset[axis][i]))
-                    walking_offset[axis][i] = walking_offset[axis][i]-(dt*2*multiplier)
-                elseif axis == "gun_axial" then
+                if math.abs(walking_offset[axis][i]) > .005 then
+                    local multiplier = 1/self.consts.WAG_DECAY
+                    walking_offset[axis][i] = walking_offset[axis][i]-(walking_offset[axis][i]*multiplier*dt)
+                else
                     walking_offset[axis][i] = 0
                 end
                 if math.abs(walking_offset[axis][i]) > math.abs(old_value) then
@@ -417,42 +500,27 @@ function gun_default:update_recoil(dt)
         end
     end
 end
-local animation_data = {
-    anim_runtime = 0,
-    length = 0,
-    fps = 0,
-    animations_frames = {0,0},
-    current_frame = 0,
-}
-function gun_default:animation_update(dt)
+function gun_default:update_animation(dt)
     local ent = self.entity
     local data = self.animation_data
-    local anim_range, frame_speed, frame_blend, frame_loop = ent:get_animation()
-    if (not data.animation_frames) or (anim_range.x ~= data.x) or (anim_range.y ~= data.y) then
-        data.runtime = 0
-        data.animations_frames = false
-    elseif data.animation_frames then
-        data.runtime = data.runtime + dt
-        data.current_frame = math.clamp(data.runtime*data.fps, data.animation_frames.x, data.animation_frames.y)
+    data.runtime = data.runtime + dt
+    data.current_frame = math.clamp(data.current_frame+(dt*data.fps), data.frames.x, data.frames.y)
+    if data.loop and (data.current_frame > data.frames.y) then
+        data.current_frame = data.frames.x
     end
 end
+--IMPORTANT!!! this does not directly modify the animation_data table, it's all hooked through ObjRef:set_animation() (init.lua) so if animation is set elsewhere it doesnt break.
+--this may be deprecated in the future- as it is no longer really needed now that I hook ObjRef functions.
 function gun_default:set_animation(frames, length, fps, loop)
-    loop = loop or false --why the fuck default is loop? I DONT FUCKIN KNOW
+    loop = loop or false --why the fuck default is true? I DONT FUCKIN KNOW (this undoes this)
     assert(type(frames)=="table" and frames.x and frames.y, "frames invalid or nil in set_animation()!")
-    assert(length or fps, "need either length or FPS for animation")
     assert(not (length and fps), "cannot play animation with both specified length and specified fps. Only one parameter can be used.")
     local num_frames = math.abs(frames.x-frames.y)
-    local data = self.animation_data
     if length then
         fps = num_frames/length
-    elseif fps then
-        length = num_frames/fps
-    else
+    elseif not fps then
         fps = self.consts.DEFAULT_FPS
-        length = num_frames/self.consts.DEFAULT_FPS
     end
-    data.runtime = 0
-    data.length = length
     self.entity:set_animation(frames, fps, 0, loop)
 end
 function gun_default:clear_animation()
@@ -464,31 +532,34 @@ function gun_default:clear_animation()
     elseif self.ammo_handler.ammo.total_bullets > 0 then
         loaded = true
     end
-    if loaded then
-        self.entity:set_animation({x=self.properties.animations.loaded.x, y=self.properties.animations.loaded.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
-    else
-        self.entity:set_animation({x=self.properties.animations.empty.x, y=self.properties.animations.empty.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
-    end
+    minetest.chat_send_all(tostring(loaded))
+    minetest.chat_send_all(self.ammo_handler.ammo.loaded_mag)
     local data = self.animation_data
-    data.runtime = 0
-    data.length = false
-    data.animations_frames = false
+    if loaded then
+        self.entity:set_animation({x=self.properties.visuals.animations.loaded.x, y=self.properties.visuals.animations.loaded.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
+    else
+        minetest.chat_send_all(self.properties.visuals.animations.empty.x)
+        self.entity:set_animation({x=self.properties.visuals.animations.empty.x, y=self.properties.visuals.animations.empty.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
+    end
 end
 function gun_default:update_breathing(dt)
     local breathing_info = {pause=1.4, rate=4.2}
     --we want X to be between 0 and 4.2. Since math.pi is a positive crest, we want X to be above it before it reaches our-
     --"length" (aka rate-pause), thus it will pi/length or pi/(rate-pause) will represent out slope of our control.
     local x = (self.time_since_creation%breathing_info.rate)*math.pi/(breathing_info.rate-breathing_info.pause)
-    local scale = 1
-    --now if it's above math.pi we know it's in the pause half of the cycle. For smoothness, we cut the sine off early and decay the value linearly.
+    local scale = self.properties.breathing_scale
+    --now if it's above math.pi we know it's in the pause half of the cycle. For smoothness, we cut the sine off early and decay the value non-linearly.
+    --not sure why 8/9 is a constant here... I assume it's if it's 8/9 of the way through the cycle. Not going to worry about it.
     if x > math.pi*(8/9) then
-        self.offsets.breathing.player_axial=self.offsets.breathing.player_axial-(self.offsets.breathing.player_axial*2*dt)
+        self.offsets.breathing.player_axial.x=self.offsets.breathing.player_axial.x-(self.offsets.breathing.player_axial.x*2*dt)
     else
-        self.offsets.breathing.player_axial = scale*(math.sin(x))
+        self.offsets.breathing.player_axial.x = scale*(math.sin(x))
     end
 end
 
 function gun_default:update_sway(dt)
+    assert(self.instance, "attempt to call object method from a base class")
+    local sprops = self.properties.sway
     for axis, sway in pairs(self.offsets.sway) do
         local sway_vel = self.velocities.sway[axis]
         local ran
@@ -498,10 +569,12 @@ function gun_default:update_sway(dt)
             end
         end)
         ran.z = 0
-        sway_vel = Vec.normalize(sway_vel+(ran*dt))*self.properties.sway.angular_velocity[axis]
+        local vel_mul = self.multiplier_coefficient(sprops.hipfire_velocity_multiplier[axis], 1-self.handler.ads_location)
+        sway_vel = Vec.normalize(sway_vel+(ran*dt))*sprops.angular_velocity[axis]*vel_mul
         sway=sway+(sway_vel*dt)
-        if Vec.length(sway) > self.properties.sway.max_angle[axis] then
-            sway=Vec.normalize(sway)*self.properties.sway.max_angle[axis]
+        local len_mul = self.multiplier_coefficient(sprops.hipfire_angle_multiplier[axis], 1-self.handler.ads_location)
+        if Vec.length(sway) > sprops.max_angle[axis]*len_mul then
+            sway=Vec.normalize(sway)*sprops.max_angle[axis]*len_mul
             sway_vel = Vec.new()
         end
         self.offsets.sway[axis] = sway
@@ -509,13 +582,39 @@ function gun_default:update_sway(dt)
     end
 end
 
+--this needs to save results eventually. Shouldn't be particularly important though. <-not sure what the fuck I meant by that
+--relative to the gun's entity. Returns left, right vectors.
+local out = {arm_left=vector.new(), arm_right=vector.new()}
+function gun_default:get_arm_aim_pos()
+    local current_frame = self.animation_data.current_frame
+    local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
+    local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
+
+    for i, v in pairs(out) do
+        if self.b3d_model.global_frames[i][frame1] then
+            if (not self.b3d_model.global_frames[i][frame2]) or (current_frame==frame1) then
+                out[i] = vector.copy(self.b3d_model.global_frames[i][frame1])
+            else --to stop nan
+                local ip_ratio = (current_frame-frame1)/self.consts.KEYFRAME_SAMPLE_PRECISION
+                local vec1 = self.b3d_model.global_frames[i][frame1]
+                local vec2 = self.b3d_model.global_frames[i][frame2]
+                out[i] = vec1+((vec1-vec2)*ip_ratio)
+            end
+        else
+            out[i]=vector.copy(self.b3d_model.global_frames[i][1])
+        end
+    end
+    return out.arm_left, out.arm_right
+    --return vector.copy(self.b3d_model.global_frames.arm_left[1]), vector.copy(self.b3d_model.global_frames.arm_right[1])
+end
+
 function gun_default:prepare_deletion()
     assert(self.instance, "attempt to call object method on a class")
     if self:has_entity() then self.entity:remove() end
     if self.sprite_scope then self.sprite_scope:prepare_deletion() end
+    if self.crosshair then self.crosshair:prepare_deletion() end
 end
---construction for the base gun class
-local valid_ctrls = {
+local valid_ctrls = { --for validation of controls.
     up=true,
     down=true,
     left=true,
@@ -560,19 +659,14 @@ gun_default.construct = function(def)
         --initialize all offsets
        --def.offsets = table.deep_copy(def.base_class.offsets)
         def.offsets = {}
-        for i, tbl in pairs(def.base_class.offsets) do
-            if (tbl.gun_axial and tbl.player_axial) then
-                local ty = type(tbl.gun_axial)
-                if (ty=="table") and tbl.gun_axial.x and tbl.gun_axial.y and tbl.gun_axial.z then
-                    def.offsets[i] = {}
-                    def.offsets[i].gun_axial = Vec.new()
-                    def.offsets[i].player_axial = Vec.new()
+        for offset, tbl in pairs(def.base_class.offsets) do
+            def.offsets[offset] = {}
+            for i, v in pairs(tbl) do
+                if type(v) == "table" and v.x then
+                    def.offsets[offset][i] = vector.new()
                 else
-                    def.offsets[i] = {}
-                    def.offsets[i] = table.deep_copy(def.offsets[i])
+                    def.offsets[offset][i] = v
                 end
-            elseif tbl.x and tbl.y and tbl.z then
-                def.offsets[i] = Vec.new()
             end
         end
 
@@ -580,18 +674,19 @@ gun_default.construct = function(def)
         def.velocities = {}
         for i, tbl in pairs(def.base_class.velocities) do
             def.velocities[i] = {}
-            if tbl.gun_axial and tbl.player_axial then
-                def.velocities[i].gun_axial = Vec.new()
-                def.velocities[i].player_axial = Vec.new()
-            end
+            def.velocities[i].gun_axial = Vec.new()
+            def.velocities[i].player_axial = Vec.new()
         end
-        --properties have been assigned, create necessary objects
+        --properties have been assigned, create necessary objects TODO: completely change this system for defining them.
         if def.properties.sprite_scope then
-            if not def.sprite_scope then
-                def.sprite_scope = def.properties.sprite_scope:new({
-                    gun = def
-                })
-            end
+            def.sprite_scope = def.properties.sprite_scope:new({
+                gun = def
+            })
+        end
+        if def.properties.crosshair then
+            def.crosshair = def.properties.crosshair:new({
+                gun = def
+            })
         end
         if def.properties.entity_scope then
             if not def.entity_scope then
@@ -624,8 +719,20 @@ gun_default.construct = function(def)
         props = def.properties --have to reinitialize this as the reference is replaced.
 
         --print(table.tostring(props))
-        def.model_handler = Guns4d.Model_bone_handler:new({modelpath = props.mesh})
-
+        def.b3d_model = mtul.b3d_reader.read_model(props.visuals.mesh, true)
+        def.b3d_model.global_frames = {
+            arm_right = {}, --the aim position of the right arm
+            arm_left = {}, --the aim position of the left arm
+            rotation = {} --rotation of the gun (this is assumed as gun_axial, but that's probably fucked for holo sight alignments)
+        }
+        --print(table.tostring(def.b3d_model))
+        --precalculate keyframe "samples" for intepolation.
+        --mildly infuriating that lua just stops short by one (so I have to add one extra) I *think* I get why though.
+        for target_frame = 0, def.b3d_model.node.animation.frames+1, def.consts.KEYFRAME_SAMPLE_PRECISION do
+            table.insert(def.b3d_model.global_frames.arm_right, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, props.visuals.arm_right, true, target_frame))/10)
+            table.insert(def.b3d_model.global_frames.arm_left, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, props.visuals.arm_left, true, target_frame))/10)
+            --def.b3d_model.rotation =
+        end
         if def.name ~= "__template" then
             assert(rawget(def, "name"), "no name provided in new class")
             assert(rawget(def, "itemstring"), "no itemstring provided in new class")
@@ -667,14 +774,13 @@ gun_default.construct = function(def)
         minetest.register_entity(def.name.."_visual", {
             initial_properties = {
                 visual = "mesh",
-                mesh = props.mesh,
+                mesh = props.visuals.mesh,
                 textures = props.textures,
                 glow = 0,
                 pointable = false,
                 static_save = false,
             },
             on_step = function(self, dtime)
-                local name = string.gsub(self.name, "_visual", "")
                 local obj = self.object
                 if not self.parent_player then obj:remove() return end
                 local player = self.parent_player
@@ -684,10 +790,10 @@ gun_default.construct = function(def)
                 --this is changing the point of rotation if not aiming, this is to make it look less shit.
                 local axial_modifier = Vec.new()
                 if not handler.control_bools.ads then
-                    local pitch = lua_object.offsets.total_offset_rotation.player_axial.x+lua_object.offsets.player_rotation.x
+                    local pitch = lua_object.total_offset_rotation.player_axial.x+lua_object.player_rotation.x
                     axial_modifier = Vec.new(pitch*(1-lua_object.consts.HIP_PLAYER_GUN_ROT_RATIO),0,0)
                 end
-                local axial_rot = lua_object.offsets.total_offset_rotation.gun_axial+axial_modifier
+                local axial_rot = lua_object.total_offset_rotation.gun_axial+axial_modifier
                 --attach to the correct bone, and rotate
                 local visibility = true
                 if lua_object.sprite_scope and lua_object.sprite_scope.hide_gun and (not (handler.ads_location == 0)) then
@@ -703,7 +809,6 @@ gun_default.construct = function(def)
                 end
             end,
         })
-        --I don't know why lua's syntax makes me make it anon, but uh, fuck you.
     end
 end
 Guns4d.gun = Instantiatable_class:inherit(gun_default)

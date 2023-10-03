@@ -11,17 +11,15 @@ dofile(path.."/block_values.lua")
 dofile(path.."/register_ammo.lua")
 path = path .. "/classes"
 dofile(path.."/Instantiatable_class.lua")
-dofile(path.."/Model_reader.lua")
 dofile(path.."/Bullet_ray.lua")
 dofile(path.."/Control_handler.lua")
 dofile(path.."/Ammo_handler.lua")
 dofile(path.."/Sprite_scope.lua")
+dofile(path.."/Dynamic_crosshair.lua")
 dofile(path.."/Gun.lua")
 dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
 dofile(path.."/Proxy_table.lua")
-
-Guns4d.Model_bone_handler:new({modelpath="model_reader_test.b3d"})
 
 --load after
 path = minetest.get_modpath("guns4d")
@@ -34,10 +32,10 @@ minetest.register_on_joinplayer(function(player)
         handler = player_handler:new({player=player})
     }
     player:set_fov(80)
-
+    --ObjRef overrides will be integrated into MTUL (eventually TM)
     if not objref_mtable then
         objref_mtable = getmetatable(player)
-        --putting this here is hacky as fuck.
+
         local old_get_pos = objref_mtable.get_pos
         function objref_mtable.get_pos(self)
             local gun = Guns4d.gun_by_ObjRef[self]
@@ -48,6 +46,40 @@ minetest.register_on_joinplayer(function(player)
                 return v
             end
         end
+
+        local old_set_animation = objref_mtable.set_animation
+        --put vargs there for maintainability.
+        function objref_mtable.set_animation(self, frame_range, frame_speed, frame_blend, frame_loop, ...)
+            local gun = Guns4d.gun_by_ObjRef[self]
+            if gun then
+                local data = gun.animation_data
+                data.runtime = 0
+                data.fps = frame_speed or 15
+                data.loop = frame_loop --still have no idea what nutjob made the default true >:(
+                if frame_loop == nil then
+                    frame_loop = true
+                end
+                --so... minetest is stupid, and so it won't let me set something to the same animation twice (utterly fucking brilliant).
+                --This means I literally need to flip flop between +1 frames
+                frame_range = (frame_range and table.copy(frame_range)) or {x=1,y=1}
+                if data.frames.x == frame_range.x and data.frames.y == frame_range.y then
+                    frame_range.y = frame_range.y + 1 --oh yeah, and it only accepts whole frames... because of course.
+                end
+                data.frames = frame_range
+                data.current_frame = data.frames.x
+            end
+            return old_set_animation(self, frame_range, frame_speed, frame_blend, frame_loop, ...)
+        end
+
+        local old_set_frame_speed = objref_mtable.set_animation_frame_speed
+        function objref_mtable.set_animation_frame_speed(self, frame_speed, ...)
+            local gun = Guns4d.gun_by_ObjRef[self]
+            if gun then
+                gun.animation_data.fps = frame_speed or 15
+            end
+            old_set_frame_speed(self, frame_speed, ...)
+        end
+
         local old_remove = objref_mtable.remove
         function objref_mtable.remove(self)
             local gun = Guns4d.gun_by_ObjRef[self]
