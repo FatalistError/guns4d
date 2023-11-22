@@ -12,11 +12,11 @@ function Instantiatable_class:inherit(def)
     --this effectively creates a construction chain by overwriting .construct
     function def.construct(parameters)
         --rawget because in a instance it may only be present in a hierarchy but not the table itself
-        if rawget(def, "_construct_low") then
-            def._construct_low(parameters)
-        end
         if self.construct then
             self.construct(parameters)
+        end
+        if rawget(def, "_construct_low") then
+            def._construct_low(parameters)
         end
     end
     def.construct(def)

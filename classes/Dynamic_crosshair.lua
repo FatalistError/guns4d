@@ -44,7 +44,6 @@ function Dynamic_crosshair:update(dt)
 
         for offset, v in pairs(gun.offsets) do
             if (offset ~= "walking" or not self.normalize_walking) and (offset ~= "breathing" or not self.normalize_breathing) and (offset ~= "sway" or not self.normalize_sway) then
-                print(offset)
                 temp_vector = temp_vector + absolute_vector(v.player_axial) + absolute_vector(v.gun_axial)
             end
         end

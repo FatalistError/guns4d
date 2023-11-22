@@ -13,6 +13,7 @@ local player_handler = {
     look_offset = Vec.new(),
     ads_location = 0, --interpolation scalar for gun aiming location
     controls = {},
+    default_fov = 80,
     fov = 80,
     horizontal_offset = 0
 }
@@ -53,7 +54,6 @@ function player_handler:update(dt)
             player:hud_set_flags({wielditem = false, crosshair = false})
 
             --for the gun's scopes to work properly we need predictable offsets.
-            player:set_fov(self.fov)
         end
         --update some properties.
         self.look_rotation.x, self.look_rotation.y = math.clamp((player:get_look_vertical() or 0)*180/math.pi, -80, 80), -player:get_look_horizontal()*180/math.pi
@@ -137,6 +137,15 @@ function player_handler:get_is_walking()
         walking = true
     end
     return walking
+end
+--allows the gun to set FOV without having to worry about unsetting it
+function player_handler:set_fov(val, transition)
+    self.fov_lock = true
+    Guns4d.old_set_fov(self.player, val, nil, transition)
+end
+function player_handler:unset_fov(transition)
+    self.fov_lock = false
+    Guns4d.old_set_fov(self.player, self.default_fov, nil, transition)
 end
 --resets the controls bools table for the player_handler
 function player_handler:reset_controls_table()

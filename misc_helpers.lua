@@ -120,7 +120,7 @@ local function parse_index(i)
     end
 end
 --dump() sucks.
-function table.tostring(tbl, shallow, long_lists, tables, depth)
+function table.tostring(tbl, shallow, list_length_lim, depth_limit, tables, depth)
     --create a list of tables that have been tostringed in this chain
     if not table then return "nil" end
     if not tables then tables = {this_table = tbl} end
@@ -131,7 +131,7 @@ function table.tostring(tbl, shallow, long_lists, tables, depth)
     for i = 1, depth do
         initial_string = initial_string .. "    "
     end
-    if depth > 20 then
+    if depth > (depth_limit or math.huge) then
         return "(TABLE): depth limited reached"
     end
     local iterations = 0
@@ -145,7 +145,7 @@ function table.tostring(tbl, shallow, long_lists, tables, depth)
             --to avoid infinite loops, make sure that the table has not been tostringed yet
             if not contains then
                 tables[i] = v
-                str = str..initial_string..parse_index(i).." = "..table.tostring(v, shallow, long_lists, tables, depth)..","
+                str = str..initial_string..parse_index(i).." = "..table.tostring(v, shallow, list_length_lim, depth_limit, tables, depth)..","
             else
                 str = str..initial_string..parse_index(i).." = "..tostring(v).." (index: '"..tostring(contains).."'),"
             end
@@ -153,7 +153,7 @@ function table.tostring(tbl, shallow, long_lists, tables, depth)
             str = str..initial_string..parse_index(i).." = "..tostring(v)..","
         end
     end
-    if iterations > 100 and not long_lists then
+    if iterations >  (list_length_lim or math.huge) then
         return "(TABLE): too long, 100+ indices"
     end
     return str..string.sub(initial_string, 1, -5).."}"

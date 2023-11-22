@@ -1,6 +1,7 @@
 local Vec = vector
 Guns4d = {
     players = {},
+    handler_by_ObjRef = {},
     gun_by_ObjRef = {} --used for getting the gun object by the ObjRef of the gun
 }
 local path = minetest.get_modpath("guns4d")
@@ -31,10 +32,24 @@ minetest.register_on_joinplayer(function(player)
     Guns4d.players[pname] = {
         handler = player_handler:new({player=player})
     }
+    Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname].handler
+    --set the FOV to a predictable value
     player:set_fov(80)
     --ObjRef overrides will be integrated into MTUL (eventually TM)
     if not objref_mtable then
         objref_mtable = getmetatable(player)
+        print(dump(objref_mtable))
+
+        local old_set_fov = objref_mtable.set_fov
+        Guns4d.old_set_fov = old_set_fov
+        function objref_mtable.set_fov(self, ...)
+            local handler = Guns4d.handler_by_ObjRef[self]
+            if handler then --check, just in case it's not a player (and thus should throw an error)
+                handler.default_fov = select(1, ...)
+                if handler.fov_lock then return end
+            end
+            old_set_fov(self, ...)
+        end
 
         local old_get_pos = objref_mtable.get_pos
         function objref_mtable.get_pos(self)
@@ -55,8 +70,8 @@ minetest.register_on_joinplayer(function(player)
                 local data = gun.animation_data
                 data.runtime = 0
                 data.fps = frame_speed or 15
-                data.loop = frame_loop --still have no idea what nutjob made the default true >:(
-                if frame_loop == nil then
+                data.loop = frame_loop
+                if frame_loop == nil then --still have no idea what nutjob made the default true >:(
                     frame_loop = true
                 end
                 --so... minetest is stupid, and so it won't let me set something to the same animation twice (utterly fucking brilliant).
@@ -101,6 +116,7 @@ minetest.register_on_leaveplayer(function(player)
     local pname = player:get_player_name()
     Guns4d.players[pname].handler:prepare_deletion()
     Guns4d.players[pname] = nil
+    Guns4d.handler_by_ObjRef[player] = nil
 end)
 
 --ticks are rarely used, but still ideal for rare checks with minimal overhead.

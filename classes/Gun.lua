@@ -7,6 +7,7 @@ local gun_default = {
     registered = {},
     property_modifiers = {},
     properties = {
+        magnification = 1,
         hip = { --used by gun entity (attached offset)
             offset = Vec.new(),
             sway_vel_mul = 5, --these are multipliers for various attributes. Does support fractional vals (which can be useful if you want to make hipfire more random with spread.)
@@ -89,6 +90,7 @@ local gun_default = {
         },
         visuals = {
             --mesh
+            root = "gun",
             arm_right = "right_aimpoint",
             arm_left = "left_aimpoint",
             animations = { --used by animations handler for idle, and default controls
@@ -119,8 +121,9 @@ local gun_default = {
         breathing = {
             gun_axial = Vec.new(), --gun axial unimplemented...
             player_axial = Vec.new(),
-        }
+        },
     },
+    animation_rotation = vector.new(),
     spread = {
 
     },
@@ -145,17 +148,18 @@ local gun_default = {
         AIM_OUT_AIM_IN_SPEED_RATIO = 2.5,
         HIPFIRE_BONE = "guns3d_hipfire_bone", --these shouldn't be here at all, these need to be model determinant.
         AIMING_BONE = "guns3d_aiming_bone",
-        KEYFRAME_SAMPLE_PRECISION = 1, --[[what frequency to take precalcualted keyframe samples. The lower this is the higher the memory allocation it will need- though minimal.
+        KEYFRAME_SAMPLE_PRECISION = .1, --[[what frequency to take precalcualted keyframe samples. The lower this is the higher the memory allocation it will need- though minimal.
         This will fuck shit up if you change it after gun construction/inheritence (interpolation between precalculated vectors will not work right)]]
+        WAG_CYCLE_SPEED = 1.6,
+        DEFAULT_FPS = 60,
+        WAG_DECAY = 1, --divisions per second
         HAS_RECOIL = true,
         HAS_BREATHING = true,
         HAS_SWAY = true,
         HAS_WAG = true,
-        WAG_CYCLE_SPEED = 1.6,
-        WAG_DECAY = 1, --divisions per second
         HAS_GUN_AXIAL_OFFSETS = true,
+        ANIMATIONS_OFFSET_AIM = false,
         INFINITE_AMMO_IN_CREATIVE = true,
-        DEFAULT_FPS = 60,
         LOOP_IDLE_ANIM = false
     },
     animation_data = { --where animations data is stored.
@@ -176,6 +180,7 @@ local gun_default = {
     rechamber_time = 0,
     muzzle_flash = Guns4d.effects.muzzle_flash
 }
+--I dont remember why I made this, used it though lmao
 function gun_default.multiplier_coefficient(multiplier, ratio)
     return 1+((multiplier*ratio)-ratio)
 end
@@ -257,7 +262,6 @@ function gun_default:attempt_fire()
             })
             Guns4d.bullet_ray:new(bullet_def)
             if self.properties.visuals.animations.fire then
-                minetest.chat_send_all(dump(self.properties.visuals.animations.fire))
                 self:set_animation(self.properties.visuals.animations.fire, nil, false)
             end
             self:recoil()
@@ -508,6 +512,8 @@ function gun_default:update_animation(dt)
     if data.loop and (data.current_frame > data.frames.y) then
         data.current_frame = data.frames.x
     end
+    --track rotations
+    if self.consts.ANIMATIONS_OFFSET_AIM then self:update_animation_rotation() end
 end
 --IMPORTANT!!! this does not directly modify the animation_data table, it's all hooked through ObjRef:set_animation() (init.lua) so if animation is set elsewhere it doesnt break.
 --this may be deprecated in the future- as it is no longer really needed now that I hook ObjRef functions.
@@ -532,13 +538,10 @@ function gun_default:clear_animation()
     elseif self.ammo_handler.ammo.total_bullets > 0 then
         loaded = true
     end
-    minetest.chat_send_all(tostring(loaded))
-    minetest.chat_send_all(self.ammo_handler.ammo.loaded_mag)
     local data = self.animation_data
     if loaded then
         self.entity:set_animation({x=self.properties.visuals.animations.loaded.x, y=self.properties.visuals.animations.loaded.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
     else
-        minetest.chat_send_all(self.properties.visuals.animations.empty.x)
         self.entity:set_animation({x=self.properties.visuals.animations.empty.x, y=self.properties.visuals.animations.empty.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
     end
 end
@@ -582,26 +585,57 @@ function gun_default:update_sway(dt)
     end
 end
 
---this needs to save results eventually. Shouldn't be particularly important though. <-not sure what the fuck I meant by that
+function gun_default:update_animation_rotation()
+    local current_frame = self.animation_data.current_frame
+    local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
+    local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
+    current_frame = current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION
+    local out
+    if self.b3d_model.global_frames.rotation then
+        if self.b3d_model.global_frames.rotation[frame1] then
+            if (not self.b3d_model.global_frames.rotation[frame2]) or (current_frame==frame1) then
+                out = vector.copy(self.b3d_model.global_frames.rotation[frame1])
+            else --to stop nan
+                local ip_ratio = current_frame-frame1
+                local vec1 = self.b3d_model.global_frames.rotation[frame1]
+                local vec2 = self.b3d_model.global_frames.rotation[frame2]
+                out = vec1+((vec1-vec2)*ip_ratio)
+            end
+        else
+            out = vector.copy(self.b3d_model.global_frames.rotation[1])
+        end
+    else
+        out = vector.new()
+    end
+    self.animation_rotation = out
+    --minetest.chat_send_all(dump(out))
+    --minetest.chat_send_all(self.animation_data.current_frame)
+end
+
 --relative to the gun's entity. Returns left, right vectors.
 local out = {arm_left=vector.new(), arm_right=vector.new()}
 function gun_default:get_arm_aim_pos()
     local current_frame = self.animation_data.current_frame
     local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
     local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
+    current_frame = current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION
 
     for i, v in pairs(out) do
-        if self.b3d_model.global_frames[i][frame1] then
-            if (not self.b3d_model.global_frames[i][frame2]) or (current_frame==frame1) then
-                out[i] = vector.copy(self.b3d_model.global_frames[i][frame1])
-            else --to stop nan
-                local ip_ratio = (current_frame-frame1)/self.consts.KEYFRAME_SAMPLE_PRECISION
-                local vec1 = self.b3d_model.global_frames[i][frame1]
-                local vec2 = self.b3d_model.global_frames[i][frame2]
-                out[i] = vec1+((vec1-vec2)*ip_ratio)
+        if self.b3d_model.global_frames[i] then
+            if self.b3d_model.global_frames[i][frame1] then
+                if (not self.b3d_model.global_frames[i][frame2]) or (current_frame==frame1) then
+                    out[i] = vector.copy(self.b3d_model.global_frames[i][frame1])
+                else --to stop nan
+                    local ip_ratio = current_frame-frame1
+                    local vec1 = self.b3d_model.global_frames[i][frame1]
+                    local vec2 = self.b3d_model.global_frames[i][frame2]
+                    out[i] = vec1+((vec1-vec2)*ip_ratio)
+                end
+            else
+                out[i]=vector.copy(self.b3d_model.global_frames[i][1])
             end
         else
-            out[i]=vector.copy(self.b3d_model.global_frames[i][1])
+            out[i] = vector.new()
         end
     end
     return out.arm_left, out.arm_right
@@ -669,7 +703,7 @@ gun_default.construct = function(def)
                 end
             end
         end
-
+        def.animation_rotation = vector.new()
         --def.velocities = table.deep_copy(def.base_class.velocities)
         def.velocities = {}
         for i, tbl in pairs(def.base_class.velocities) do
@@ -728,11 +762,34 @@ gun_default.construct = function(def)
         --print(table.tostring(def.b3d_model))
         --precalculate keyframe "samples" for intepolation.
         --mildly infuriating that lua just stops short by one (so I have to add one extra) I *think* I get why though.
+        local left = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.arm_left, true)
+        local right = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.arm_right, true)
+        local main = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.root, true)
         for target_frame = 0, def.b3d_model.node.animation.frames+1, def.consts.KEYFRAME_SAMPLE_PRECISION do
-            table.insert(def.b3d_model.global_frames.arm_right, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, props.visuals.arm_right, true, target_frame))/10)
-            table.insert(def.b3d_model.global_frames.arm_left, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, props.visuals.arm_left, true, target_frame))/10)
-            --def.b3d_model.rotation =
+            --we need to check that the bone exists first.
+            if left then
+                table.insert(def.b3d_model.global_frames.arm_left, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, left, nil, target_frame))/10)
+            else
+                def.b3d_model.global_frames.arm_left = nil
+            end
+
+            if right then
+                table.insert(def.b3d_model.global_frames.arm_right, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, right, nil, target_frame))/10)
+            else
+                def.b3d_model.global_frames.arm_right = nil
+            end
+
+            if main then
+                --use -1 as it does not exist and thus will always go to the default resting pose
+                local newvec = (mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, -1):inverse())*mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, target_frame)
+                newvec = vector.new(newvec:to_euler_angles_unpack())*180/math.pi
+                --newvec.z = 0
+                table.insert(def.b3d_model.global_frames.rotation, newvec)
+                print(target_frame)
+                print(dump(vector.new(mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, -1):to_euler_angles_unpack())*180/math.pi))
+            end
         end
+        -- if it's not a template, then create an item, override some props
         if def.name ~= "__template" then
             assert(rawget(def, "name"), "no name provided in new class")
             assert(rawget(def, "itemstring"), "no itemstring provided in new class")
