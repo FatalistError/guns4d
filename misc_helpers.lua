@@ -262,7 +262,7 @@ function table.shallow_copy(t)
 end
 
 --for the following code and functions only:
---for license see the link on the next line.
+--for license see the link on the next line (direct permission was granted).
 --https://github.com/3dreamengine/3DreamEngine
 function Point_to_hud(pos, fov, aspect)
 	local n = .1 --near

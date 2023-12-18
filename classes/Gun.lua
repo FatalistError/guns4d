@@ -18,6 +18,11 @@ local gun_default = {
             horizontal_offset = 0,
             aim_time = 1,
         },
+        firemodes = {
+            "single", --not limited to semi-automatic.
+            "auto",
+            "burst"
+        },
         recoil = { --used by update_recoil()
             velocity_correction_factor = { --velocity correction factor is currently very broken.
                 gun_axial = 1,
@@ -74,9 +79,10 @@ local gun_default = {
         controls = { --used by control_handler
             __overfill=true, --if present, this table will not be filled in.
             aim = Guns4d.default_controls.aim,
-            fire = Guns4d.default_controls.fire,
+            auto = Guns4d.default_controls.auto,
             reload = Guns4d.default_controls.reload,
-            on_use = Guns4d.default_controls.on_use
+            on_use = Guns4d.default_controls.on_use,
+            firemode = Guns4d.default_controls.firemode
         },
         reload = { --used by defualt controls. Still provides usefulness elsewhere.
             __overfill=true, --if present, this table will not be filled in.
@@ -90,6 +96,7 @@ local gun_default = {
         },
         visuals = {
             --mesh
+            backface_culling = true,
             root = "gun",
             arm_right = "right_aimpoint",
             arm_left = "left_aimpoint",
@@ -127,10 +134,10 @@ local gun_default = {
     spread = {
 
     },
-    total_offset_rotation = { --can't be in offsets, as they're added automatically.
+    --[[total_offset_rotation = { --can't be in offsets, as they're added automatically.
         gun_axial = Vec.new(),
         player_axial = Vec.new(),
-    },
+    },]]
     player_rotation = Vec.new(),
     velocities = {
         recoil = {
@@ -174,6 +181,7 @@ local gun_default = {
     ]]
     },
     particle_spawners = {},
+    current_firemode = 1,
     walking_tick = 0,
     time_since_last_fire = 0,
     time_since_creation = 0,
@@ -247,6 +255,10 @@ function gun_default:update(dt)
     end
 end
 
+function gun_default:cycle_firemodes()
+    self.current_firemode = (self.current_firemode+1)%(#self.properties.firemodes)
+    minetest.chat_send_all(self.properties.firemodes[self.current_firemode+1])
+end
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
     if self.rechamber_time <= 0 then
@@ -512,10 +524,10 @@ function gun_default:update_animation(dt)
     if data.loop and (data.current_frame > data.frames.y) then
         data.current_frame = data.frames.x
     end
-    --track rotations
+    --track rotations and applies to aim.
     if self.consts.ANIMATIONS_OFFSET_AIM then self:update_animation_rotation() end
 end
---IMPORTANT!!! this does not directly modify the animation_data table, it's all hooked through ObjRef:set_animation() (init.lua) so if animation is set elsewhere it doesnt break.
+--IMPORTANT!!! this does not directly modify the animation_data table anymore, it's all hooked through ObjRef:set_animation() (init.lua) so if animation is set elsewhere it doesnt break.
 --this may be deprecated in the future- as it is no longer really needed now that I hook ObjRef functions.
 function gun_default:set_animation(frames, length, fps, loop)
     loop = loop or false --why the fuck default is true? I DONT FUCKIN KNOW (this undoes this)
@@ -527,7 +539,7 @@ function gun_default:set_animation(frames, length, fps, loop)
     elseif not fps then
         fps = self.consts.DEFAULT_FPS
     end
-    self.entity:set_animation(frames, fps, 0, loop)
+    self.entity:set_animation(frames, fps, 0, loop) --see init.lua for modified ObjRef stuff.
 end
 function gun_default:clear_animation()
     local loaded = false
@@ -538,7 +550,6 @@ function gun_default:clear_animation()
     elseif self.ammo_handler.ammo.total_bullets > 0 then
         loaded = true
     end
-    local data = self.animation_data
     if loaded then
         self.entity:set_animation({x=self.properties.visuals.animations.loaded.x, y=self.properties.visuals.animations.loaded.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
     else
@@ -608,8 +619,6 @@ function gun_default:update_animation_rotation()
         out = vector.new()
     end
     self.animation_rotation = out
-    --minetest.chat_send_all(dump(out))
-    --minetest.chat_send_all(self.animation_data.current_frame)
 end
 
 --relative to the gun's entity. Returns left, right vectors.
@@ -689,7 +698,11 @@ gun_default.construct = function(def)
         def.properties = table.fill(def.base_class.properties, def.properties)
         def.particle_spawners = {} --Instantiatable_class only shallow copies. So tables will not change, and thus some need to be initialized.
         def.property_modifiers = {}
-
+        def.total_offset_rotation = {
+            gun_axial = Vec.new(),
+            player_axial = Vec.new(),
+        }
+        def.player_rotation = Vec.new()
         --initialize all offsets
        --def.offsets = table.deep_copy(def.base_class.offsets)
         def.offsets = {}
@@ -836,6 +849,7 @@ gun_default.construct = function(def)
                 glow = 0,
                 pointable = false,
                 static_save = false,
+                backface_culling = props.visuals.backface_culling
             },
             on_step = function(self, dtime)
                 local obj = self.object

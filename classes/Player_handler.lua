@@ -26,7 +26,6 @@ function player_handler:update(dt)
         --was there a gun last time? did the wield index change?
         local old_index = self.wield_index
         self.wield_index = player:get_wield_index()
-
         --initialize all handlers and objects
         if (not self.gun) or (self.gun.id ~= self.wielded_item:get_meta():get_string("guns4d_id")) then
             --initialize important player data

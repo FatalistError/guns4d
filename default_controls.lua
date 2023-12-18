@@ -5,19 +5,29 @@ Guns4d.default_controls.aim = {
     conditions = {"RMB"},
     loop = false,
     timer = 0,
-    func = function(active, interrupted, data, busy_list, handler)
+    func = function(active, interrupted, data, busy_list, gun, handler)
         if active then
             handler.control_bools.ads = not handler.control_bools.ads
         end
     end
 }
-Guns4d.default_controls.fire = {
+Guns4d.default_controls.auto = {
     conditions = {"LMB"},
     loop = true,
     timer = 0,
-    func = function(active, interrupted, data, busy_list, handler)
-        if not handler.control_handler.busy_list.on_use then
-            handler.gun:attempt_fire()
+    func = function(active, interrupted, data, busy_list, gun, handler)
+        if gun.properties.firemodes[gun.current_firemode+1] == "auto" then
+            gun:attempt_fire()
+        end
+    end
+}
+Guns4d.default_controls.firemode = {
+    conditions = {"sneak", "zoom"},
+    loop = false,
+    timer = .5,
+    func = function(active, interrupted, data, busy_list, gun, handler)
+        if not (busy_list.on_use or busy_list.auto) then
+            gun:cycle_firemodes()
         end
     end
 }
@@ -25,11 +35,10 @@ Guns4d.default_controls.reload = {
     conditions = {"zoom"},
     loop = false,
     timer = 0, --1 so we have a call to initialize the timer.
-    func = function(active, interrupted, data, busy_list, handler)
-        local gun = handler.gun
+    func = function(active, interrupted, data, busy_list, gun, handler)
         local ammo_handler = gun.ammo_handler
         local props = gun.properties
-        if active then
+        if active and not busy_list.firemode then
             if not data.state then
                 data.state = 0
             end
@@ -174,5 +183,5 @@ Guns4d.default_controls.reload = {
 }
 Guns4d.default_controls.on_use = function(itemstack, handler, pointed_thing)
     handler.gun:attempt_fire()
-    handler.control_handler.busy_list.on_use = true
+    --handler.control_handler.busy_list.on_use = true
 end

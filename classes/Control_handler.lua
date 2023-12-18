@@ -33,7 +33,7 @@ function controls:update(dt)
     self.player_pressed = self.player:get_player_control()
     local pressed = self.player_pressed
     local call_queue = {} --so I need to have a "call" queue so I can tell the functions the names of other active controls (busy_list)
-    local busy_list = self.busy_list --list of controls that have their conditions met. Has to be reset at END of update, so on_use and on_secondary_use can be marked
+    local busy_list = self.busy_list or {} --list of controls that have their conditions met. Has to be reset at END of update, so on_use and on_secondary_use can be marked
     for i, control in pairs(self.controls) do
         if not (i=="on_use") and not (i=="on_secondary_use") then
             local def = control
@@ -44,6 +44,7 @@ function controls:update(dt)
                 if not pressed[key] then conditions_met = false break end
             end
             if conditions_met then
+                busy_list[i] = true
                 data.timer = data.timer - dt
                 --when time is over, if it wasnt held (or loop is active) then reset and call the function.
                 --held indicates wether the function was called (as active) before last step.
@@ -54,7 +55,6 @@ function controls:update(dt)
                     table.insert(call_queue, {control=def, active=false, interrupt=false, data=data})
                 end
             else
-                busy_list[i] = true
                 data.held = false
                 --detect interrupts, check if the timer was in progress
                 if data.timer ~= def.timer then
@@ -64,10 +64,8 @@ function controls:update(dt)
             end
         end
     end
-    --busy list is so we can tell if a function should be allowed or not
-    if #busy_list == 0 then busy_list = nil end
     for i, tbl in pairs(call_queue) do
-        tbl.control.func(tbl.active, tbl.interrupt, tbl.data, busy_list, self.handler)
+        tbl.control.func(tbl.active, tbl.interrupt, tbl.data, busy_list, self.handler.gun, self.handler)
     end
     self.busy_list = {}
 end
