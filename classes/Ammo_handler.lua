@@ -34,6 +34,9 @@ function Ammo_handler:update_meta(bullets)
     meta:set_string("guns4d_loaded_bullets", bullets or minetest.serialize(self.ammo.loaded_bullets))
     meta:set_int("guns4d_total_bullets", self.ammo.total_bullets)
     meta:set_string("guns4d_next_bullet", self.ammo.next_bullet)
+    if self.gun.ammo_handler then --if it's a first occourance it cannot work.
+        self.gun:update_image_and_text_meta(meta)
+    end
     self.handler.player:set_wielded_item(self.gun.itemstack)
 end
 --use a round, called when the gun is shot. Returns a bool indicating success.

@@ -20,8 +20,14 @@ local gun_default = {
         },
         firemodes = {
             "single", --not limited to semi-automatic.
-            "auto",
-            "burst"
+            "burst",
+            "auto"
+        },
+        firemode_inventory_overlays = {
+            single = "inventory_overlay_single.png",
+            auto =  "inventory_overlay_auto.png",
+            burst =  "inventory_overlay_burst.png",
+            safe = "inventory_overlay_safe.png"
         },
         recoil = { --used by update_recoil()
             velocity_correction_factor = { --velocity correction factor is currently very broken.
@@ -105,9 +111,12 @@ local gun_default = {
                 loaded = {x=1,y=1},
             },
         },
+        --inventory_image
+        --inventory_image_empty
          --used by ammo_handler
         flash_offset = Vec.new(), --used by fire() (for fsx and ray start pos) [RENAME NEEDED]
         firerateRPM = 600, --used by update() and by extent fire() + default controls
+        burst = 3, --default burst length
         ammo_handler = Ammo_handler
     },
     offsets = {
@@ -186,6 +195,7 @@ local gun_default = {
     time_since_last_fire = 0,
     time_since_creation = 0,
     rechamber_time = 0,
+    burst_queue = 0,
     muzzle_flash = Guns4d.effects.muzzle_flash
 }
 --I dont remember why I made this, used it though lmao
@@ -219,6 +229,7 @@ function gun_default:update(dt)
     self.time_since_creation = self.time_since_creation + dt
     self.time_since_last_fire = self.time_since_last_fire + dt
 
+    if self.burst_queue > 0 then self:update_burstfire() end
     --update some vectors
     if self.consts.HAS_SWAY then self:update_sway(dt) end
     if self.consts.HAS_RECOIL then self:update_recoil(dt) end
@@ -255,9 +266,51 @@ function gun_default:update(dt)
     end
 end
 
+function gun_default:update_burstfire()
+    if self.rechamber_time <= 0 then
+        local success = self:attempt_fire()
+        if not success then
+            self.burst_queue = 0
+        else
+            self.burst_queue = self.burst_queue - 1
+        end
+    end
+end
 function gun_default:cycle_firemodes()
-    self.current_firemode = (self.current_firemode+1)%(#self.properties.firemodes)
-    minetest.chat_send_all(self.properties.firemodes[self.current_firemode+1])
+    self.current_firemode = ((self.current_firemode)%(#self.properties.firemodes))+1
+    self.meta:set_int("guns4d_firemode", self.current_firemode)
+    self:update_image_and_text_meta()
+    self.player:set_wielded_item(self.itemstack)
+end
+function gun_default:update_image_and_text_meta(meta)
+    meta = meta or self.meta
+    local ammo = self.ammo_handler.ammo
+    --set the counter
+    if ammo.total_bullets == 0 then
+        meta:set_string("count_meta", Guns4d.config.empty_symbol)
+    else
+        if Guns4d.config.show_gun_inv_ammo_count then
+            meta:set_string("count_meta", tostring(ammo.total_bullets))
+        else
+            meta:set_string("count_meta", "F")
+        end
+    end
+    --pick the image
+    local image = self.properties.inventory_image
+    if ammo.total_bullets > 0 then
+        image = self.properties.inventory_image
+    elseif self.properties.inventory_image_magless and (ammo.loaded_mag == "empty" or ammo.loaded_mag == "") then
+        image = self.properties.inventory_image_magless
+    elseif self.properties.inventory_image_empty then
+        image = self.properties.inventory_image_empty
+    end
+    --add the firemode overlay to the image
+    if self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]] then
+        minetest.chat_send_all(self.current_firemode)
+        image = image.."^"..self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]]
+    else
+    end
+    meta:set_string("inventory_image", image)
 end
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
@@ -279,6 +332,7 @@ function gun_default:attempt_fire()
             self:recoil()
             self:muzzle_flash()
             self.rechamber_time = 60/self.properties.firerateRPM
+            return true
         end
     end
 end
@@ -680,20 +734,23 @@ gun_default.construct = function(def)
         def.player = def.handler.player
         local meta = def.itemstack:get_meta()
         def.meta = meta
-        local out = {}
-
-
-
-        --create ID so we can track switches between weapons
+        --create ID so we can track switches between weapons, also get some other data.
         if meta:get_string("guns4d_id") == "" then
             local id = tostring(Unique_id.generate())
             meta:set_string("guns4d_id", id)
             def.player:set_wielded_item(def.itemstack)
             def.id = id
+            def.current_firemode = 1
+            meta:set_int("guns4d_firemode", 1)
         else
             def.id = meta:get_string("guns4d_id")
+            def.current_firemode = meta:get_int("guns4d_firemode")
         end
-
+        def.ammo_handler = def.properties.ammo_handler:new({ --initialize ammo handler from gun and gun metadata.
+            gun = def
+        })
+        def:update_image_and_text_meta() --has to be called manually in post as ammo_handler would not exist yet.
+        def.player:set_wielded_item(def.itemstack)
         --unavoidable table instancing
         def.properties = table.fill(def.base_class.properties, def.properties)
         def.particle_spawners = {} --Instantiatable_class only shallow copies. So tables will not change, and thus some need to be initialized.
@@ -735,14 +792,6 @@ gun_default.construct = function(def)
                 gun = def
             })
         end
-        if def.properties.entity_scope then
-            if not def.entity_scope then
-
-            end
-        end
-        def.ammo_handler = def.properties.ammo_handler:new({
-            gun = def
-        })
     elseif def.name ~= "__guns4d:default__" then
         local props = def.properties
 
@@ -804,14 +853,17 @@ gun_default.construct = function(def)
         end
         -- if it's not a template, then create an item, override some props
         if def.name ~= "__template" then
+            assert(def.itemstring, "no itemstring provided. Cannot create a gun without an associated itemstring.")
+            local item_def = minetest.registered_items[def.itemstring]
             assert(rawget(def, "name"), "no name provided in new class")
             assert(rawget(def, "itemstring"), "no itemstring provided in new class")
             assert(not((props.ammo.capacity) and (not props.ammo.magazine_only)), "gun does not accept magazines, but has no set capcity! Please define ammo.capacity")
-            assert(minetest.registered_items[def.itemstring], def.itemstring.." : item is not registered, check dependencies.")
+            assert(item_def, def.itemstring.." : item is not registered.")
 
             --override methods so control handler can do it's job
-            local old_on_use = minetest.registered_items[def.itemstring].on_use
-            local old_on_s_use = minetest.registered_items[def.itemstring].on_secondary_use
+            local old_on_use = item_def.on_use
+            local old_on_s_use = item_def.on_secondary_use
+            def.properties.inventory_image = item_def.inventory_image
             --override the item to hook in controls. (on_drop needed)
             minetest.override_item(def.itemstring, {
                 on_use = function(itemstack, user, pointed_thing)

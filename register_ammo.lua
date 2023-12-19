@@ -30,10 +30,8 @@ function Guns4d.ammo.register_bullet(def)
 end
 function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     meta = meta or itemstack:get_meta()
-    if meta:get_string("guns4d_loaded_bullets") == "" then
-        meta:set_string("guns4d_loaded_bullets", minetest.serialize({}))
-        itemstack:set_wear(max_wear)
-    end
+    meta:set_string("guns4d_loaded_bullets", minetest.serialize({}))
+    Guns4d.ammo.update_mag(nil, itemstack, meta)
     return itemstack
 end
 function Guns4d.ammo.update_mag(def, itemstack, meta)
@@ -47,9 +45,14 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
         count = count + v
     end
     local new_wear = max_wear-(max_wear*count/def.capacity)
-    itemstack:set_wear(math.clamp(new_wear, 1, max_wear-1))
+    --itemstack:set_wear(math.clamp(new_wear, 1, max_wear-1))
     meta:set_int("guns4d_total_bullets", count)
     meta:set_string("guns4d_next_bullet", current_bullet)
+    if count > 0 then
+        meta:set_string("count_meta", tostring(count).."/"..def.capacity)
+    else
+        meta:set_string("count_meta",  Guns4d.config.empty_symbol.."/"..tostring(def.capacity))
+    end
     return itemstack
 end
 

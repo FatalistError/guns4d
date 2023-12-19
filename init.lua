@@ -22,6 +22,15 @@ dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
 dofile(path.."/Proxy_table.lua")
 
+
+--default config values, config will be added soon:tm:
+Guns4d.config = {
+    show_mag_inv_ammo_bar = true,
+    show_mag_inv_ammo_count = true,
+    show_gun_inv_ammo_count = true,
+    empty_symbol = "0e"
+}
+
 --load after
 path = minetest.get_modpath("guns4d")
 
@@ -72,18 +81,19 @@ minetest.register_on_joinplayer(function(player)
                 data.fps = frame_speed or 15
                 data.loop = frame_loop
                 if frame_loop == nil then --still have no idea what nutjob made the default true >:(
-                    frame_loop = true
+                    frame_loop = false
                 end
                 --so... minetest is stupid, and so it won't let me set something to the same animation twice (utterly fucking brilliant).
                 --This means I literally need to flip flop between +1 frames
                 frame_range = table.copy(frame_range)
-                minetest.chat_send_all(dump(frame_range))
+                --minetest.chat_send_all(dump(frame_range))
                 if data.frames.x == frame_range.x and data.frames.y == frame_range.y then
                      --oh yeah, and it only accepts whole frames... because of course.
                     frame_range.x = frame_range.x+1
-                    minetest.chat_send_all("+1")
+                    --minetest.chat_send_all("+1")
                 end
-                minetest.chat_send_all(dump(frame_range))
+                --frame_blend = 25
+                --minetest.chat_send_all(dump(frame_range))
                 data.frames = frame_range
                 data.current_frame = data.frames.x
             end

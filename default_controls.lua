@@ -16,7 +16,7 @@ Guns4d.default_controls.auto = {
     loop = true,
     timer = 0,
     func = function(active, interrupted, data, busy_list, gun, handler)
-        if gun.properties.firemodes[gun.current_firemode+1] == "auto" then
+        if gun.properties.firemodes[gun.current_firemode] == "auto" then
             gun:attempt_fire()
         end
     end
@@ -31,6 +31,17 @@ Guns4d.default_controls.firemode = {
         end
     end
 }
+Guns4d.default_controls.on_use = function(itemstack, handler, pointed_thing)
+    local gun = handler.gun
+    local fmode = gun.properties.firemodes[gun.current_firemode]
+    if fmode ~= "safe" and not (gun.burst_queue > 0) then
+        local fired = gun:attempt_fire()
+        if (fmode == "burst") then
+            gun.burst_queue = gun.properties.burst-((fired and 1) or 0)
+        end
+    end
+    --handler.control_handler.busy_list.on_use = true
+end
 Guns4d.default_controls.reload = {
     conditions = {"zoom"},
     loop = false,
@@ -181,7 +192,3 @@ Guns4d.default_controls.reload = {
         end
     end
 }
-Guns4d.default_controls.on_use = function(itemstack, handler, pointed_thing)
-    handler.gun:attempt_fire()
-    --handler.control_handler.busy_list.on_use = true
-end
