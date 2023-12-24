@@ -46,11 +46,12 @@ local Sprite_scope = Instantiatable_class:inherit({
         end
     end,
 })
+
 Guns4d.sprite_scope = Sprite_scope
 --rename to draw?
 function Sprite_scope:update()
     local handler = self.handler
-    if handler.wininfo and self.handler.control_bools.ads then
+    if handler.wininfo and self.handler.control_handler.ads then
         if not self.fov_set then
             self.fov_set = true
             handler:set_fov(80/self.magnification)
@@ -62,12 +63,12 @@ function Sprite_scope:update()
             dir = dir + (self.gun.properties.ads.offset+vector.new(self.gun.properties.ads.horizontal_offset,0,0))*0
         end
         local fov = self.player:get_fov()
-        local real_aim = Point_to_hud(dir, fov, ratio)
-        local anim_aim = Point_to_hud(vector.rotate({x=0,y=0,z=1}, self.gun.animation_rotation*math.pi/180), fov, ratio)
+        local real_aim = rltv_point_to_hud(dir, fov, ratio)
+        local anim_aim = rltv_point_to_hud(vector.rotate({x=0,y=0,z=1}, self.gun.animation_rotation*math.pi/180), fov, ratio)
         real_aim.x = real_aim.x+anim_aim.x; real_aim.y = real_aim.y+anim_aim.y
 
         --print(dump(self.gun.animation_rotation))
-        local paxial_aim = Point_to_hud(self.gun.local_paxial_dir, fov, ratio)
+        local paxial_aim = rltv_point_to_hud(self.gun.local_paxial_dir, fov, ratio)
         --so custom scopes can do their thing without doing more calcs
         self.hud_projection_real = real_aim
         self.hud_projection_paxial = paxial_aim

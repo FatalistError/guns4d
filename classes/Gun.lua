@@ -20,8 +20,8 @@ local gun_default = {
         },
         firemodes = {
             "single", --not limited to semi-automatic.
-            "burst",
-            "auto"
+            --"burst",
+            --"auto"
         },
         firemode_inventory_overlays = {
             single = "inventory_overlay_single.png",
@@ -29,6 +29,7 @@ local gun_default = {
             burst =  "inventory_overlay_burst.png",
             safe = "inventory_overlay_safe.png"
         },
+        infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
         recoil = { --used by update_recoil()
             velocity_correction_factor = { --velocity correction factor is currently very broken.
                 gun_axial = 1,
@@ -175,7 +176,6 @@ local gun_default = {
         HAS_WAG = true,
         HAS_GUN_AXIAL_OFFSETS = true,
         ANIMATIONS_OFFSET_AIM = false,
-        INFINITE_AMMO_IN_CREATIVE = true,
         LOOP_IDLE_ANIM = false
     },
     animation_data = { --where animations data is stored.
@@ -236,20 +236,20 @@ function gun_default:update(dt)
     if self.consts.HAS_BREATHING then self:update_breathing(dt) end
     if self.consts.HAS_WAG then self:update_wag(dt) end
 
-    --dynamic crosshair needs to be updated BEFORE wag
-    if self.properties.sprite_scope then
-        self.sprite_scope:update()
-    end
-    if self.properties.crosshair then
-        self.crosshair:update()
-    end
-
     self:update_animation(dt)
     self.dir = self:get_dir()
     self.local_dir = self:get_dir(true)
     self.paxial_dir = self:get_player_axial_dir()
     self.local_paxial_dir = self:get_player_axial_dir(true)
     self.pos = self:get_pos()+self.handler:get_pos()
+
+
+    if self.properties.sprite_scope then
+        self.sprite_scope:update()
+    end
+    if self.properties.crosshair then
+        self.crosshair:update()
+    end
 
     local offsets = self.offsets
     --local player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + offsets.breathing.player_axial
@@ -282,6 +282,7 @@ function gun_default:cycle_firemodes()
     self:update_image_and_text_meta()
     self.player:set_wielded_item(self.itemstack)
 end
+--remember to set_wielded_item to self.itemstack! otherwise these changes will not apply!
 function gun_default:update_image_and_text_meta(meta)
     meta = meta or self.meta
     local ammo = self.ammo_handler.ammo
@@ -305,10 +306,11 @@ function gun_default:update_image_and_text_meta(meta)
         image = self.properties.inventory_image_empty
     end
     --add the firemode overlay to the image
-    if self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]] then
-        minetest.chat_send_all(self.current_firemode)
+    if #self.properties.firemodes > 1 and self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]] then
         image = image.."^"..self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]]
-    else
+    end
+    if self.handler.infinite_ammo then
+        image = image.."^"..self.properties.infinite_inventory_overlay
     end
     meta:set_string("inventory_image", image)
 end
@@ -364,7 +366,7 @@ function gun_default:get_player_axial_dir(rltv)
     local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.player_axial.x)*math.pi/180), z=0}))
     dir = Vec.rotate(dir, {y=((rotation.player_axial.y)*math.pi/180), x=0, z=0})
     if not rltv then
-        if (self.properties.sprite_scope and handler.control_bools.ads) or (self.properties.crosshair and not handler.control_bools.ads) then
+        if (self.properties.sprite_scope and handler.control_handler.ads) or (self.properties.crosshair and not handler.control_handler.ads) then
             --we need the head rotation in either of these cases, as that's what they're showing.
             dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
         else
@@ -393,7 +395,7 @@ function gun_default:get_dir(rltv)
         local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0}))
         dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
         if not rltv then
-            if (self.properties.sprite_scope and handler.control_bools.ads) or (self.properties.crosshair and not handler.control_bools.ads) then
+            if (self.properties.sprite_scope and handler.control_handler.ads) or (self.properties.crosshair and not handler.control_handler.ads) then
                 --we need the head rotation in either of these cases, as that's what they're showing.
                 dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
             else
@@ -423,7 +425,7 @@ function gun_default:get_pos(added_pos, relative, debug)
     local handler = self.handler
     local bone_location
     local gun_offset
-    if handler.control_bools.ads then
+    if handler.control_handler.ads then
         gun_offset = self.properties.ads.offset
         bone_location = player:get_eye_offset() or vector.zero()
         bone_location.y = bone_location.y + handler:get_properties().eye_height
@@ -651,7 +653,7 @@ function gun_default:update_sway(dt)
 end
 
 function gun_default:update_animation_rotation()
-    local current_frame = self.animation_data.current_frame
+    local current_frame = self.animation_data.current_frame+self.consts.KEYFRAME_SAMPLE_PRECISION
     local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
     local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
     current_frame = current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION
@@ -659,16 +661,20 @@ function gun_default:update_animation_rotation()
     if self.b3d_model.global_frames.rotation then
         if self.b3d_model.global_frames.rotation[frame1] then
             if (not self.b3d_model.global_frames.rotation[frame2]) or (current_frame==frame1) then
-                out = vector.copy(self.b3d_model.global_frames.rotation[frame1])
+                out = vector.new(self.b3d_model.global_frames.rotation[frame1]:to_euler_angles_unpack())*180/math.pi
+                --print("rawsent")
             else --to stop nan
                 local ip_ratio = current_frame-frame1
                 local vec1 = self.b3d_model.global_frames.rotation[frame1]
                 local vec2 = self.b3d_model.global_frames.rotation[frame2]
-                out = vec1+((vec1-vec2)*ip_ratio)
+                out = vector.new(vec1:slerp(vec2, ip_ratio):to_euler_angles_unpack())*180/math.pi
+                --out = vec1+((vec1-vec2)*ip_ratio) --they're euler angles... actually I wouldnt think this works, but it's good enough for my purposes.
+                --print("interpolated")
             end
         else
             out = vector.copy(self.b3d_model.global_frames.rotation[1])
         end
+        --print(frame1, frame2, current_frame, dump(out))
     else
         out = vector.new()
     end
@@ -678,9 +684,9 @@ end
 --relative to the gun's entity. Returns left, right vectors.
 local out = {arm_left=vector.new(), arm_right=vector.new()}
 function gun_default:get_arm_aim_pos()
-    local current_frame = self.animation_data.current_frame
-    local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
-    local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
+    local current_frame = self.animation_data.current_frame+1
+    local frame1 = (math.floor(current_frame)/self.consts.KEYFRAME_SAMPLE_PRECISION)
+    local frame2 = (math.floor(current_frame)/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
     current_frame = current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION
 
     for i, v in pairs(out) do
@@ -706,6 +712,7 @@ function gun_default:get_arm_aim_pos()
 end
 
 function gun_default:prepare_deletion()
+    self.released = true
     assert(self.instance, "attempt to call object method on a class")
     if self:has_entity() then self.entity:remove() end
     if self.sprite_scope then self.sprite_scope:prepare_deletion() end
@@ -823,10 +830,10 @@ gun_default.construct = function(def)
         }
         --print(table.tostring(def.b3d_model))
         --precalculate keyframe "samples" for intepolation.
-        --mildly infuriating that lua just stops short by one (so I have to add one extra) I *think* I get why though.
         local left = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.arm_left, true)
         local right = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.arm_right, true)
         local main = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.root, true)
+        --we add 2 because we have to add 1 for the loop to make it there if it's a float val, and MTUL uses a system where frame 0 is 1
         for target_frame = 0, def.b3d_model.node.animation.frames+1, def.consts.KEYFRAME_SAMPLE_PRECISION do
             --we need to check that the bone exists first.
             if left then
@@ -843,14 +850,20 @@ gun_default.construct = function(def)
 
             if main then
                 --use -1 as it does not exist and thus will always go to the default resting pose
+                --we compose it by the inverse because we need to get the global CHANGE in rotation for the animation rotation offset. I really need to comment more often
                 local newvec = (mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, -1):inverse())*mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, target_frame)
-                newvec = vector.new(newvec:to_euler_angles_unpack())*180/math.pi
-                --newvec.z = 0
+                --used to use euler
                 table.insert(def.b3d_model.global_frames.rotation, newvec)
-                print(target_frame)
-                print(dump(vector.new(mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, -1):to_euler_angles_unpack())*180/math.pi))
             end
         end
+        if main then
+            local quat = mtul.math.quat.new(main.keys[1].rotation)
+            print(dump(main.keys[1]), vector.new(quat:to_euler_angles_unpack(quat)))
+        end
+        for i, v in pairs(def.b3d_model.global_frames.rotation) do
+            print(i, dump(vector.new(v:to_euler_angles_unpack())*180/math.pi))
+        end
+       --print()
         -- if it's not a template, then create an item, override some props
         if def.name ~= "__template" then
             assert(def.itemstring, "no itemstring provided. Cannot create a gun without an associated itemstring.")
@@ -870,13 +883,13 @@ gun_default.construct = function(def)
                     if old_on_use then
                         old_on_use(itemstack, user, pointed_thing)
                     end
-                    Guns4d.players[user:get_player_name()].handler.control_handler:on_use(itemstack, pointed_thing)
+                    Guns4d.players[user:get_player_name()].control_handler:on_use(itemstack, pointed_thing)
                 end,
                 on_secondary_use = function(itemstack, user, pointed_thing)
                     if old_on_s_use then
                         old_on_s_use(itemstack, user, pointed_thing)
                     end
-                    Guns4d.players[user:get_player_name()].handler.control_handler:on_secondary_use(itemstack, pointed_thing)
+                    Guns4d.players[user:get_player_name()].control_handler:on_secondary_use(itemstack, pointed_thing)
                 end
             })
         end
@@ -907,12 +920,12 @@ gun_default.construct = function(def)
                 local obj = self.object
                 if not self.parent_player then obj:remove() return end
                 local player = self.parent_player
-                local handler = Guns4d.players[player:get_player_name()].handler
+                local handler = Guns4d.players[player:get_player_name()]
                 local lua_object = handler.gun
                 if not lua_object then obj:remove() return end
                 --this is changing the point of rotation if not aiming, this is to make it look less shit.
                 local axial_modifier = Vec.new()
-                if not handler.control_bools.ads then
+                if not handler.control_handler.ads then
                     local pitch = lua_object.total_offset_rotation.player_axial.x+lua_object.player_rotation.x
                     axial_modifier = Vec.new(pitch*(1-lua_object.consts.HIP_PLAYER_GUN_ROT_RATIO),0,0)
                 end
@@ -922,7 +935,7 @@ gun_default.construct = function(def)
                 if lua_object.sprite_scope and lua_object.sprite_scope.hide_gun and (not (handler.ads_location == 0)) then
                     visibility = false
                 end
-                if handler.control_bools.ads  then
+                if handler.control_handler.ads  then
                     local normal_pos = (props.ads.offset)*10
                     obj:set_attach(player, lua_object.consts.AIMING_BONE, normal_pos, -axial_rot, visibility)
                 else

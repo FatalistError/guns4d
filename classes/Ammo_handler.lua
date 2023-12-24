@@ -46,8 +46,8 @@ function Ammo_handler:spend_round()
     local meta = self.gun.meta
     --subtract the bullet
     if self.ammo.total_bullets > 0 then
-        --only actually subtract the round if INFINITE_AMMO_IN_CREATIVE isnt true or they arent creative.
-        if not (self.gun.consts.INFINITE_AMMO_IN_CREATIVE and minetest.check_player_privs(self.gun.player, "creative")) then
+        --only actually subtract the round if infinite_ammo is false.
+        if not self.handler.infinite_ammo then
             self.ammo.loaded_bullets[bullet_spent] = self.ammo.loaded_bullets[bullet_spent]-1
             if self.ammo.loaded_bullets[bullet_spent] == 0 then self.ammo.loaded_bullets[bullet_spent] = nil end
             self.ammo.total_bullets = self.ammo.total_bullets - 1

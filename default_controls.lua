@@ -7,7 +7,7 @@ Guns4d.default_controls.aim = {
     timer = 0,
     func = function(active, interrupted, data, busy_list, gun, handler)
         if active then
-            handler.control_bools.ads = not handler.control_bools.ads
+            handler.control_handler.ads = not handler.control_handler.ads
         end
     end
 }

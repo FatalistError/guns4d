@@ -13,6 +13,7 @@ Guns4d.control_handler = {
         }
     }
     ]]
+    ads = false,
 }
 --data table:
 --[[
@@ -88,7 +89,7 @@ function controls.construct(def)
         assert(def.player, "no player provided")
         def.controls = table.deep_copy(def.controls)
         def.busy_list = {}
-        def.handler = Guns4d.players[def.player:get_player_name()].handler
+        def.handler = Guns4d.players[def.player:get_player_name()]
         for i, control in pairs(def.controls) do
             if not (i=="on_use") and not (i=="on_secondary_use") then
                 control.timer = control.timer or 0

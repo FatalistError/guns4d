@@ -1,0 +1,46 @@
+
+
+
+
+
+( ) add audio
+( ) add config
+(x) fix crash when switching from a gun into a gun with a sprite_scope
+(x) add infinite ammo privelage and quick command
+    ( ) privilege not directly tied to infinite ammo, fix without breaking performance?
+(x) fix animation rotation offset not displaying the correct frame
+    -was a problem with MTUL, changes push :D
+( ) add entity scopes (for holo sights etc)
+( ) add attachments
+( ) add other reloading types
+    (x) magazine
+    ( ) fractional
+    ( ) flat (magless)
+    ( ) fractional clip
+( ) (for 5.9) make infinite ammo priv to rely on on_grant and on_revoke callback for runtime changes (broken as of 5.8)
+( ) (5.9) POTENTIALLY make models use new PR that allows bone offsets to be disabled
+    -I'd probably have to modify models at loadtime to have an eye and hipfire bone? Probably easier then current system though.
+( ) Fix HORRIBLE namespace violation in misc_helpers.lua. Also migrate features to MTUL libraries
+
+this won't be fun.
+documentation
+    ( ) Instantiatable_class
+    ( ) Player_model_handler
+        ( ) Registering a model for compatibility
+
+    ( ) Gun
+        ( ) Sprite_scope
+        ( ) Controls/Control_handler
+            ( ) Creating controls
+            ( ) default_controls.lua
+                ( ) reloading types
+        ( ) Dynamic_crosshair
+
+    ( ) Ammunition penetration system/raycasting
+        ( ) Ammunition registering
+        ( ) Bullet
+        ( ) Bullet_ray
+
+
+    ( ) play_sound.lua
+    ( ) misc_helpers.lua

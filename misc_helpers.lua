@@ -261,10 +261,10 @@ function table.shallow_copy(t)
     return new_table
 end
 
---for the following code and functions only:
+--for the following function only:
 --for license see the link on the next line (direct permission was granted).
 --https://github.com/3dreamengine/3DreamEngine
-function Point_to_hud(pos, fov, aspect)
+function rltv_point_to_hud(pos, fov, aspect)
 	local n = .1 --near
 	local f = 1000 --far
     --wherever you are
@@ -282,5 +282,5 @@ function Point_to_hud(pos, fov, aspect)
     local x = (pos.x/pos.z)*a1
     local y = (pos.y/pos.z)*a6
     local z = (pos.z/pos.z)*a11
-	return {x=x / 2,y=-y / 2,}
+	return {x=x / 2,y=-y / 2} --output needs to be offset by +.5 on both for HUD elements, but this cannot be integrated.
 end

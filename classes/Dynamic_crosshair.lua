@@ -30,14 +30,14 @@ end
 local function render_length(rotation, fov)
     local dir = vector.rotate({x=0,y=0,z=1}, {x=rotation.x*math.pi/180,y=0,z=0})
     vector.rotate(dir,{x=0,y=rotation.y*math.pi/180,z=0})
-    local out = Point_to_hud(dir, fov, 1)
+    local out = rltv_point_to_hud(dir, fov, 1)
     return math.sqrt(out.x^2+out.y^2)
 end
 function Dynamic_crosshair:update(dt)
     assert(self.instance, "attemptr to call object method on a class")
     local handler = self.handler
     local gun = self.gun
-    if handler.wininfo and not handler.control_bools.ads then
+    if handler.wininfo and not handler.control_handler.ads then
         local fov = self.player:get_fov()
         --we have to recalc the rough direction, otherwise walking will look wonky.
         local temp_vector = vector.new()
@@ -85,7 +85,7 @@ function Dynamic_crosshair:update(dt)
 
 
         --now figure out what frame will be our correct spread
-        local offset = Point_to_hud(dir, fov, 1) --pretend it's a 1:1 ratio so we can do things correctly.
+        local offset = rltv_point_to_hud(dir, fov, 1) --pretend it's a 1:1 ratio so we can do things correctly.
         local length = math.sqrt(offset.x^2+offset.y^2) --get the max length.
 
         local img_perc = (self.scale*2*handler.wininfo.real_hud_scaling*self.width)/handler.wininfo.size.x --the percentage that the hud element takes up

@@ -4,12 +4,22 @@ Guns4d = {
     handler_by_ObjRef = {},
     gun_by_ObjRef = {} --used for getting the gun object by the ObjRef of the gun
 }
+--default config values, config will be added soon:tm:
+Guns4d.config = {
+    show_mag_inv_ammo_bar = true,
+    show_mag_inv_ammo_count = true,
+    show_gun_inv_ammo_count = true,
+    empty_symbol = "0e",
+    infinite_ammo_priv = "guns4d_infinite_ammo"
+}
 local path = minetest.get_modpath("guns4d")
+dofile(path.."/infinite_ammo.lua")
 dofile(path.."/misc_helpers.lua")
+dofile(path.."/play_sound.lua")
 dofile(path.."/visual_effects.lua")
 dofile(path.."/default_controls.lua")
 dofile(path.."/block_values.lua")
-dofile(path.."/register_ammo.lua")
+dofile(path.."/ammo_api.lua")
 path = path .. "/classes"
 dofile(path.."/Instantiatable_class.lua")
 dofile(path.."/Bullet_ray.lua")
@@ -22,15 +32,6 @@ dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
 dofile(path.."/Proxy_table.lua")
 
-
---default config values, config will be added soon:tm:
-Guns4d.config = {
-    show_mag_inv_ammo_bar = true,
-    show_mag_inv_ammo_count = true,
-    show_gun_inv_ammo_count = true,
-    empty_symbol = "0e"
-}
-
 --load after
 path = minetest.get_modpath("guns4d")
 
@@ -38,16 +39,14 @@ local player_handler = Guns4d.player_handler
 local objref_mtable
 minetest.register_on_joinplayer(function(player)
     local pname = player:get_player_name()
-    Guns4d.players[pname] = {
-        handler = player_handler:new({player=player})
-    }
-    Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname].handler
+    Guns4d.players[pname] = player_handler:new({player=player}) --player handler does just what it sounds like- see classes/Player_handler
+
+    Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname]
     --set the FOV to a predictable value
     player:set_fov(80)
     --ObjRef overrides will be integrated into MTUL (eventually TM)
     if not objref_mtable then
         objref_mtable = getmetatable(player)
-        print(dump(objref_mtable))
 
         local old_set_fov = objref_mtable.set_fov
         Guns4d.old_set_fov = old_set_fov
@@ -61,14 +60,20 @@ minetest.register_on_joinplayer(function(player)
         end
 
         local old_get_pos = objref_mtable.get_pos
-        function objref_mtable.get_pos(self)
+        function objref_mtable.get_pos(self, ...)
             local gun = Guns4d.gun_by_ObjRef[self]
-            if not gun then
-                return old_get_pos(self)
-            else
-                local v, _, _ = gun:get_pos()
-                return v
+            local mt_pos = old_get_pos(self, ...)
+            if mt_pos then --mods (including this) will frequently use this as a check if an ent is still around.
+                if (not gun) or gun.released then
+                    return mt_pos
+                else
+                    local v, _, _ = gun:get_pos()
+                    return v
+                end
             end
+        end
+        function objref_mtable._guns4d_old_get_pos(self, ...)
+            return old_get_pos(self, ...)
         end
 
         local old_set_animation = objref_mtable.set_animation
@@ -87,7 +92,7 @@ minetest.register_on_joinplayer(function(player)
                 --This means I literally need to flip flop between +1 frames
                 frame_range = table.copy(frame_range)
                 --minetest.chat_send_all(dump(frame_range))
-                if data.frames.x == frame_range.x and data.frames.y == frame_range.y then
+                if (data.frames.x == frame_range.x and data.frames.y == frame_range.y) and not (frame_range.x==frame_range.y) then
                      --oh yeah, and it only accepts whole frames... because of course.
                     frame_range.x = frame_range.x+1
                     --minetest.chat_send_all("+1")
@@ -128,7 +133,7 @@ end)
 end)]]
 minetest.register_on_leaveplayer(function(player)
     local pname = player:get_player_name()
-    Guns4d.players[pname].handler:prepare_deletion()
+    Guns4d.players[pname]:prepare_deletion()
     Guns4d.players[pname] = nil
     Guns4d.handler_by_ObjRef[player] = nil
 end)
@@ -138,12 +143,12 @@ TICK = 0
 minetest.register_globalstep(function(dt)
     TICK = TICK + 1
     if TICK > 100000 then TICK = 0 end
-    for player, obj in pairs(Guns4d.players) do
-        if not obj.handler then
+    for player, handler in pairs(Guns4d.players) do
+        if not handler then
             --spawn the player handler. The player handler handles the gun(s),
             --the player's model, and controls
-            obj.handler = player_handler:new({player=player})
+            handler = player_handler:new({player=player})
         end
-        obj.handler:update(dt)
+        handler:update(dt)
     end
 end)

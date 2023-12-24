@@ -64,7 +64,7 @@ function player_model:update(dt)
 --gun bones:
     local first, second = player:get_eye_offset()
     local eye_pos = vector.new(0, handler:get_properties().eye_height*10, 0)+first
-    if handler.control_bools.ads then
+    if handler.control_handler.ads then
         eye_pos.x = handler.horizontal_offset*10
     end
     player:set_bone_position(self.bone_names.hipfire, self.offsets.relative.arm_right, {x=-(pitch*gun.consts.HIP_PLAYER_GUN_ROT_RATIO), y=180-player_axial_offset.y, z=0})
@@ -110,7 +110,7 @@ end
 --should be renamed to "release" but, whatever.
 function player_model:prepare_deletion()
     assert(self.instance, "attempt to call object method on a class")
-    local handler = Guns4d.players[self.player:get_player_name()].handler
+    local handler = Guns4d.players[self.player:get_player_name()]
     local properties = handler:get_properties()
     if minetest.get_modpath("player_api") then
         player_api.set_model(self.player, self.old)
@@ -123,7 +123,7 @@ end
 function player_model.construct(def)
     if def.instance then
         assert(def.player, "no player provided")
-        def.handler = Guns4d.players[def.player:get_player_name()].handler
+        def.handler = Guns4d.players[def.player:get_player_name()]
         local properties = def.handler:get_properties()
         def.old = properties.mesh
         --set the mesh
