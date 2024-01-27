@@ -26,7 +26,7 @@ end
 function Guns4d.ammo.register_bullet(def)
     assert(def.itemstring, "no itemstring")
     assert(minetest.registered_items[def.itemstring], "no item '"..def.itemstring.."' found. Must be a registered item (check dependencies?)")
-    Guns4d.ammo.registered_bullets[def.itemstring] = table.fill(Default_bullet, def)
+    Guns4d.ammo.registered_bullets[def.itemstring] = Guns4d.table.fill(Default_bullet, def)
 end
 function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     meta = meta or itemstack:get_meta()
@@ -45,9 +45,8 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
         count = count + v
     end
     local new_wear = max_wear-(max_wear*count/def.capacity)
-    --itemstack:set_wear(math.clamp(new_wear, 1, max_wear-1))
+    --itemstack:set_wear(Guns4d.math.clamp(new_wear, 1, max_wear-1))
     meta:set_int("guns4d_total_bullets", count)
-    meta:set_string("guns4d_next_bullet", current_bullet)
     if count > 0 then
         meta:set_string("count_meta", tostring(count).."/"..def.capacity)
     else
@@ -57,7 +56,7 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
 end
 
 function Guns4d.ammo.register_magazine(def)
-    def = table.fill(Default_mag, def)
+    def = Guns4d.table.fill(Default_mag, def)
     assert(def.accepted_bullets, "missing property def.accepted_bullets. Need specified bullets to allow for loading")
     assert(def.itemstring, "missing item name")
     def.accepted_bullets_set = {} --this table is a "lookup" table, I didn't go to college so I have no idea

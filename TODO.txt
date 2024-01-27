@@ -3,11 +3,18 @@
 
 
 
-( ) add audio
-( ) add config
+(~) add audio
+    (x) sfx system
+        (x) did signifficant work on it
+    (x) firing sound effects
+    ( ) reload sound effects
+    ( ) firemode sound effects
+(~) add config
+    (x) add a table for config storage, some settings
+    ( ) integrate with minetest settings
 (x) fix crash when switching from a gun into a gun with a sprite_scope
 (x) add infinite ammo privelage and quick command
-    ( ) privilege not directly tied to infinite ammo, fix without breaking performance?
+    (x) privilege not directly tied to infinite ammo, fix without breaking performance?
 (x) fix animation rotation offset not displaying the correct frame
     -was a problem with MTUL, changes push :D
 ( ) add entity scopes (for holo sights etc)
@@ -17,7 +24,7 @@
     ( ) fractional
     ( ) flat (magless)
     ( ) fractional clip
-( ) (for 5.9) make infinite ammo priv to rely on on_grant and on_revoke callback for runtime changes (broken as of 5.8)
+( ) (for 5.9) make infinite ammo priv to rely on on_grant and on_revoke callback for runtime changes (cannot be done as broken in 5.8)
 ( ) (5.9) POTENTIALLY make models use new PR that allows bone offsets to be disabled
     -I'd probably have to modify models at loadtime to have an eye and hipfire bone? Probably easier then current system though.
 ( ) Fix HORRIBLE namespace violation in misc_helpers.lua. Also migrate features to MTUL libraries
@@ -42,5 +49,9 @@ documentation
         ( ) Bullet_ray
 
 
-    ( ) play_sound.lua
-    ( ) misc_helpers.lua
+    (x) play_sound.lua
+    (~) misc_helpers.lua
+        (x) weighted randoms
+        ( ) unique ID
+        ( ) table helpers
+        ( ) openGL/irrlicht relative dir projection

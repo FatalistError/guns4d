@@ -30,7 +30,7 @@ end
 local function render_length(rotation, fov)
     local dir = vector.rotate({x=0,y=0,z=1}, {x=rotation.x*math.pi/180,y=0,z=0})
     vector.rotate(dir,{x=0,y=rotation.y*math.pi/180,z=0})
-    local out = rltv_point_to_hud(dir, fov, 1)
+    local out = Guns4d.rltv_point_to_hud(dir, fov, 1)
     return math.sqrt(out.x^2+out.y^2)
 end
 function Dynamic_crosshair:update(dt)
@@ -85,13 +85,13 @@ function Dynamic_crosshair:update(dt)
 
 
         --now figure out what frame will be our correct spread
-        local offset = rltv_point_to_hud(dir, fov, 1) --pretend it's a 1:1 ratio so we can do things correctly.
+        local offset = Guns4d.rltv_point_to_hud(dir, fov, 1) --pretend it's a 1:1 ratio so we can do things correctly.
         local length = math.sqrt(offset.x^2+offset.y^2) --get the max length.
 
         local img_perc = (self.scale*2*handler.wininfo.real_hud_scaling*self.width)/handler.wininfo.size.x --the percentage that the hud element takes up
         local frame = length/img_perc --the percentage of the size the length takes up.
         frame = math.floor(self.frames*frame)
-        frame = math.clamp(frame, 0, self.frames-1)
+        frame = Guns4d.math.clamp(frame, 0, self.frames-1)
         --"^[vertical_frame:"..self.frames..":"..frame
         self.player:hud_change(self.hud, "text", self.image.."^[verticalframe:"..self.frames..":"..frame)
     else

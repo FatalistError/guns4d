@@ -34,6 +34,7 @@ function Ammo_handler:update_meta(bullets)
     meta:set_string("guns4d_loaded_bullets", bullets or minetest.serialize(self.ammo.loaded_bullets))
     meta:set_int("guns4d_total_bullets", self.ammo.total_bullets)
     meta:set_string("guns4d_next_bullet", self.ammo.next_bullet)
+    self.ammo.magazine_psuedo_empty = false
     if self.gun.ammo_handler then --if it's a first occourance it cannot work.
         self.gun:update_image_and_text_meta(meta)
     end
@@ -45,7 +46,7 @@ function Ammo_handler:spend_round()
     local bullet_spent = self.ammo.next_bullet
     local meta = self.gun.meta
     --subtract the bullet
-    if self.ammo.total_bullets > 0 then
+    if (self.ammo.total_bullets > 0) and (bullet_spent ~= "empty") then
         --only actually subtract the round if infinite_ammo is false.
         if not self.handler.infinite_ammo then
             self.ammo.loaded_bullets[bullet_spent] = self.ammo.loaded_bullets[bullet_spent]-1
@@ -54,7 +55,7 @@ function Ammo_handler:spend_round()
         end
             --set the new current bullet
         if next(self.ammo.loaded_bullets) then
-            self.ammo.next_bullet = math.weighted_randoms(self.ammo.loaded_bullets)
+            self.ammo.next_bullet = Guns4d.math.weighted_randoms(self.ammo.loaded_bullets)
             meta:set_string("guns4d_next_bullet", self.ammo.next_bullet)
         else
             self.ammo.next_bullet = "empty"
@@ -65,7 +66,10 @@ function Ammo_handler:spend_round()
         return bullet_spent
     end
 end
-function Ammo_handler:load_magazine()
+function Ammo_handler:close_bolt()
+    self.ammo.next_bullet =  Guns4d.math.weighted_randoms(self.ammo.loaded_bullets) or "empty"
+end
+function Ammo_handler:load_magazine(charge)
     assert(self.instance, "attempt to call object method on a class")
     local inv = self.inventory
     local magstack_index
@@ -108,7 +112,8 @@ function Ammo_handler:load_magazine()
         self.ammo.loaded_mag = magstack:get_name()
         self.ammo.loaded_bullets = minetest.deserialize(bullet_string)
         self.ammo.total_bullets = magstack_meta:get_int("guns4d_total_bullets")
-        self.ammo.next_bullet = magstack_meta:get_string("guns4d_next_bullet")
+        self.ammo.next_bullet = ((not charge) and "empty") or Guns4d.math.weighted_randoms(self.ammo.loaded_bullets)
+        print(dump(self.ammo.next_bullet), dump(Guns4d.math.weighted_randoms(self.ammo.loaded_bullets)))
         self:update_meta()
 
         inv:set_stack("main", magstack_index, "")
@@ -139,7 +144,12 @@ function Ammo_handler:can_load_magazine()
     end
     return false
 end
-
+--state will automatically set reset on update_meta()
+function Ammo_handler:set_unloading(bool)
+    self.ammo.magazine_psuedo_empty = bool
+    self.gun:update_image_and_text_meta()
+    self.gun.player:set_wielded_item(self.gun.itemstack)
+end
 function Ammo_handler:unload_magazine(to_ground)
     assert(self.instance, "attempt to call object method on a class")
     if self.ammo.loaded_mag ~= "empty" then
@@ -150,7 +160,6 @@ function Ammo_handler:unload_magazine(to_ground)
         --set the mag's meta before updating ours and adding the item.
         magmeta:set_string("guns4d_loaded_bullets", gunmeta:get_string("guns4d_loaded_bullets"))
         magmeta:set_string("guns4d_total_bullets", gunmeta:get_string("guns4d_total_bullets"))
-        magmeta:set_string("guns4d_next_bullet", gunmeta:get_string("guns4d_next_bullet"))
         magstack = Guns4d.ammo.update_mag(nil, magstack, magmeta)
         --throw it on the ground if to_ground is true
         local remaining

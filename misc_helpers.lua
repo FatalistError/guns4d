@@ -1,14 +1,15 @@
---can't be copyright claimed by myself, luckily... well actually knowing the legal system I probably could sue myself.
-Unique_id = {
+--- misc. common tools for 4dguns
+-- @script misc_helpers
+
+Guns4d.math = {}
+Guns4d.table = {}
+
+--store this so there arent duplicates
+Guns4d.unique_id = {
     generated = {},
 }
-function math.clamp(val, lower, upper)
-    if lower > upper then lower, upper = upper, lower end
-    return math.max(lower, math.min(upper, val))
-end
---I need to store this so there arent duplicates lol
-function Unique_id.generate()
-    local genned_ids = Unique_id.generated
+function Guns4d.unique_id.generate()
+    local genned_ids = Guns4d.unique_id.generated
     local id = string.sub(tostring(math.random()), 3)
     while genned_ids[id] do
         id = string.sub(tostring(math.random()), 3)
@@ -16,8 +17,24 @@ function Unique_id.generate()
     genned_ids[id] = true
     return id
 end
---i probably should stop violating the math namespace, but I'll worry about that *later*
-function math.weighted_randoms(tbl)
+
+---math helpers.
+-- in guns4d.math
+--@section math
+
+--all of the following is disgusting and violates the namespace because I got used to love2d.
+function Guns4d.math.clamp(val, lower, upper)
+    if lower > upper then lower, upper = upper, lower end
+    return math.max(lower, math.min(upper, val))
+end
+--- picks a random index, with odds based on it's value. Returns the index of the selected.
+-- @param tbl a table containing weights, example
+--      {
+--          ["sound"] = 999, --999 in 1000 chance this is chosen
+--          ["rare_sound"] = 1 --1 in 1000 chance this is chosen
+--      }
+-- @function weighted_randoms
+function Guns4d.math.weighted_randoms(tbl)
     local total_weight = 0
     local new_tbl = {}
     for i, v in pairs(tbl) do
@@ -39,38 +56,13 @@ function math.weighted_randoms(tbl)
         scaled_weight = scaled_weight + v[2]
     end
 end
---[[function math.get_rotation(dir)
-    local x = math.atan2(dir.y, dir.z)
-    local y =-math.atan2(dir.x, dir.z)
-    return vector.new(
-        x,
-        y,
-        0
-    )
-end]]
---from luatic's old modlib, doesn't work to fix gimble lock, actually makes things worse (somehow)
-function math.get_rotation(dir)
-    return vector.new(
-        math.atan2(dir.y, math.sqrt(dir.x^2 + dir.z^2)),
-        -math.atan2(dir.x, dir.z),
-        0
-    )
-end
 
-function math.rand_sign(b)
-    b = b or .5
-    local int = 1
-    if math.random() > b then int=-1 end
-    return int
-end
---weighted randoms
-
+--[[
 --for table vectors that aren't vector objects
----@diagnostic disable-next-line: lowercase-global
-function tolerance_check(a,b,tolerance)
+local function tolerance_check(a,b,tolerance)
     return math.abs(a-b) > tolerance
 end
-function vector.equals_tolerance(v, vb, tolerance)
+function Guns4d.math.vectors_in_tolerance(v, vb, tolerance)
     tolerance = tolerance or 0
     return (
         tolerance_check(v.x, vb.x, tolerance) and
@@ -78,14 +70,20 @@ function vector.equals_tolerance(v, vb, tolerance)
         tolerance_check(v.z, vb.z, tolerance)
     )
 end
+]]
+
+---table helpers.
+-- in guns4d.table
+--@section table
+
 --copy everything
-function table.deep_copy(tbl, copy_metatable, indexed_tables)
+function Guns4d.table.deep_copy(tbl, copy_metatable, indexed_tables)
     if not indexed_tables then indexed_tables = {} end
     local new_table = {}
     local metat = getmetatable(tbl)
     if metat then
         if copy_metatable then
-            setmetatable(new_table, table.deep_copy(metat, true))
+            setmetatable(new_table, Guns4d.table.deep_copy(metat, true))
         else
             setmetatable(new_table, metat)
         end
@@ -94,7 +92,7 @@ function table.deep_copy(tbl, copy_metatable, indexed_tables)
         if type(v) == "table" then
             if not indexed_tables[v] then
                 indexed_tables[v] = true
-                new_table[i] = table.deep_copy(v, copy_metatable)
+                new_table[i] = Guns4d.table.deep_copy(v, copy_metatable)
             end
         else
             new_table[i] = v
@@ -104,7 +102,7 @@ function table.deep_copy(tbl, copy_metatable, indexed_tables)
 end
 
 
-function table.contains(tbl, value)
+function Guns4d.table.contains(tbl, value)
     for i, v in pairs(tbl) do
         if v == value then
             return i
@@ -120,7 +118,8 @@ local function parse_index(i)
     end
 end
 --dump() sucks.
-function table.tostring(tbl, shallow, list_length_lim, depth_limit, tables, depth)
+local table_contains = Guns4d.table.contains
+function Guns4d.table.tostring(tbl, shallow, list_length_lim, depth_limit, tables, depth)
     --create a list of tables that have been tostringed in this chain
     if not table then return "nil" end
     if not tables then tables = {this_table = tbl} end
@@ -141,11 +140,11 @@ function table.tostring(tbl, shallow, list_length_lim, depth_limit, tables, dept
         if val_type == "string" then
             str = str..initial_string..parse_index(i).." = \""..v.."\","
         elseif val_type == "table" and (not shallow) then
-            local contains = table.contains(tables, v)
+            local contains = table_contains(tables, v)
             --to avoid infinite loops, make sure that the table has not been tostringed yet
             if not contains then
                 tables[i] = v
-                str = str..initial_string..parse_index(i).." = "..table.tostring(v, shallow, list_length_lim, depth_limit, tables, depth)..","
+                str = str..initial_string..parse_index(i).." = "..Guns4d.table.tostring(v, shallow, list_length_lim, depth_limit, tables, depth)..","
             else
                 str = str..initial_string..parse_index(i).." = "..tostring(v).." (index: '"..tostring(contains).."'),"
             end
@@ -158,7 +157,7 @@ function table.tostring(tbl, shallow, list_length_lim, depth_limit, tables, dept
     end
     return str..string.sub(initial_string, 1, -5).."}"
 end
-function table.tostring_structure_only(tbl, shallow, tables, depth)
+--[[function Guns4d.table.tostring_structure_only(tbl, shallow, tables, depth)
     --create a list of tables that have been tostringed in this chain
     if not table then return "nil" end
     if not tables then tables = {this_table = tbl} end
@@ -183,11 +182,11 @@ function table.tostring_structure_only(tbl, shallow, tables, depth)
         iterations = iterations + 1
         local val_type = type(v)
         if val_type == "table" then
-            local contains = table.contains(tables, v)
+            local contains = table_contains(tables, v)
             --to avoid infinite loops, make sure that the table has not been tostringed yet
             if not contains then
                 tables[parse_index(i).." ["..tostring(v).."]"] = v
-                str = str..initial_string..parse_index(i).."("..tostring(v)..") = "..table.tostring_structure_only(v, shallow, tables, depth)..","
+                str = str..initial_string..parse_index(i).."("..tostring(v)..") = "..Guns4d.table.tostring_structure_only(v, shallow, tables, depth)..","
             elseif type(v) == "table" then
                 str = str..initial_string..parse_index(i).." = "..tostring(v)
             else
@@ -201,14 +200,14 @@ function table.tostring_structure_only(tbl, shallow, tables, depth)
         return "table too long"
     end
     return "{"..str..string.sub(initial_string, 1, -5).."}"
-end
+end]]
 
 --replace fields (and fill sub-tables) in `tbl` with elements in `replacement`. Recursively iterates all sub-tables. use property __overfill=true for subtables that don't want to be overfilled.
-function table.fill(tbl, replacement, preserve_reference, indexed_tables)
+function Guns4d.table.fill(tbl, replacement, preserve_reference, indexed_tables)
     if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
     local new_table = tbl
     if not preserve_reference then
-        new_table = table.deep_copy(tbl)
+        new_table = Guns4d.table.deep_copy(tbl)
     end
     for i, v in pairs(replacement) do
         if new_table[i] then
@@ -218,13 +217,13 @@ function table.fill(tbl, replacement, preserve_reference, indexed_tables)
                     if not indexed_tables[v] then
                         if not new_table[i].__overfill then
                             indexed_tables[v] = true
-                            new_table[i] = table.fill(tbl[i], replacement[i], false, indexed_tables)
+                            new_table[i] = Guns4d.table.fill(tbl[i], replacement[i], false, indexed_tables)
                         else --if overfill is present, we don't want to preserve the old table.
-                            new_table[i] = table.deep_copy(replacement[i])
+                            new_table[i] = Guns4d.table.deep_copy(replacement[i])
                         end
                     end
                 elseif not replacement[i].__no_copy then
-                    new_table[i] = table.deep_copy(replacement[i])
+                    new_table[i] = Guns4d.table.deep_copy(replacement[i])
                 else
                     new_table[i] = replacement[i]
                 end
@@ -239,7 +238,7 @@ function table.fill(tbl, replacement, preserve_reference, indexed_tables)
     return new_table
 end
 --for class based OOP, ensure values containing a table in btbl are tables in a_tbl- instantiate, but do not fill.
-function table.instantiate_struct(tbl, btbl, indexed_tables)
+--[[function table.instantiate_struct(tbl, btbl, indexed_tables)
     if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
     for i, v in pairs(btbl) do
         if type(v) == "table" and not indexed_tables[v] then
@@ -252,8 +251,8 @@ function table.instantiate_struct(tbl, btbl, indexed_tables)
         end
     end
     return tbl
-end
-function table.shallow_copy(t)
+end]]
+function Guns4d.table.shallow_copy(t)
     local new_table = {}
     for i, v in pairs(t) do
         new_table[i] = v
@@ -261,14 +260,15 @@ function table.shallow_copy(t)
     return new_table
 end
 
+---other helpers
+--@section other
+
 --for the following function only:
 --for license see the link on the next line (direct permission was granted).
 --https://github.com/3dreamengine/3DreamEngine
-function rltv_point_to_hud(pos, fov, aspect)
+function Guns4d.rltv_point_to_hud(pos, fov, aspect)
 	local n = .1 --near
 	local f = 1000 --far
-    --wherever you are
-    --I WILL FOLLOWWWW YOU
 	local scale = math.tan(fov * math.pi / 360)
 	local r = scale * n * aspect
 	local t = scale * n

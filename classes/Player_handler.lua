@@ -39,7 +39,7 @@ function player_handler:update(dt)
                 self.player_model_handler = nil
             end
             self.player_model_handler = Guns4d.player_model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
-            self.control_handler = Guns4d.control_handler:new({player=player, controls=self.gun.properties.controls})
+            self.control_handler = Guns4d.control_handler:new({player=player, controls=self.gun.properties.controls, gun=self.gun})
 
             --this needs to be stored for when the gun is unset!
             self.horizontal_offset = self.gun.properties.ads.horizontal_offset
@@ -50,7 +50,7 @@ function player_handler:update(dt)
             --for the gun's scopes to work properly we need predictable offsets.
         end
         --update some properties.
-        self.look_rotation.x, self.look_rotation.y = math.clamp((player:get_look_vertical() or 0)*180/math.pi, -80, 80), -player:get_look_horizontal()*180/math.pi
+        self.look_rotation.x, self.look_rotation.y = Guns4d.math.clamp((player:get_look_vertical() or 0)*180/math.pi, -80, 80), -player:get_look_horizontal()*180/math.pi
         if TICK % 10 == 0 then
             self.wininfo = minetest.get_player_window_information(self.player:get_player_name())
         end
@@ -80,13 +80,13 @@ function player_handler:update(dt)
     --eye offsets and ads_location
     if (self.control_handler and self.control_handler.ads) and (self.ads_location<1) then
         --if aiming, then increase ADS location
-        self.ads_location = math.clamp(self.ads_location + (dt/self.gun.properties.ads.aim_time), 0, 1)
+        self.ads_location = Guns4d.math.clamp(self.ads_location + (dt/self.gun.properties.ads.aim_time), 0, 1)
     elseif ((not self.control_handler) or (not self.control_handler.ads)) and self.ads_location>0 then
         local divisor = .2
         if self.gun then
             divisor = self.gun.properties.ads.aim_time/self.gun.consts.AIM_OUT_AIM_IN_SPEED_RATIO
         end
-        self.ads_location = math.clamp(self.ads_location - (dt/divisor), 0, 1)
+        self.ads_location = Guns4d.math.clamp(self.ads_location - (dt/divisor), 0, 1)
     end
 
     self.look_offset.x = self.horizontal_offset*self.ads_location
@@ -162,7 +162,7 @@ end
 function player_handler:set_properties(properties)
     assert(self.instance, "attempt to call object method on a class")
     self.player:set_properties(properties)
-    self.properties = table.fill(self.properties, properties)
+    self.properties = Guns4d.table.fill(self.properties, properties)
 end
 function player_handler:is_holding_gun()
     assert(self.instance, "attempt to call object method on a class")
@@ -208,7 +208,7 @@ function player_handler.construct(def)
                 def[i] = v
             end
         end
-        def.look_rotation = table.deep_copy(player_handler.look_rotation)
+        def.look_rotation = Guns4d.table.deep_copy(player_handler.look_rotation)
         def.infinite_ammo = minetest.check_player_privs(def.player, Guns4d.config.infinite_ammo_priv)
     end
 end

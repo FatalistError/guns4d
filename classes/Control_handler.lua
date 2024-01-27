@@ -35,40 +35,44 @@ function controls:update(dt)
     local pressed = self.player_pressed
     local call_queue = {} --so I need to have a "call" queue so I can tell the functions the names of other active controls (busy_list)
     local busy_list = self.busy_list or {} --list of controls that have their conditions met. Has to be reset at END of update, so on_use and on_secondary_use can be marked
-    for i, control in pairs(self.controls) do
-        if not (i=="on_use") and not (i=="on_secondary_use") then
-            local def = control
-            local data = control.data
-            local conditions_met = true
-            --check no conditions are false
-            for _, key in pairs(control.conditions) do
-                if not pressed[key] then conditions_met = false break end
-            end
-            if conditions_met then
-                busy_list[i] = true
-                data.timer = data.timer - dt
-                --when time is over, if it wasnt held (or loop is active) then reset and call the function.
-                --held indicates wether the function was called (as active) before last step.
-                if data.timer <= 0 and ((not data.held) or def.loop) then
-                    data.held = true
-                    table.insert(call_queue, {control=def, active=true, interrupt=false, data=data})
-                elseif def.call_before_timer and not data.held then --this is useful for functions that need to play animations for their progress.
-                    table.insert(call_queue, {control=def, active=false, interrupt=false, data=data})
+    if not (self.gun.rechamber_time > 0 and self.gun.ammo_handler.ammo.next_bullet == "empty") then --check if the gun is being charged.
+        for i, control in pairs(self.controls) do
+            if not (i=="on_use") and not (i=="on_secondary_use") then
+                local def = control
+                local data = control.data
+                local conditions_met = true
+                --check no conditions are false
+                for _, key in pairs(control.conditions) do
+                    if not pressed[key] then conditions_met = false break end
                 end
-            else
-                data.held = false
-                --detect interrupts, check if the timer was in progress
-                if data.timer ~= def.timer then
-                    table.insert(call_queue, {control=def, active=false, interrupt=true, data=data})
-                    data.timer = def.timer
+                if conditions_met then
+                    busy_list[i] = true
+                    data.timer = data.timer - dt
+                    --when time is over, if it wasnt held (or loop is active) then reset and call the function.
+                    --held indicates wether the function was called (as active) before last step.
+                    if data.timer <= 0 and ((not data.held) or def.loop) then
+                        data.held = true
+                        table.insert(call_queue, {control=def, active=true, interrupt=false, data=data})
+                    elseif def.call_before_timer and not data.held then --this is useful for functions that need to play animations for their progress.
+                        table.insert(call_queue, {control=def, active=false, interrupt=false, data=data})
+                    end
+                else
+                    data.held = false
+                    --detect interrupts, check if the timer was in progress
+                    if data.timer ~= def.timer then
+                        table.insert(call_queue, {control=def, active=false, interrupt=true, data=data})
+                        data.timer = def.timer
+                    end
                 end
             end
         end
+        for i, tbl in pairs(call_queue) do
+            tbl.control.func(tbl.active, tbl.interrupt, tbl.data, busy_list, self.handler.gun, self.handler)
+        end
+        self.busy_list = {}
+    elseif self.busy_list then
+        self.busy_list = nil
     end
-    for i, tbl in pairs(call_queue) do
-        tbl.control.func(tbl.active, tbl.interrupt, tbl.data, busy_list, self.handler.gun, self.handler)
-    end
-    self.busy_list = {}
 end
 function controls:on_use(itemstack, pointed_thing)
     assert(self.instance, "attempt to call object method on a class")
@@ -87,7 +91,7 @@ function controls.construct(def)
     if def.instance then
         assert(def.controls, "no controls provided")
         assert(def.player, "no player provided")
-        def.controls = table.deep_copy(def.controls)
+        def.controls = Guns4d.table.deep_copy(def.controls)
         def.busy_list = {}
         def.handler = Guns4d.players[def.player:get_player_name()]
         for i, control in pairs(def.controls) do

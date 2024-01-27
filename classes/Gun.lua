@@ -84,17 +84,22 @@ local gun_default = {
         },
         breathing_scale = .5, --the max angluler offset caused by breathing.
         controls = { --used by control_handler
-            __overfill=true, --if present, this table will not be filled in.
+            __overfill=true, --this table will not be filled in.
             aim = Guns4d.default_controls.aim,
             auto = Guns4d.default_controls.auto,
             reload = Guns4d.default_controls.reload,
             on_use = Guns4d.default_controls.on_use,
             firemode = Guns4d.default_controls.firemode
         },
+        charging = { --how the gun "cocks"
+            require_charge_on_swap = true,
+            bolt_charge_mode = "none", --"none"-chamber is always full, "catch"-when fired to dry bolt will not need to be charged after reload, "no_catch" bolt will always need to be charged after reload.
+            default_charge_time = 1,
+        },
         reload = { --used by defualt controls. Still provides usefulness elsewhere.
-            __overfill=true, --if present, this table will not be filled in.
-            {type="unload", time=1, anim="unload", interupt="to_ground", hold = true},
-            {type="load", time=1, anim="load"}
+            __overfill=true,
+            --{type="unload_mag", time=1, anim="unload_mag", interupt="to_ground", hold = true, sound = {sound = "load magazine", pitch = {min=.9, max=1.1}}},
+            --{type="load", time=1, anim="load"}
         },
         ammo = { --used by ammo_handler
             magazine_only = false,
@@ -105,11 +110,41 @@ local gun_default = {
             --mesh
             backface_culling = true,
             root = "gun",
+            magazine = "magazine",
             arm_right = "right_aimpoint",
             arm_left = "left_aimpoint",
             animations = { --used by animations handler for idle, and default controls
                 empty = {x=0,y=0},
                 loaded = {x=1,y=1},
+            },
+        },
+        sounds = { --this does not contain reload sound effects.
+            fire = {
+                {
+                    sound = "ar_firing",
+                    max_hear_distance = 40, --far min_hear_distance is also this.
+                    pitch = {
+                        min = .95,
+                        max = 1.05
+                    },
+                    gain = {
+                        min = .9,
+                        max = 1
+                    }
+                },
+                {
+                    sound = "ar_firing_far",
+                    min_hear_distance = 40,
+                    max_hear_distance = 600,
+                    pitch = {
+                        min = .95,
+                        max = 1.05
+                    },
+                    gain = {
+                        min = .9,
+                        max = 1
+                    }
+                }
             },
         },
         --inventory_image
@@ -168,6 +203,7 @@ local gun_default = {
         KEYFRAME_SAMPLE_PRECISION = .1, --[[what frequency to take precalcualted keyframe samples. The lower this is the higher the memory allocation it will need- though minimal.
         This will fuck shit up if you change it after gun construction/inheritence (interpolation between precalculated vectors will not work right)]]
         WAG_CYCLE_SPEED = 1.6,
+        DEFAULT_MAX_HEAR_DISTANCE = 10,
         DEFAULT_FPS = 60,
         WAG_DECAY = 1, --divisions per second
         HAS_RECOIL = true,
@@ -189,6 +225,7 @@ local gun_default = {
         }
     ]]
     },
+    bolt_charged = false,
     particle_spawners = {},
     current_firemode = 1,
     walking_tick = 0,
@@ -202,7 +239,16 @@ local gun_default = {
 function gun_default.multiplier_coefficient(multiplier, ratio)
     return 1+((multiplier*ratio)-ratio)
 end
---update the gun, da meat and da potatoes
+function gun_default:charge()
+    assert(self.instance, "attempt to call object method on a class")
+    local props = self.properties
+    if props.visuals.animations.charge then
+        self:set_animation(props.visuals.animations.charge, props.charging.default_charge_time)
+    end
+    self.ammo_handler:close_bolt()
+    self.rechamber_time = props.charging.default_charge_time
+end
+--update gun, the main function.
 function gun_default:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     if not self:has_entity() then self:add_entity(); self:clear_animation() end
@@ -251,6 +297,13 @@ function gun_default:update(dt)
         self.crosshair:update()
     end
 
+    --automatically cock if uncocked.
+    local ammo = self.ammo_handler.ammo
+    --[[if ammo.total_bullets and (ammo.total_bullets > 0 and ammo.next_bullet == "empty") then
+        self:charge()
+    end]]
+    print(dump(self.ammo_handler.ammo.next_bullet))
+
     local offsets = self.offsets
     --local player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + offsets.breathing.player_axial
     --local gun_axial    = offsets.recoil.gun_axial    + offsets.walking.gun_axial    + offsets.sway.gun_axial
@@ -298,9 +351,9 @@ function gun_default:update_image_and_text_meta(meta)
     end
     --pick the image
     local image = self.properties.inventory_image
-    if ammo.total_bullets > 0 then
+    if (ammo.total_bullets > 0) and not ammo.magazine_psuedo_empty then
         image = self.properties.inventory_image
-    elseif self.properties.inventory_image_magless and (ammo.loaded_mag == "empty" or ammo.loaded_mag == "") then
+    elseif self.properties.inventory_image_magless and ( (ammo.loaded_mag == "empty") or (ammo.loaded_mag == "") or ammo.magazine_psuedo_empty) then
         image = self.properties.inventory_image_magless
     elseif self.properties.inventory_image_empty then
         image = self.properties.inventory_image_empty
@@ -321,9 +374,10 @@ function gun_default:attempt_fire()
         if spent_bullet and spent_bullet ~= "empty" then
             local dir = self.dir
             local pos = self.pos
-            local bullet_def = table.fill(Guns4d.ammo.registered_bullets[spent_bullet], {
+            local bullet_def = Guns4d.table.fill(Guns4d.ammo.registered_bullets[spent_bullet], {
                 player = self.player,
-                pos = pos,
+                --we don't want it to be doing fuckshit and letting players shoot through walls.
+                pos = pos-((self.handler.control_handler.ads and dir*self.properties.ads.offset.z) or dir*self.properties.hip.offset.z),
                 dir = dir,
                 gun = self
             })
@@ -333,19 +387,29 @@ function gun_default:attempt_fire()
             end
             self:recoil()
             self:muzzle_flash()
+
+            local fire_sound = Guns4d.table.deep_copy(self.properties.sounds.fire) --important that we copy because play_sounds modifies it.
+            fire_sound.pos = self.pos
+            Guns4d.play_sounds(fire_sound)
+
             self.rechamber_time = 60/self.properties.firerateRPM
             return true
         end
     end
 end
-
+local function rand_sign(b)
+    b = b or .5
+    local int = 1
+    if math.random() > b then int=-1 end
+    return int
+end
 function gun_default:recoil()
     assert(self.instance, "attempt to call object method on a class")
     local rprops = self.properties.recoil
     for axis, recoil in pairs(self.velocities.recoil) do
         for _, i in pairs({"x","y"}) do
             recoil[i] = recoil[i] + (rprops.angular_velocity[axis][i]
-                *math.rand_sign((rprops.bias[axis][i]/2)+.5))
+                *rand_sign((rprops.bias[axis][i]/2)+.5))
                 *self.multiplier_coefficient(rprops.hipfire_multiplier[axis], 1-self.handler.ads_location)
         end
     end
@@ -539,7 +603,7 @@ function gun_default:update_recoil(dt)
     for axis, _ in pairs(self.offsets.recoil) do
         for _, i in pairs({"x","y"}) do
             local recoil = self.offsets.recoil[axis][i]
-            local recoil_vel = math.clamp(self.velocities.recoil[axis][i],-self.properties.recoil.angular_velocity_max[axis],self.properties.recoil.angular_velocity_max[axis])
+            local recoil_vel = Guns4d.math.clamp(self.velocities.recoil[axis][i],-self.properties.recoil.angular_velocity_max[axis],self.properties.recoil.angular_velocity_max[axis])
             local old_recoil_vel = recoil_vel
             recoil = recoil + recoil_vel
             if math.abs(recoil_vel) > 0.01 then
@@ -560,7 +624,7 @@ function gun_default:update_recoil(dt)
             if math.abs(recoil) > 0.001 then
                 local correction_multiplier = self.time_since_last_fire*self.properties.recoil.target_correction_factor[axis]
                 local correction_value = recoil*correction_multiplier
-                correction_value = math.clamp(math.abs(correction_value), 0, self.properties.recoil.target_correction_max_rate[axis])
+                correction_value = Guns4d.math.clamp(math.abs(correction_value), 0, self.properties.recoil.target_correction_max_rate[axis])
                 recoil=recoil-(correction_value*dt*(math.abs(recoil)/recoil))
                 --prevent overcorrection
                 if math.abs(recoil) > math.abs(old_recoil) then
@@ -576,7 +640,7 @@ function gun_default:update_animation(dt)
     local ent = self.entity
     local data = self.animation_data
     data.runtime = data.runtime + dt
-    data.current_frame = math.clamp(data.current_frame+(dt*data.fps), data.frames.x, data.frames.y)
+    data.current_frame = Guns4d.math.clamp(data.current_frame+(dt*data.fps), data.frames.x, data.frames.y)
     if data.loop and (data.current_frame > data.frames.y) then
         data.current_frame = data.frames.x
     end
@@ -743,7 +807,7 @@ gun_default.construct = function(def)
         def.meta = meta
         --create ID so we can track switches between weapons, also get some other data.
         if meta:get_string("guns4d_id") == "" then
-            local id = tostring(Unique_id.generate())
+            local id = tostring(Guns4d.unique_id.generate())
             meta:set_string("guns4d_id", id)
             def.player:set_wielded_item(def.itemstack)
             def.id = id
@@ -756,10 +820,15 @@ gun_default.construct = function(def)
         def.ammo_handler = def.properties.ammo_handler:new({ --initialize ammo handler from gun and gun metadata.
             gun = def
         })
+        local ammo = def.ammo_handler.ammo
+        if def.properties.require_charge_on_swap then
+            ammo.next_bullet = "empty"
+        end
+        minetest.after(0, function() if ammo.total_bullets > 0 then def:charge() end end)
         def:update_image_and_text_meta() --has to be called manually in post as ammo_handler would not exist yet.
         def.player:set_wielded_item(def.itemstack)
         --unavoidable table instancing
-        def.properties = table.fill(def.base_class.properties, def.properties)
+        def.properties = Guns4d.table.fill(def.base_class.properties, def.properties)
         def.particle_spawners = {} --Instantiatable_class only shallow copies. So tables will not change, and thus some need to be initialized.
         def.property_modifiers = {}
         def.total_offset_rotation = {
@@ -768,7 +837,7 @@ gun_default.construct = function(def)
         }
         def.player_rotation = Vec.new()
         --initialize all offsets
-       --def.offsets = table.deep_copy(def.base_class.offsets)
+       --def.offsets = Guns4d.table.deep_copy(def.base_class.offsets)
         def.offsets = {}
         for offset, tbl in pairs(def.base_class.offsets) do
             def.offsets[offset] = {}
@@ -781,7 +850,7 @@ gun_default.construct = function(def)
             end
         end
         def.animation_rotation = vector.new()
-        --def.velocities = table.deep_copy(def.base_class.velocities)
+        --def.velocities = Guns4d.table.deep_copy(def.base_class.velocities)
         def.velocities = {}
         for i, tbl in pairs(def.base_class.velocities) do
             def.velocities[i] = {}
@@ -817,8 +886,8 @@ gun_default.construct = function(def)
         end
 
         --fill in the properties.
-        def.properties = table.fill(def.parent_class.properties, props or {})
-        def.consts = table.fill(def.parent_class.consts, def.consts or {})
+        def.properties = Guns4d.table.fill(def.parent_class.properties, props or {})
+        def.consts = Guns4d.table.fill(def.parent_class.consts, def.consts or {})
         props = def.properties --have to reinitialize this as the reference is replaced.
 
         --print(table.tostring(props))
@@ -856,13 +925,13 @@ gun_default.construct = function(def)
                 table.insert(def.b3d_model.global_frames.rotation, newvec)
             end
         end
-        if main then
+        --[[if main then
             local quat = mtul.math.quat.new(main.keys[1].rotation)
             print(dump(main.keys[1]), vector.new(quat:to_euler_angles_unpack(quat)))
         end
         for i, v in pairs(def.b3d_model.global_frames.rotation) do
             print(i, dump(vector.new(v:to_euler_angles_unpack())*180/math.pi))
-        end
+        end]]
        --print()
         -- if it's not a template, then create an item, override some props
         if def.name ~= "__template" then

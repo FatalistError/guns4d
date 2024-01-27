@@ -115,22 +115,20 @@ function ray:_iterate(initialized)
     local distance = vector.distance(self.pos, end_pos)
     if self.state == "free" then
         self.energy = self.energy-(distance*self.energy_dropoff)
-        if distance ~= self.pos+(self.dir*self.range) then
+
+        if next_state == "transverse" then
+            print(vector.distance(self.pos, end_pos), vector.distance(self.pos, self.pos+(self.dir*self.range)))
             self:bullet_hole(end_pos, end_normal)
         end
     else
-        if self.history[#self.history].state == "free" then
-            self:bullet_hole(self.pos, self.history[#self.history-1].normal)
-        end
+        --add exit holes
         if next_state == "free" then
             self:bullet_hole(end_pos, end_normal)
         end
+        --calc penetration loss from traveling through the block
         local penetration_loss = distance*Guns4d.node_properties[self.last_node_name].mmRHA
         --calculate our energy loss based on the percentage of energy our penetration represents.
         self.energy = self.energy-((self.init_energy*self.energy_sharp_ratio)*(penetration_loss/self.sharp_penetration))
-    end
-    if self.state ~= self.next_state then
-
     end
     --set values for next iteration.
     self.range = self.range-distance
@@ -187,11 +185,11 @@ function ray:hit_entity(object)
 
     local resistance = object:get_armor_groups() -- support for different body parts is needed here, that's for... a later date, though.
     local sharp_pen = self.sharp_penetration-(self.sharp_penetration*(self.energy/self.init_energy)*self.energy_sharp_ratio)
-    sharp_pen = math.clamp(sharp_pen - (resistance.guns4d_mmRHA or 0), 0, 65535)
+    sharp_pen = Guns4d.math.clamp(sharp_pen - (resistance.guns4d_mmRHA or 0), 0, 65535)
     local converted_Pa = (resistance.guns4d_mmRHA or 0) * self.mmRHA_to_Pa_energy_ratio
 
     local blunt_pen = converted_Pa+(self.blunt_penetration-(self.blunt_penetration*(self.energy/self.init_energy)*(1-self.energy_sharp_ratio)))
-    blunt_pen = math.clamp(blunt_pen - (resistance.guns4d_Pa or 0), 0, 65535)
+    blunt_pen = Guns4d.math.clamp(blunt_pen - (resistance.guns4d_Pa or 0), 0, 65535)
     self:apply_damage(object, sharp_pen, blunt_pen)
 
     --raw damage first

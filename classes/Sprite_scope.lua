@@ -31,9 +31,9 @@ local Sprite_scope = Instantiatable_class:inherit({
             def.player = def.gun.player
             def.handler = def.gun.handler
             def.elements = {}
-            local new_images = table.deep_copy(def.images)
+            local new_images = Guns4d.table.deep_copy(def.images)
             if def.images then
-                def.images = table.fill(new_images, def.images)
+                def.images = Guns4d.table.fill(new_images, def.images)
             end
             for i, v in pairs(def.images) do
                 def.elements[i] = def.player:hud_add{
@@ -63,12 +63,12 @@ function Sprite_scope:update()
             dir = dir + (self.gun.properties.ads.offset+vector.new(self.gun.properties.ads.horizontal_offset,0,0))*0
         end
         local fov = self.player:get_fov()
-        local real_aim = rltv_point_to_hud(dir, fov, ratio)
-        local anim_aim = rltv_point_to_hud(vector.rotate({x=0,y=0,z=1}, self.gun.animation_rotation*math.pi/180), fov, ratio)
+        local real_aim = Guns4d.rltv_point_to_hud(dir, fov, ratio)
+        local anim_aim = Guns4d.rltv_point_to_hud(vector.rotate({x=0,y=0,z=1}, self.gun.animation_rotation*math.pi/180), fov, ratio)
         real_aim.x = real_aim.x+anim_aim.x; real_aim.y = real_aim.y+anim_aim.y
 
         --print(dump(self.gun.animation_rotation))
-        local paxial_aim = rltv_point_to_hud(self.gun.local_paxial_dir, fov, ratio)
+        local paxial_aim = Guns4d.rltv_point_to_hud(self.gun.local_paxial_dir, fov, ratio)
         --so custom scopes can do their thing without doing more calcs
         self.hud_projection_real = real_aim
         self.hud_projection_paxial = paxial_aim

@@ -1,0 +1,5 @@
+Files contained within this folder each have a respective license, their licenses are named in the following format:
+"LICENSE [file].txt"
+example:
+for ar_firing.ogg the license would be named
+"LICENSE ar_firing.ogg.txt"
