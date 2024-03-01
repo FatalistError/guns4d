@@ -40,6 +40,23 @@ function Ammo_handler:update_meta(bullets)
     end
     self.handler.player:set_wielded_item(self.gun.itemstack)
 end
+function Ammo_handler:get_magazine_bone_info()
+    local gun = self.gun
+    local handler = self.gun.handler
+    local node = mtul.b3d_nodes.get_node_by_name(gun.b3d_model, gun.properties.visuals.magazine, true)
+    --get trans of first frame
+    if not node then
+        minetest.log("error", "improperly set gun magazine bone name, could not properly calculate magazine transformation.")
+        return self.gun.pos, vector.new(), vector.new()
+    end
+    local pos1 = vector.new(mtul.b3d_nodes.get_node_global_position(nil, node, true, math.floor(gun.animation_data.current_frame)))
+    local pos2 = vector.new(mtul.b3d_nodes.get_node_global_position(nil, node, true, gun.animation_data.current_frame))
+    local vel = (pos2-pos1)*((gun.animation_data.current_frame-math.floor(gun.animation_data.current_frame))/gun.animation_data.fps)+self.gun.player:get_velocity()
+    local pos = self.gun:get_pos(pos2/10)+self.gun.handler:get_pos()
+    --[[so I tried to get the rotation before, and it actually turns out that was... insanely difficult? Why? I don't know, the rotation behavior was beyond unexpected, I tried implementing it with quats and
+    matrices and neither worked. I'm done, I've spent countless hours on this, and its fuckin stupid to spend a SECOND more on this pointless shit. It wouldnt even look that much better!]]
+    return pos, vel
+end
 --use a round, called when the gun is shot. Returns a bool indicating success.
 function Ammo_handler:spend_round()
     assert(self.instance, "attempt to call object method on a class")
@@ -52,6 +69,9 @@ function Ammo_handler:spend_round()
             self.ammo.loaded_bullets[bullet_spent] = self.ammo.loaded_bullets[bullet_spent]-1
             if self.ammo.loaded_bullets[bullet_spent] == 0 then self.ammo.loaded_bullets[bullet_spent] = nil end
             self.ammo.total_bullets = self.ammo.total_bullets - 1
+            if (self.ammo.total_bullets == 0) and (self.gun.properties.charging.bolt_charge_mode == "catch") then
+                self.gun.bolt_charged = true
+            end
         end
             --set the new current bullet
         if next(self.ammo.loaded_bullets) then
@@ -60,16 +80,35 @@ function Ammo_handler:spend_round()
         else
             self.ammo.next_bullet = "empty"
             meta:set_string("guns4d_next_bullet", "empty")
+            if self.gun.properties.charging.bolt_charge_mode == "catch" then
+                self.gun.bolt_charged = true
+            end
         end
 
         self:update_meta()
         return bullet_spent
     end
 end
-function Ammo_handler:close_bolt()
-    self.ammo.next_bullet =  Guns4d.math.weighted_randoms(self.ammo.loaded_bullets) or "empty"
+function Ammo_handler:chamber_round()
+    self.ammo.next_bullet = Guns4d.math.weighted_randoms(self.ammo.loaded_bullets) or "empty"
 end
-function Ammo_handler:load_magazine(charge)
+local function tally_ammo_from_meta(meta)
+    local string = meta:get_string("guns4d_loaded_bullets")
+    if string=="" then return 0 end
+    local count = 0
+    for i, v in pairs(minetest.deserialize(string)) do
+        count=count+v
+    end
+    return count
+end
+local function tally_ammo(ammo)
+    local total = 0
+    for i, v in pairs(ammo) do
+        total = total + v
+    end
+    return total
+end
+function Ammo_handler:load_magazine()
     assert(self.instance, "attempt to call object method on a class")
     local inv = self.inventory
     local magstack_index
@@ -82,17 +121,17 @@ function Ammo_handler:load_magazine(charge)
     end
     for i, v in pairs(inv:get_list("main")) do
         if gun_accepts[v:get_name()] then
-            local meta = v:get_meta()
+            local mag_meta = v:get_meta()
             --intiialize data if it doesn't exist so it doesnt kill itself
-            if meta:get_string("guns4d_loaded_bullets") == "" then
+            if mag_meta:get_string("guns4d_loaded_bullets") == "" then
                 Guns4d.ammo.initialize_mag_data(v)
                 inv:set_stack("main", i, v)
             end
-            local ammo = meta:get_int("guns4d_total_bullets")
+            local ammo = tally_ammo_from_meta(mag_meta)
             if ammo > highest_ammo then
                 highest_ammo = ammo
                 local has_unaccepted = false
-                for bullet, _ in pairs(minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))) do
+                for bullet, _ in pairs(minetest.deserialize(mag_meta:get_string("guns4d_loaded_bullets"))) do
                     if not gun.accepted_bullets[bullet] then
                         has_unaccepted = true
                         break
@@ -106,16 +145,19 @@ function Ammo_handler:load_magazine(charge)
         local magstack = inv:get_stack("main", magstack_index)
         local magstack_meta = magstack:get_meta()
         --get the ammo stuff
-        local meta = self.gun.meta
 
         local bullet_string = magstack_meta:get_string("guns4d_loaded_bullets")
-        self.ammo.loaded_mag = magstack:get_name()
-        self.ammo.loaded_bullets = minetest.deserialize(bullet_string)
-        self.ammo.total_bullets = magstack_meta:get_int("guns4d_total_bullets")
-        self.ammo.next_bullet = ((not charge) and "empty") or Guns4d.math.weighted_randoms(self.ammo.loaded_bullets)
-        print(dump(self.ammo.next_bullet), dump(Guns4d.math.weighted_randoms(self.ammo.loaded_bullets)))
+        local ammo = self.ammo
+        ammo.loaded_mag = magstack:get_name()
+        ammo.loaded_bullets = minetest.deserialize(bullet_string)
+        ammo.total_bullets = tally_ammo(ammo.loaded_bullets)
+        if self.gun.bolt_charged or (self.gun.properties.charging.bolt_charge_mode == "none") then
+            ammo.next_bullet = Guns4d.math.weighted_randoms(ammo.loaded_bullets) or "empty"
+            self.gun.bolt_charged = false
+        else
+            ammo.next_bullet = "empty"
+        end
         self:update_meta()
-
         inv:set_stack("main", magstack_index, "")
         return
     end
@@ -124,10 +166,10 @@ function Ammo_handler:inventory_has_ammo()
     local inv = self.inventory
     local gun = self.gun
     for i, v in pairs(inv:get_list("main")) do
-        if gun.accepted_magazines[v:get_name()] and (v:get_meta():get_int("guns4d_total_bullets")>0) then
+        if gun.accepted_magazines[v:get_name()] and (tally_ammo_from_meta(v:get_meta())>0) then
             return true
         end
-        if (not gun.properties.magazine_only) and gun.accepted_bullets[v:get_name()] then
+        if (not gun.properties.ammo.magazine_only) and gun.accepted_bullets[v:get_name()] then
             return true
         end
     end
@@ -159,8 +201,10 @@ function Ammo_handler:unload_magazine(to_ground)
         local gunmeta = self.gun.meta
         --set the mag's meta before updating ours and adding the item.
         magmeta:set_string("guns4d_loaded_bullets", gunmeta:get_string("guns4d_loaded_bullets"))
-        magmeta:set_string("guns4d_total_bullets", gunmeta:get_string("guns4d_total_bullets"))
-        magstack = Guns4d.ammo.update_mag(nil, magstack, magmeta)
+        --magmeta:set_string("guns4d_total_bullets", gunmeta:get_string("guns4d_total_bullets"))
+        if not Guns4d.ammo.registered_magazines[magstack:get_name()] then minetest.log("error", "player `"..self.gun.player:get_player_name().."` ejected an unregistered magazine: `"..magstack:get_name().." `from a gun") else
+            magstack = Guns4d.ammo.update_mag(nil, magstack, magmeta)
+        end
         --throw it on the ground if to_ground is true
         local remaining
         if to_ground then
@@ -170,8 +214,14 @@ function Ammo_handler:unload_magazine(to_ground)
         end
         --eject leftover or full stack
         if remaining:get_count() > 0 then
-            local object = minetest.add_item(self.gun.pos, remaining)
-            object:add_velocity(vector.rotate({x=.6,y=-.3,z=.4}, {x=0,y=-self.handler.look_rotation.y*math.pi/180,z=0}))
+            local pos, vel = self:get_magazine_bone_info()
+            local object = minetest.add_item(pos, remaining)
+            object:set_velocity(vel)
+            vector.new(-1,-1,1)
+            --look I'm not going to pretend I understand how fucking broken minetest's coordinate systems are, and I'm so fucking done with this shit, so this is good enough
+            object:set_rotation(vector.multiply(vector.dir_to_rotation(self.gun:get_dir()), vector.new(-1,1,0))+vector.new(0,math.pi,0))
+            --object:set_rotation(rot)
+            --object:add_velocity(vector.rotate({x=.6,y=-.3,z=.4}, {x=0,y=-self.handler.look_rotation.y*math.pi/180,z=0}))
         end
         self.ammo.loaded_mag = "empty"
         self.ammo.next_bullet = "empty"
@@ -194,7 +244,6 @@ function Ammo_handler:unload_all(to_ground)
         end
         if leftover:get_count() > 0 then --I don't know itemstacks well enough to know if I need this (for leftover stack of add_item)
             local object = minetest.add_item(self.gun.pos, leftover)
-            object:add_velocity(vector.rotate({x=.6,y=-.3,z=.4}, {x=0,y=-self.handler.look_rotation.y*math.pi/180,z=0}))
         end
     end
     if self.ammo.loaded_mag ~= "empty" then
@@ -206,7 +255,6 @@ function Ammo_handler:unload_all(to_ground)
         end
         if stack:get_count() > 0 then
             local object = minetest.add_item(self.gun.pos, stack)
-            object:add_velocity(vector.rotate({x=1,y=2,z=.4}, {x=0,y=-self.handler.look_rotation.y*math.pi/180,z=0}))
         end
     end
     self.ammo.loaded_mag = "empty"

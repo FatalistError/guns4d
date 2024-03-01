@@ -1,14 +1,58 @@
 
+( ) guns4d_pack_1
+    ( ) find better name
+        -guns4d-WMA (western military arms)
+    ( ) finish guns
+        (~) m4
+            ( ) add reload anim hand movement
+        (~) awm
+            (~) complete animations
+                ( ) load, unload
+            (~) complete sound effects
+                ( ) load, unload
+        ( ) mp5
+        ( ) Vector
+        ( ) berreta (pistol)
+        ( ) glock
+        ( ) spas12
 
+( ) guns4d_pack_2
+    ( ) find better name
+        -guns4d-EMA (eastern military arms)
+        ( ) ak74
+        ( ) ak47?
+        ( ) SVD
+        ( ) PMM
+        ( ) Saiga 12k
+        ( ) Vitzyaz-SN
 
+( ) guns4d_pack_3
+    ( ) find better name
+        -guns4d-OP4 (opposing force's arms)
+    ( ) make guns
+        ( ) rugged ak47
+        ( ) m1911
+        ( ) RPG?
+        ( ) Mossberg
+        ( ) AR15
+        ( ) Berreta m12 (smg)
 
-
-(~) add audio
+( ) have breathing act as a multiplier for sway
+( ) fix water/fluids
+( ) add random deviation
+    ( ) randomness system
+    ( ) patterns?
+    ( ) bloom
+(x) add audio
+    soundeffects system implemented!
     (x) sfx system
         (x) did signifficant work on it
-    (x) firing sound effects
-    ( ) reload sound effects
-    ( ) firemode sound effects
+    ( ) dry fire sound
+    (~) reload sound effects
+        (x) everything else
+        ( ) bolt-catch releasing click
+    (x) firemode sound effects
+    ( ) firemode switching sound
 (~) add config
     (x) add a table for config storage, some settings
     ( ) integrate with minetest settings
@@ -16,18 +60,32 @@
 (x) add infinite ammo privelage and quick command
     (x) privilege not directly tied to infinite ammo, fix without breaking performance?
 (x) fix animation rotation offset not displaying the correct frame
-    -was a problem with MTUL, changes push :D
+( ) add third idle animation for loaded with magazine but chamber empty
+    ( ) use newly implemented bolt catch support
 ( ) add entity scopes (for holo sights etc)
 ( ) add attachments
-( ) add other reloading types
+(~) add other reloading types
     (x) magazine
     ( ) fractional
     ( ) flat (magless)
-    ( ) fractional clip
+    ( ) fractional with clip
+(~) item visuals
+    ( ) make optional
+    (~) magazine
+        (x) unloads in correct position? (sort of, rotation is like impossible to do.)
+        ( ) realistic
+        (x) arcade/default
+    ( ) gun
+        ( ) realistic
+        ( ) arcade/default
+(x) fix uncharge gun after incomplete reload, make special pull out animation only play for first charge
+(x) make reloads "automatic" (press/hold z once, and again to cancel)
+    (x) add control system
+    (x) implement for reload (may not be needed if first step done correctly)
 ( ) (for 5.9) make infinite ammo priv to rely on on_grant and on_revoke callback for runtime changes (cannot be done as broken in 5.8)
 ( ) (5.9) POTENTIALLY make models use new PR that allows bone offsets to be disabled
     -I'd probably have to modify models at loadtime to have an eye and hipfire bone? Probably easier then current system though.
-( ) Fix HORRIBLE namespace violation in misc_helpers.lua. Also migrate features to MTUL libraries
+(x) Fix HORRIBLE namespace violation in misc_helpers.lua. Also migrate features to MTUL libraries
 
 this won't be fun.
 documentation

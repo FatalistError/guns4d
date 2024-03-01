@@ -26,6 +26,7 @@ minetest.register_chatcommand("ammoinf", {
     description = "quick toggle infinite ammo",
     privs = {privs=true},
     func = function(caller, arg)
+        local trgt
         local args = string.split(arg, " ")
         local set_arg
         if #args > 1 then

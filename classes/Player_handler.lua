@@ -39,7 +39,7 @@ function player_handler:update(dt)
                 self.player_model_handler = nil
             end
             self.player_model_handler = Guns4d.player_model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
-            self.control_handler = Guns4d.control_handler:new({player=player, controls=self.gun.properties.controls, gun=self.gun})
+            self.control_handler = Guns4d.control_handler:new({player=player, actions=self.gun.properties.control_actions, gun=self.gun})
 
             --this needs to be stored for when the gun is unset!
             self.horizontal_offset = self.gun.properties.ads.horizontal_offset
@@ -50,7 +50,7 @@ function player_handler:update(dt)
             --for the gun's scopes to work properly we need predictable offsets.
         end
         --update some properties.
-        self.look_rotation.x, self.look_rotation.y = Guns4d.math.clamp((player:get_look_vertical() or 0)*180/math.pi, -80, 80), -player:get_look_horizontal()*180/math.pi
+        self.look_rotation.x, self.look_rotation.y = Guns4d.math.clamp((player:get_look_vertical() or 0)*180/math.pi, -80, 80), 360-player:get_look_horizontal()*180/math.pi
         if TICK % 10 == 0 then
             self.wininfo = minetest.get_player_window_information(self.player:get_player_name())
         end

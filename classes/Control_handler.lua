@@ -7,6 +7,7 @@ Guns4d.control_handler = {
                 "zoom"
             },
             timer = .3,
+            mode = "toggle", "hybrid", "hold"
             call_before_timer = false,
             loop = false,
             func=function(active, interrupted, data, busy_controls)
@@ -18,8 +19,10 @@ Guns4d.control_handler = {
 --data table:
 --[[
     {
-        held = bool
+        continue = bool
         timer = float
+        active_ticks = int
+        current_mode = "toggle", "hold"
     }
 ]]
 local controls = Guns4d.control_handler
@@ -36,7 +39,7 @@ function controls:update(dt)
     local call_queue = {} --so I need to have a "call" queue so I can tell the functions the names of other active controls (busy_list)
     local busy_list = self.busy_list or {} --list of controls that have their conditions met. Has to be reset at END of update, so on_use and on_secondary_use can be marked
     if not (self.gun.rechamber_time > 0 and self.gun.ammo_handler.ammo.next_bullet == "empty") then --check if the gun is being charged.
-        for i, control in pairs(self.controls) do
+        for i, control in pairs(self.actions) do
             if not (i=="on_use") and not (i=="on_secondary_use") then
                 local def = control
                 local data = control.data
@@ -46,18 +49,43 @@ function controls:update(dt)
                     if not pressed[key] then conditions_met = false break end
                 end
                 if conditions_met then
+                    if (def.mode == "toggle") or (def.mode == "hybrid") then
+                        data.time_held = data.time_held + dt
+                        if (not data.toggle_lock) and (data.toggled or (data.time_held > Guns4d.config.control_held_toggle_threshold)) then
+                            data.toggled = not data.toggled
+                            data.toggle_lock = true --so it can only be toggled once when conditions are met for a period of time
+                            data.current_mode = "toggle"
+                        end
+                        if (data.current_mode ~= "hold") and (data.time_held > Guns4d.config.control_hybrid_toggle_threshold) and (def.mode=="hybrid") then
+                            data.current_mode = "hold"
+                            data.toggled = false
+                        end
+                    end
+                else
+                    if def.mode=="hyrbid" then
+                        data.current_mode = "toggle"
+                    end
+                    data.time_held = 0
+                    data.toggle_lock = false
+                end
+                --minetest.chat_send_all(data.current_mode)
+                --minetest.chat_send_all(tostring((conditions_met and not def.toggle) or data.toggled))
+                if (conditions_met and data.current_mode == "hold") or (data.toggled and data.current_mode == "toggle") then
                     busy_list[i] = true
                     data.timer = data.timer - dt
-                    --when time is over, if it wasnt held (or loop is active) then reset and call the function.
-                    --held indicates wether the function was called (as active) before last step.
-                    if data.timer <= 0 and ((not data.held) or def.loop) then
-                        data.held = true
+                    --when time is over, if it wasnt continue (or loop is active) then reset and call the function.
+                    --continue indicates wether the function was called (as active) before last step.
+                    if data.timer <= 0 and ((not data.continue) or def.loop) then
+                        data.continue = true
                         table.insert(call_queue, {control=def, active=true, interrupt=false, data=data})
-                    elseif def.call_before_timer and not data.held then --this is useful for functions that need to play animations for their progress.
+                        if data.current_mode == "toggle" then
+                            data.toggled = false
+                        end
+                    elseif def.call_before_timer and not data.continue then --this is useful for functions that need to play animations for their progress.
                         table.insert(call_queue, {control=def, active=false, interrupt=false, data=data})
                     end
                 else
-                    data.held = false
+                    data.continue = false
                     --detect interrupts, check if the timer was in progress
                     if data.timer ~= def.timer then
                         table.insert(call_queue, {control=def, active=false, interrupt=true, data=data})
@@ -76,34 +104,37 @@ function controls:update(dt)
 end
 function controls:on_use(itemstack, pointed_thing)
     assert(self.instance, "attempt to call object method on a class")
-    if self.controls.on_use then
-        self.controls.on_use(itemstack, self.handler, pointed_thing)
+    if self.actions.on_use then
+        self.actions.on_use(itemstack, self.handler, pointed_thing)
     end
 end
 function controls:on_secondary_use(itemstack, pointed_thing)
     assert(self.instance, "attempt to call object method on a class")
-    if self.controls.on_secondary_use then
-        self.controls.on_secondary_use(itemstack, self.handler, pointed_thing)
+    if self.actions.on_secondary_use then
+        self.actions.on_secondary_use(itemstack, self.handler, pointed_thing)
     end
 end
 ---@diagnostic disable-next-line: duplicate-set-field
 function controls.construct(def)
     if def.instance then
-        assert(def.controls, "no controls provided")
+        assert(def.actions, "no actions provided")
         assert(def.player, "no player provided")
-        def.controls = Guns4d.table.deep_copy(def.controls)
+        def.actions = Guns4d.table.deep_copy(def.actions)
         def.busy_list = {}
         def.handler = Guns4d.players[def.player:get_player_name()]
-        for i, control in pairs(def.controls) do
+        def.mode = def.mode or "hold"
+        for i, action in pairs(def.actions) do
             if not (i=="on_use") and not (i=="on_secondary_use") then
-                control.timer = control.timer or 0
-                control.data = {
-                    timer = control.timer,
-                    held = false
+                action.timer = action.timer or 0
+                action.data = {
+                    timer = action.timer,
+                    continue = false,
+                    time_held = 0,
+                    current_mode = (def.mode=="hybrid" and "toggle") or def.mode
                 }
             end
         end
-        table.sort(def.controls, function(a,b)
+        table.sort(def.actions, function(a,b)
             return #a.conditions > #b.conditions
         end)
     end

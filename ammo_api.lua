@@ -11,16 +11,10 @@ Default_mag = {
     craft_reload = true
 }
 Guns4d.ammo = {
-    default_empty_loaded_bullets = {
-    },
-    registered_bullets = {
-
-    },
-    registered_magazines = {
-
-    }
+    default_empty_loaded_bullets = {},
+    registered_bullets = {},
+    registered_magazines = {}
 }
-local max_wear = 65535
 function Guns4d.ammo.on_hit_player(bullet, force_mmRHA)
 end
 function Guns4d.ammo.register_bullet(def)
@@ -39,14 +33,9 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
     meta = meta or itemstack:get_meta()
     local bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
     local count = 0
-    local current_bullet = "empty"
     for i, v in pairs(bullets) do
-        current_bullet = i
         count = count + v
     end
-    local new_wear = max_wear-(max_wear*count/def.capacity)
-    --itemstack:set_wear(Guns4d.math.clamp(new_wear, 1, max_wear-1))
-    meta:set_int("guns4d_total_bullets", count)
     if count > 0 then
         meta:set_string("count_meta", tostring(count).."/"..def.capacity)
     else
@@ -54,7 +43,6 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
     end
     return itemstack
 end
-
 function Guns4d.ammo.register_magazine(def)
     def = Guns4d.table.fill(Default_mag, def)
     assert(def.accepted_bullets, "missing property def.accepted_bullets. Need specified bullets to allow for loading")
@@ -68,6 +56,8 @@ function Guns4d.ammo.register_magazine(def)
     Guns4d.ammo.registered_magazines[def.itemstring] = def
     --register craft prediction
     local old_on_use = minetest.registered_items[def.itemstring].on_use
+
+    --the actual item. This will be changed.
     minetest.override_item(def.itemstring, {
         on_use = function(itemstack, user, pointed_thing)
             if old_on_use then
@@ -85,6 +75,24 @@ function Guns4d.ammo.register_magazine(def)
             end
         end
     })
+    --the magazine item entity
+    --print(dump(minetest.registered_entities))
+    --[[local ent_def = minetest.registered_entities["__builtin:item"..def.itemstring]
+    if def.model then
+        ent_def.visual = "mesh"
+        ent_def.mesh = def.model
+        ent_def.collision_box = {
+        -0.5, 0, -0.5,
+         0.5, 1, 0.5
+        }
+        ent_def.on_step = function(self, dt, moveresult)
+            if moveresult.touching_ground then
+                self.object:set_rotation()
+            end
+        end
+    end]]
+
+    --loading and unloading magazines
     if def.craft_reload then
         minetest.register_craft_predict(function(itemstack, player, old_craft_grid, craft_inv)
             --initialize all mags
@@ -95,11 +103,12 @@ function Guns4d.ammo.register_magazine(def)
                     Guns4d.ammo.initialize_mag_data(v)
                 end
             end
-            if num_mags > 0 then
+            minetest.chat_send_all(num_mags)
+            if num_mags == 1 then
                 if itemstack:get_name()=="" then
                     for i, v in pairs(craft_inv:get_list("craft")) do
-                        local name =v:get_name()
-                        if name == def.itemstring then
+                        local name = v:get_name()
+                        if (name == def.itemstring) and (v:get_meta():get_string("guns4d_loaded_bullets")=="") then
                             craft_inv:set_stack("craft", i, Guns4d.ammo.initialize_mag_data(v))
                         end
                         if (name~=def.itemstring) and Guns4d.ammo.registered_magazines[name] then
@@ -111,35 +120,41 @@ function Guns4d.ammo.register_magazine(def)
                     end
                     return def.itemstring
                 end
+            elseif num_mags > 1 then
+                return ""
             end
         end)
         minetest.register_on_craft(function(itemstack, player, old_craft_grid, craft_inv)
             if craft_inv:contains_item("craft", def.itemstring) and craft_inv:contains_item("craftpreview", def.itemstring) then
-                local mag_stack_index
                 local craft_list = craft_inv:get_list("craft")
                 --there's basically no way to cleanly avoid two iterations, annoyingly.
+                --check for bullets and mags.
+                local mag_stack_index
                 for i, v in pairs(craft_list) do
                     local name = v:get_name()
-                    if (name~=def.itemstring) then
-                        if Guns4d.ammo.registered_magazines[name] then
+                    if Guns4d.ammo.registered_magazines[name] then
+                         --check if there is a magazine of a different type or multiple mags, also get our mag index
+                        if (name==def.itemstring) then
+                            mag_stack_index = i
+                        else
                             return
                         end
-                    else
-                        mag_stack_index = i
                     end
-                    if not def.accepted_bullets_set[name] then
-                        if (name ~= "") and (name~=def.itemstring) then
-                            return
-                        end
+                    if (not def.accepted_bullets_set[name]) and (name ~= "") and (name~=def.itemstring) then
+                        return
                     end
                 end
+                if not mag_stack_index then return end
                 local bullets_unfilled = def.capacity
                 local mag_stack = craft_inv:get_stack("craft", mag_stack_index)
+                --print(dump(mag_stack:get_name()))
+                --print(mag_stack_index)
                 local new_ammo_table = minetest.deserialize(mag_stack:get_meta():get_string("guns4d_loaded_bullets"))
                 for i, v in pairs(new_ammo_table) do
                     bullets_unfilled = bullets_unfilled - v
                 end
                 local new_stack = ItemStack(def.itemstring)
+                --find the bullets, and fill the new_ammo_table up to any items with counts adding up to bullets_unfilled
                 for i, v in pairs(craft_list) do
                     local name = v:get_name()
                     if def.accepted_bullets_set[name] then

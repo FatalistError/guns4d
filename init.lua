@@ -9,12 +9,15 @@ Guns4d.config = {
     show_mag_inv_ammo_bar = true,
     show_mag_inv_ammo_count = true,
     show_gun_inv_ammo_count = true,
+    control_hybrid_toggle_threshold = .3,
+    control_held_toggle_threshold = 0,
     empty_symbol = "0e",
     infinite_ammo_priv = "guns4d_infinite_ammo"
 }
 local path = minetest.get_modpath("guns4d")
 dofile(path.."/infinite_ammo.lua")
 dofile(path.."/misc_helpers.lua")
+dofile(path.."/item_entities.lua")
 dofile(path.."/play_sound.lua")
 dofile(path.."/visual_effects.lua")
 dofile(path.."/default_controls.lua")

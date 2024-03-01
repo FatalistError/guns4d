@@ -33,6 +33,7 @@ local sqrt = math.sqrt
 -- @field min_hear_distance this is useful if you wish to play a sound which has a "far" sound, such as distant gunshots. incompatible `with to_player`
 -- @field sounds a @{misc_helpers.weighted_randoms| weighted_randoms table} for randomly selecting sounds. The output will overwrite the `sound` field.
 -- @field to_player 4dguns changes `to_player` so it only plays positionless audio (as it is only intended for first person audio)
+-- @field delay delay the playing of the sound
 -- @table guns4d_soundspec
 
 local function handle_min_max(tbl)
@@ -47,8 +48,20 @@ end
 --          soundspec_to_play1,
 --          soundspec_to_play2
 --      }
--- @return out a list of Minetest sound handles [insert link] (in the order they came)
+-- @return out a Guns4d sound handle (an integer)
 -- @function Guns4d.play_sounds
+local sound_handles = {}
+local function play_sound(sound, soundspec, handle, i)
+    if soundspec.delay then
+        minetest.after(soundspec.delay, function()
+            if sound_handles[handle] ~= false then
+                sound_handles[handle][i] = minetest.sound_play(sound, soundspec, soundspec.ephemeral)
+            end
+        end)
+    else
+        sound_handles[handle][i] = minetest.sound_play(sound, soundspec)
+    end
+end
 function Guns4d.play_sounds(soundspecs_list)
     --print(dump(soundspecs_list))
     --support a list of sounds to play
@@ -67,8 +80,9 @@ function Guns4d.play_sounds(soundspecs_list)
             soundspecs_list[field] = nil --so it isn't iterated
         end
     end
-    --print(dump(soundspecs_list))
-    local out = {}
+    local handle = #sound_handles+1 --determine the sound handle before playing
+    sound_handles[handle] = {}
+    local handle_object = sound_handles[handle]
     for i, soundspec in pairs(soundspecs_list) do
         assert(not (soundspec.to_player and soundspec.min_distance), "in argument '"..tostring(i).."' `min_distance` and `to_player` are incompatible parameters.")
         local sound = soundspec.sound
@@ -82,12 +96,17 @@ function Guns4d.play_sounds(soundspecs_list)
             sound = Guns4d.math.weighted_randoms(sound)
         end
         assert(sound, "no sound found")
+        if not mtul.paths.media_paths[sound..".ogg"] then
+            minetest.log("error", "no sound by the name `"..mtul.paths.media_paths[sound..".ogg"].."`")
+        end
+        --print(dump(soundspecs_list), i)
         if soundspec.to_player then soundspec.pos = nil end
         if soundspec.min_hear_distance then
             local exclude_player_ref
             if soundspec.exclude_player then
                 exclude_player_ref = minetest.get_player_by_name(soundspec.exclude_player)
             end
+            --play sound for all players outside min hear distance
             for _, player in pairs(minetest.get_connected_players()) do
                 soundspec.sound = nil
                 local pos = player:get_pos()
@@ -95,22 +114,30 @@ function Guns4d.play_sounds(soundspecs_list)
                 if (dist > soundspec.min_hear_distance) and (player~=exclude_player_ref) then
                     soundspec.exclude_player = nil --not needed anyway because we can just not play it for this player.
                     soundspec.to_player = player:get_player_name()
-                    outval = minetest.sound_play(sound, soundspec)
+                    play_sound(sound, soundspec, handle, i)
                 end
             end
         else
             soundspec.sound = nil
-            outval = minetest.sound_play(sound, soundspec)
+            play_sound(sound, soundspec, handle, i)
         end
-        out[i] = outval
     end
-    return out
+    return handle
+end
+-- @param handle a Guns4d sound handle
+-- @function Guns4d.get_sounds gets a list of currently playing Minetest sound handles from the Guns4d sound handle. Modification not reccomended.
+function Guns4d.get_sounds(handle)
+    return sound_handles[handle]
 end
 --- stops a list of sounds
 -- @param handle_list a list of minetest sound handles to stop, this is the returned output of @{guns4d.play_sounds
 -- @function Guns4d.stop_sounds
-function Guns4d.stop_sounds(handle_list)
+function Guns4d.stop_sounds(handle)
+    local handle_list = (type(handle) == "table" and handle) or sound_handles[handle]
+    if not handle_list then return false end
+    sound_handles[handle] = false --indicate to not play any delayed noises.
     for i, v in pairs(handle_list) do
         minetest.sound_stop(v)
     end
+    return true
 end

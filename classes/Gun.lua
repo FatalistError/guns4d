@@ -83,7 +83,7 @@ local gun_default = {
             player_axial = {x=1,y=1},
         },
         breathing_scale = .5, --the max angluler offset caused by breathing.
-        controls = { --used by control_handler
+        control_actions = { --used by control_handler
             __overfill=true, --this table will not be filled in.
             aim = Guns4d.default_controls.aim,
             auto = Guns4d.default_controls.auto,
@@ -119,8 +119,22 @@ local gun_default = {
             },
         },
         sounds = { --this does not contain reload sound effects.
+            release_bolt = {
+                __overfill=true,
+                sound = "ar_release_bolt",
+                max_hear_distance = 5,
+                pitch = {
+                    min = .95,
+                    max = 1.05
+                },
+                gain = {
+                    min = .9,
+                    max = 1
+                }
+            },
             fire = {
                 {
+                    __overfill=true,
                     sound = "ar_firing",
                     max_hear_distance = 40, --far min_hear_distance is also this.
                     pitch = {
@@ -133,6 +147,7 @@ local gun_default = {
                     }
                 },
                 {
+                    __overfill=true,
                     sound = "ar_firing_far",
                     min_hear_distance = 40,
                     max_hear_distance = 600,
@@ -245,7 +260,7 @@ function gun_default:charge()
     if props.visuals.animations.charge then
         self:set_animation(props.visuals.animations.charge, props.charging.default_charge_time)
     end
-    self.ammo_handler:close_bolt()
+    self.ammo_handler:chamber_round()
     self.rechamber_time = props.charging.default_charge_time
 end
 --update gun, the main function.
@@ -289,7 +304,6 @@ function gun_default:update(dt)
     self.local_paxial_dir = self:get_player_axial_dir(true)
     self.pos = self:get_pos()+self.handler:get_pos()
 
-
     if self.properties.sprite_scope then
         self.sprite_scope:update()
     end
@@ -302,7 +316,7 @@ function gun_default:update(dt)
     --[[if ammo.total_bullets and (ammo.total_bullets > 0 and ammo.next_bullet == "empty") then
         self:charge()
     end]]
-    print(dump(self.ammo_handler.ammo.next_bullet))
+    --print(dump(self.ammo_handler.ammo.next_bullet))
 
     local offsets = self.offsets
     --local player_axial = offsets.recoil.player_axial + offsets.walking.player_axial + offsets.sway.player_axial + offsets.breathing.player_axial
@@ -374,6 +388,12 @@ function gun_default:attempt_fire()
         if spent_bullet and spent_bullet ~= "empty" then
             local dir = self.dir
             local pos = self.pos
+
+            if not Guns4d.ammo.registered_bullets[spent_bullet] then
+                minetest.log("error", "unregistered bullet itemstring"..tostring(spent_bullet)..", could not fire gun (player:"..self.player:get_player_name()..")");
+                return false
+            end
+
             local bullet_def = Guns4d.table.fill(Guns4d.ammo.registered_bullets[spent_bullet], {
                 player = self.player,
                 --we don't want it to be doing fuckshit and letting players shoot through walls.
@@ -388,6 +408,7 @@ function gun_default:attempt_fire()
             self:recoil()
             self:muzzle_flash()
 
+            print(dump(self.properties.sounds.fire))
             local fire_sound = Guns4d.table.deep_copy(self.properties.sounds.fire) --important that we copy because play_sounds modifies it.
             fire_sound.pos = self.pos
             Guns4d.play_sounds(fire_sound)
@@ -452,33 +473,33 @@ function gun_default:get_player_axial_dir(rltv)
     return dir
 end
 function gun_default:get_dir(rltv)
-        assert(self.instance, "attempt to call object method on a class")
-        local rotation = self.total_offset_rotation
-        local handler = self.handler
-        --rotate x and then y.
-        local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0}))
-        dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
-        if not rltv then
-            if (self.properties.sprite_scope and handler.control_handler.ads) or (self.properties.crosshair and not handler.control_handler.ads) then
-                --we need the head rotation in either of these cases, as that's what they're showing.
-                dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
-            else
-                dir = Vec.rotate(dir, {x=self.player_rotation.x*math.pi/180,y=self.player_rotation.y*math.pi/180,z=0})
-            end
+    assert(self.instance, "attempt to call object method on a class")
+    local rotation = self.total_offset_rotation
+    local handler = self.handler
+    --rotate x and then y.
+    local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0}))
+    dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
+    if not rltv then
+        if (self.properties.sprite_scope and handler.control_handler.ads) or (self.properties.crosshair and not handler.control_handler.ads) then
+            --we need the head rotation in either of these cases, as that's what they're showing.
+            dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
+        else
+            dir = Vec.rotate(dir, {x=self.player_rotation.x*math.pi/180,y=self.player_rotation.y*math.pi/180,z=0})
         end
+    end
 
-        --local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
-        --[[local hud = player:hud_add({
-            hud_elem_type = "image_waypoint",
-            text = "muzzle_flash2.png",
-            world_pos =  hud_pos,
-            scale = {x=10, y=10},
-            alignment = {x=0,y=0},
-            offset = {x=0,y=0},
-        })
-        minetest.after(0, function(hud)
-            player:hud_remove(hud)
-        end, hud)]]
+    --local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
+    --[[local hud = player:hud_add({
+        hud_elem_type = "image_waypoint",
+        text = "muzzle_flash2.png",
+        world_pos =  hud_pos,
+        scale = {x=10, y=10},
+        alignment = {x=0,y=0},
+        offset = {x=0,y=0},
+    })
+    minetest.after(0, function(hud)
+        player:hud_remove(hud)
+    end, hud)]]
     return dir
 end
 
@@ -872,8 +893,8 @@ gun_default.construct = function(def)
         local props = def.properties
 
         --validate controls, done before properties are filled to avoid duplication.
-        if props.controls then
-            for i, control in pairs(props.controls) do
+        if props.control_actions then
+            for i, control in pairs(props.control_actions) do
                 if not (i=="on_use") and not (i=="on_secondary_use") then
                     assert(control.conditions, "no conditions provided for control")
                     for _, condition in pairs(control.conditions) do
@@ -963,6 +984,7 @@ gun_default.construct = function(def)
             })
         end
 
+        --TODO this may need to be renamed and put in constructor for instances (modifications could later change ammo types.)
         def.accepted_bullets = {}
         for _, v in pairs(def.properties.ammo.accepted_bullets) do
             def.accepted_bullets[v] = true
