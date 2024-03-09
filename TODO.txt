@@ -37,6 +37,9 @@
         ( ) AR15
         ( ) Berreta m12 (smg)
 
+
+( ) allow unloading magazines
+( ) fix issue with arm animations being super choppy? (investigation needed)
 ( ) have breathing act as a multiplier for sway
 ( ) fix water/fluids
 ( ) add random deviation
