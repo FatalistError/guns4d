@@ -56,8 +56,9 @@ minetest.register_on_mods_loaded(function()
         end
         if groups.liquid then
             --behavior type here
-            RHA = .5
-            random_deviation = .1
+            --RHA = .5
+            --random_deviation = .1
+            behavior_type = "ignore"
         end
         Guns4d.node_properties[i] = {mmRHA=RHA*1000, random_deviation=random_deviation, behavior=behavior_type}
     end
