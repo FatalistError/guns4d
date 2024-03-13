@@ -383,7 +383,7 @@ function gun_default:update_image_and_text_meta(meta)
 end
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
-    if self.rechamber_time <= 0 then
+    if self.rechamber_time <= 0 and not self.ammo_handler.ammo.magazine_psuedo_empty then
         local spent_bullet = self.ammo_handler:spend_round()
         if spent_bullet and spent_bullet ~= "empty" then
             local dir = self.dir

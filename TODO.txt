@@ -28,20 +28,23 @@
 
 ( ) guns4d_pack_3
     ( ) find better name
-        -guns4d-OP4 (opposing force's arms)
+        -guns4d-OP4
     ( ) make guns
         ( ) rugged ak47
-        ( ) m1911
+        ( ) m1911 (triggergaurd sawwed off)
         ( ) RPG?
         ( ) Mossberg
         ( ) AR15
         ( ) Berreta m12 (smg)
 
-
-( ) allow unloading magazines
+( ) `textures` should be in visuals!!!
+( ) `inventory_image_magless` should be in visuals!!!
+( ) leave round in chamber if reloading the same type of Ammunition
+( ) allow unloading magazines in craft inv
 ( ) fix issue with arm animations being super choppy? (investigation needed)
 ( ) have breathing act as a multiplier for sway
-( ) fix water/fluids
+(~) fix water/fluids
+    (x) temp fix, ignores fluids.
 ( ) add random deviation
     ( ) randomness system
     ( ) patterns?
@@ -58,7 +61,7 @@
     ( ) firemode switching sound
 (~) add config
     (x) add a table for config storage, some settings
-    ( ) integrate with minetest settings
+    ( ) integrate with minetest settings, add config file.
 (x) fix crash when switching from a gun into a gun with a sprite_scope
 (x) add infinite ammo privelage and quick command
     (x) privilege not directly tied to infinite ammo, fix without breaking performance?
@@ -89,6 +92,10 @@
 ( ) (5.9) POTENTIALLY make models use new PR that allows bone offsets to be disabled
     -I'd probably have to modify models at loadtime to have an eye and hipfire bone? Probably easier then current system though.
 (x) Fix HORRIBLE namespace violation in misc_helpers.lua. Also migrate features to MTUL libraries
+
+MTUL subtasks
+( ) make ObjRef method override stuff MTUL and not 4dguns
+
 
 this won't be fun.
 documentation
