@@ -3,17 +3,21 @@
     ( ) find better name
         -guns4d-WMA (western military arms)
     ( ) finish guns
-        (~) m4
-            ( ) add reload anim hand movement
-        (~) awm
+        (x) m4
+            (x) add reload anim hand movement
+            ( ) equip animation chambering sound
+        (x) awm
+            ( ) fix texture issues
             (~) complete animations
-                ( ) load, unload
-            (~) complete sound effects
-                ( ) load, unload
+                (x) load, unload
+                ( ) equip animation
+            (x) complete sound effects
+                (x) load, unload
+        (~) glock21
+            ( ) animate
         ( ) mp5
         ( ) Vector
         ( ) berreta (pistol)
-        ( ) glock
         ( ) spas12
 
 ( ) guns4d_pack_2
@@ -59,9 +63,9 @@
         ( ) bolt-catch releasing click
     (x) firemode sound effects
     ( ) firemode switching sound
-(~) add config
+(x) add config
     (x) add a table for config storage, some settings
-    ( ) integrate with minetest settings, add config file.
+    (x) integrate with minetest settings, add config file.
 (x) fix crash when switching from a gun into a gun with a sprite_scope
 (x) add infinite ammo privelage and quick command
     (x) privilege not directly tied to infinite ammo, fix without breaking performance?

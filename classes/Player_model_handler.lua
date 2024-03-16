@@ -103,9 +103,7 @@ function player_model:update_head(dt)
     local player = self.player
     local handler = self.handler
     local gun = handler.gun
-    local player_axial_offset = gun.total_offset_rotation.player_axial
-    local pitch = player_axial_offset.x+gun.player_rotation.x
-    player:set_bone_position(self.bone_names.head, self.offsets.relative.head, {x=pitch,z=0,y=0})
+    player:set_bone_position(self.bone_names.head, self.offsets.relative.head, {x=-handler.look_rotation.x,z=0,y=0})
 end
 --should be renamed to "release" but, whatever.
 function player_model:prepare_deletion()

@@ -89,7 +89,6 @@ def.set_item = function(self, item)
     self._collisionbox = cbox
 end
 local old = def.on_step
-print(dump(def))
 def.on_step = function(self, dt, mr, ...)
     old(self, dt, mr, ...)
     --icky nesting.

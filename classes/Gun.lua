@@ -92,9 +92,9 @@ local gun_default = {
             firemode = Guns4d.default_controls.firemode
         },
         charging = { --how the gun "cocks"
-            require_charge_on_swap = true,
+            require_draw_on_swap = true,
             bolt_charge_mode = "none", --"none"-chamber is always full, "catch"-when fired to dry bolt will not need to be charged after reload, "no_catch" bolt will always need to be charged after reload.
-            default_charge_time = 1,
+            default_draw_time = 1,
         },
         reload = { --used by defualt controls. Still provides usefulness elsewhere.
             __overfill=true,
@@ -162,6 +162,7 @@ local gun_default = {
                 }
             },
         },
+        initial_vertical_rotation = -60,
         --inventory_image
         --inventory_image_empty
          --used by ammo_handler
@@ -174,6 +175,7 @@ local gun_default = {
         recoil = {
             gun_axial = Vec.new(),
             player_axial = Vec.new(),
+            --move_dynamic_crosshair = false, this would make the dynamic crosshair move instead of get larger
         },
         sway = {
             gun_axial = Vec.new(),
@@ -198,7 +200,7 @@ local gun_default = {
         gun_axial = Vec.new(),
         player_axial = Vec.new(),
     },]]
-    player_rotation = Vec.new(),
+    --player_rotation = Vec.new(),
     velocities = {
         recoil = {
             gun_axial = Vec.new(),
@@ -254,14 +256,14 @@ local gun_default = {
 function gun_default.multiplier_coefficient(multiplier, ratio)
     return 1+((multiplier*ratio)-ratio)
 end
-function gun_default:charge()
+function gun_default:draw()
     assert(self.instance, "attempt to call object method on a class")
     local props = self.properties
-    if props.visuals.animations.charge then
-        self:set_animation(props.visuals.animations.charge, props.charging.default_charge_time)
+    if props.visuals.animations.draw then
+        self:set_animation(props.visuals.animations.draw, props.charging.default_draw_time)
     end
     self.ammo_handler:chamber_round()
-    self.rechamber_time = props.charging.default_charge_time
+    self.rechamber_time = props.charging.default_draw_time
 end
 --update gun, the main function.
 function gun_default:update(dt)
@@ -842,10 +844,10 @@ gun_default.construct = function(def)
             gun = def
         })
         local ammo = def.ammo_handler.ammo
-        if def.properties.require_charge_on_swap then
+        if def.properties.require_draw_on_swap then
             ammo.next_bullet = "empty"
         end
-        minetest.after(0, function() if ammo.total_bullets > 0 then def:charge() end end)
+        minetest.after(0, function() if ammo.total_bullets > 0 then def:draw() end end)
         def:update_image_and_text_meta() --has to be called manually in post as ammo_handler would not exist yet.
         def.player:set_wielded_item(def.itemstack)
         --unavoidable table instancing
@@ -856,7 +858,7 @@ gun_default.construct = function(def)
             gun_axial = Vec.new(),
             player_axial = Vec.new(),
         }
-        def.player_rotation = Vec.new()
+        def.player_rotation = Vec.new(def.properties.initial_vertical_rotation,0,0)
         --initialize all offsets
        --def.offsets = Guns4d.table.deep_copy(def.base_class.offsets)
         def.offsets = {}
@@ -889,6 +891,7 @@ gun_default.construct = function(def)
                 gun = def
             })
         end
+        if def.custom_construct then def:custom_construct() end
     elseif def.name ~= "__guns4d:default__" then
         local props = def.properties
 

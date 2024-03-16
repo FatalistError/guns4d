@@ -12,9 +12,19 @@ Guns4d.config = {
     control_hybrid_toggle_threshold = .3,
     control_held_toggle_threshold = 0,
     empty_symbol = "0e",
-    infinite_ammo_priv = "guns4d_infinite_ammo"
+    infinite_ammo_priv = "guns4d_infinite_ammo",
+    --`["official_content.replace_ads_with_bloom"] = false,
+    --`["official_content.uses_magazines"] = true
 }
 local path = minetest.get_modpath("guns4d")
+
+print("file read?")
+local conf = Settings(path.."/guns4d_settings.conf")
+for i, v in pairs(conf:to_table() or {}) do
+    print(i,v)
+    Guns4d.config[i] = v
+end
+
 dofile(path.."/infinite_ammo.lua")
 dofile(path.."/misc_helpers.lua")
 dofile(path.."/item_entities.lua")

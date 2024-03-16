@@ -103,7 +103,6 @@ function Guns4d.ammo.register_magazine(def)
                     Guns4d.ammo.initialize_mag_data(v)
                 end
             end
-            minetest.chat_send_all(num_mags)
             if num_mags == 1 then
                 if itemstack:get_name()=="" then
                     for i, v in pairs(craft_inv:get_list("craft")) do

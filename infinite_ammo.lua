@@ -54,7 +54,9 @@ minetest.register_chatcommand("ammoinf", {
         minetest.set_player_privs(trgt, privs)
         minetest.chat_send_player(caller, "infinite ammo "..((set_to and "granted to") or "revoked from") .." user '"..trgt.."'")
         handler.infinite_ammo = set_to or false
-        handler.gun:update_image_and_text_meta()
-        handler.player:set_wielded_item(handler.gun.itemstack)
+        if handler.gun then
+            handler.gun:update_image_and_text_meta()
+            handler.player:set_wielded_item(handler.gun.itemstack)
+        end
     end
 })
