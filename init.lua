@@ -14,6 +14,7 @@ Guns4d.config = {
     empty_symbol = "0e",
     infinite_ammo_priv = "guns4d_infinite_ammo",
     interpret_initial_wear_as_ammo = false,
+    punch_from_player_not_gun = true,
     vertical_rotation_factor = 10
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true

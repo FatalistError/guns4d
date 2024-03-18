@@ -218,7 +218,7 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
         for i, v in pairs(self.blunt_damage_groups) do
             damage_values[i] = v*blunt_ratio
         end
-        object:punch(self.gun.entity, 1000, {damage_groups=damage_values}, self.dir)
+        object:punch((Guns4d.config.punch_from_player_not_gun and self.player) or self.gun.entity, 1000, {damage_groups=damage_values}, self.dir)
     end
     if self.sharp_damage_groups then
         local damage_values = {}
