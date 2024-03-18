@@ -29,6 +29,20 @@ local gun_default = {
             burst =  "inventory_overlay_burst.png",
             safe = "inventory_overlay_safe.png"
         },
+        bloom = {
+            base_aiming = 0, --amount of bloom at a full rest while aiming down sights (if possible)
+            base_hip = 0, --amount of bloom at rest while not aiming down sights.
+            recoil = {
+                decay = 1, --decay rate
+                amount = 0,
+                ratio = 0, --ratio of x to y
+            },
+            walking = {
+                decay = 1,
+                amount = 0,
+                ratio = 0,
+            }
+        },
         infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
         recoil = { --used by update_recoil()
             velocity_correction_factor = { --velocity correction factor is currently very broken.
@@ -162,6 +176,13 @@ local gun_default = {
                 }
             },
         },
+        --[[
+        ammo = {
+            accepted_magazines = {},
+            accepted_bullets = {},
+            magazine_only = false
+        }
+        ]]
         initial_vertical_rotation = -60,
         --inventory_image
         --inventory_image_empty
@@ -192,10 +213,11 @@ local gun_default = {
             player_axial = Vec.new(),
         },
     },
-    animation_rotation = vector.new(),
     spread = {
-
+        recoil = vector.new(),
+        walking = vector.new()
     },
+    animation_rotation = vector.new(),
     --[[total_offset_rotation = { --can't be in offsets, as they're added automatically.
         gun_axial = Vec.new(),
         player_axial = Vec.new(),

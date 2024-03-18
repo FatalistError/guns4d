@@ -31,7 +31,15 @@ end
 function Guns4d.ammo.update_mag(def, itemstack, meta)
     def = def or Guns4d.ammo.registered_magazines[itemstack:get_name()]
     meta = meta or itemstack:get_meta()
-    local bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
+    local bullets
+    if meta:get_int("guns4d_spawn_with_ammo") > 0 then
+        bullets = {
+            [def.accepted_bullets[1]]=meta:get_int("guns4d_spawn_with_ammo")
+        }
+        meta:set_int("guns4d_spawn_with_ammo")
+    else
+        bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
+    end
     local count = 0
     for i, v in pairs(bullets) do
         count = count + v
@@ -186,3 +194,20 @@ function Guns4d.ammo.register_magazine(def)
     --register the actual recipe to add ammo to a mag
 end
 
+function Guns4d.ammo.magazine(magname)
+    local mag = ItemStack()
+end
+
+function Guns4d.ammo.magazine_of_gun(gunname, full, string)
+    local gprops = Guns4d.gun.registered[gunname].properties
+    local magname = gprops.ammo.accepted_magazines[1]
+    assert(magname, "magazines are not accepted")
+    local mag = ItemStack(magname)
+    local meta = mag:get_meta()
+    local new_ammo_table = {}
+    if full then
+        new_ammo_table[gprops.ammo.accepted_bullets[1]] = Guns4d.ammo.registered_magazines[magname].capacity
+    end
+    meta:set_string("guns4d_loaded_bullets", minetest.serialize(new_ammo_table))
+    return (string and mag:to_string()) and mag
+end

@@ -9,17 +9,33 @@ Ammo_handler = Instantiatable_class:inherit({
             local gun = def.gun
             def.ammo = {}
             if gun.properties.ammo then
-                if meta:get_string("guns4d_loaded_bullets") == "" then
-                    def.ammo.loaded_mag = gun.properties.ammo.comes_with or "empty"
-                    def.ammo.next_bullet = "empty"
-                    def.ammo.total_bullets = 0
-                    def.ammo.loaded_bullets = {}
+                if meta:get_int("guns4d_spawn_with_ammo") > 0 then
+                    local bullets = meta:get_int("guns4d_spawn_with_ammo")
+                    if gun.properties.ammo.magazine_only then
+                        def.ammo.loaded_mag = gun.properties.ammo.accepted_magazines[1]
+                        def.ammo.loaded_bullets = {
+                            [Guns4d.registered_magazines[gun.properties.ammo.accepted_magazines[1]].accepted_bullets[1]] = bullets
+                        }
+                    else
+                        def.ammo.loaded_mag = "empty"
+                        def.ammo.loaded_bullets = gun.properties.accepted_bullets[1]
+                    end
+                    def.ammo.total_bullets = bullets
+                    meta:set_int("guns4d_spawn_with_ammo")
                     def:update_meta()
                 else
-                    def.ammo.loaded_mag = meta:get_string("guns4d_loaded_mag")
-                    def.ammo.loaded_bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
-                    def.ammo.total_bullets = meta:get_int("guns4d_total_bullets")
-                    def.ammo.next_bullet = meta:get_string("guns4d_next_bullet")
+                    if meta:get_string("guns4d_loaded_bullets") == "" then
+                        def.ammo.loaded_mag = gun.properties.ammo.comes_with or "empty"
+                        def.ammo.next_bullet = "empty"
+                        def.ammo.total_bullets = 0
+                        def.ammo.loaded_bullets = {}
+                        def:update_meta()
+                    else
+                        def.ammo.loaded_mag = meta:get_string("guns4d_loaded_mag")
+                        def.ammo.loaded_bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
+                        def.ammo.total_bullets = meta:get_int("guns4d_total_bullets") --TODO: REMOVE TOTAL_BULLETS AS A META
+                        def.ammo.next_bullet = meta:get_string("guns4d_next_bullet")
+                    end
                 end
             end
         end

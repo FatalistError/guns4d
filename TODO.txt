@@ -41,6 +41,7 @@
         ( ) AR15
         ( ) Berreta m12 (smg)
 
+( ) remove total_bullets as a meta property.
 ( ) `textures` should be in visuals!!!
 ( ) `inventory_image_magless` should be in visuals!!!
 ( ) leave round in chamber if reloading the same type of Ammunition
