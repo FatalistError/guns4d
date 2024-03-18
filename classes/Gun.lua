@@ -296,7 +296,7 @@ function gun_default:update(dt)
     local look_rotation = handler.look_rotation --remember that this is in counterclock-wise rotation. For 4dguns we use clockwise so it makes a bit more sense for recoil. So it needs to be inverted.
     local total_rot = self.total_offset_rotation
     local player_rot = self.player_rotation
-    local constant = 5 --make this a config setting
+    local constant = Guns4d.config.vertical_rotation_factor
 
     --player look rotation. I'm going to keep it real, I don't remember what this math does. Player handler just stores the player's rotation from MT in degrees, which is for some reason inverted
     player_rot.y = -handler.look_rotation.y

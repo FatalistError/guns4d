@@ -25,13 +25,18 @@ end
 function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     meta = meta or itemstack:get_meta()
     meta:set_string("guns4d_loaded_bullets", minetest.serialize({}))
-    if meta:get_int("guns4d_spawn_with_ammo") > 0 then
-        bullets = {
-            [def.accepted_bullets[1]]=meta:get_int("guns4d_spawn_with_ammo")
+    local loaded
+    local spawn = meta:get_int("guns4d_spawn_with_ammo")
+    if (spawn > 0) or Guns4d.config.interpret_initial_wear_as_ammo then
+        local def = Guns4d.ammo.registered_magazines[itemstack:get_name()]
+        loaded = {
+            [def.accepted_bullets[1]]=(spawn > 0 and spawn) or math.floor(def.capacity*(1-(itemstack:get_wear()/65535)))
         }
         meta:set_int("guns4d_spawn_with_ammo", 0)
+        meta:set_string("guns4d_loaded_bullets", minetest.serialize(loaded))
+        itemstack:set_wear(0)
     else
-        bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
+        loaded = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
     end
     Guns4d.ammo.update_mag(nil, itemstack, meta)
     return itemstack
