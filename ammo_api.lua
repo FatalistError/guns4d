@@ -25,21 +25,21 @@ end
 function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     meta = meta or itemstack:get_meta()
     meta:set_string("guns4d_loaded_bullets", minetest.serialize({}))
+    if meta:get_int("guns4d_spawn_with_ammo") > 0 then
+        bullets = {
+            [def.accepted_bullets[1]]=meta:get_int("guns4d_spawn_with_ammo")
+        }
+        meta:set_int("guns4d_spawn_with_ammo", 0)
+    else
+        bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
+    end
     Guns4d.ammo.update_mag(nil, itemstack, meta)
     return itemstack
 end
 function Guns4d.ammo.update_mag(def, itemstack, meta)
     def = def or Guns4d.ammo.registered_magazines[itemstack:get_name()]
     meta = meta or itemstack:get_meta()
-    local bullets
-    if meta:get_int("guns4d_spawn_with_ammo") > 0 then
-        bullets = {
-            [def.accepted_bullets[1]]=meta:get_int("guns4d_spawn_with_ammo")
-        }
-        meta:set_int("guns4d_spawn_with_ammo")
-    else
-        bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
-    end
+    local bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
     local count = 0
     for i, v in pairs(bullets) do
         count = count + v

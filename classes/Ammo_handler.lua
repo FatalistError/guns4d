@@ -9,23 +9,27 @@ Ammo_handler = Instantiatable_class:inherit({
             local gun = def.gun
             def.ammo = {}
             if gun.properties.ammo then
-                if meta:get_int("guns4d_spawn_with_ammo") > 0 then
-                    local bullets = meta:get_int("guns4d_spawn_with_ammo")
+                local spawn_with = meta:get_int("guns4d_spawn_with_ammo")
+                if (meta:get_string("guns4d_loaded_bullets") == "")  and  ((spawn_with > 0) or (Guns4d.config.interpret_initial_wear_as_ammo))then
+                    local bullets = (spawn_with > 0 and spawn_with) or (1-(def.gun.itemstack:get_wear()/65535))
                     if gun.properties.ammo.magazine_only then
-                        def.ammo.loaded_mag = gun.properties.ammo.accepted_magazines[1]
+                        local magname = gun.properties.ammo.accepted_magazines[1]
+                        bullets = math.floor(Guns4d.ammo.registered_magazines[magname].capacity*bullets)
+                        def.ammo.loaded_mag = magname
                         def.ammo.loaded_bullets = {
-                            [Guns4d.registered_magazines[gun.properties.ammo.accepted_magazines[1]].accepted_bullets[1]] = bullets
+                            [Guns4d.ammo.registered_magazines[magname].accepted_bullets[1]] = bullets
                         }
                     else
                         def.ammo.loaded_mag = "empty"
                         def.ammo.loaded_bullets = gun.properties.accepted_bullets[1]
                     end
                     def.ammo.total_bullets = bullets
-                    meta:set_int("guns4d_spawn_with_ammo")
+                    gun.itemstack:set_wear(0)
+                    meta:set_int("guns4d_spawn_with_ammo", 0)
                     def:update_meta()
                 else
                     if meta:get_string("guns4d_loaded_bullets") == "" then
-                        def.ammo.loaded_mag = gun.properties.ammo.comes_with or "empty"
+                        def.ammo.loaded_mag = gun.properties.ammo.initial_mag or "empty"
                         def.ammo.next_bullet = "empty"
                         def.ammo.total_bullets = 0
                         def.ammo.loaded_bullets = {}

@@ -13,6 +13,7 @@ Guns4d.config = {
     control_held_toggle_threshold = 0,
     empty_symbol = "0e",
     infinite_ammo_priv = "guns4d_infinite_ammo",
+    interpret_initial_wear_as_ammo = false
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }

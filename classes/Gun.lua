@@ -118,7 +118,8 @@ local gun_default = {
         ammo = { --used by ammo_handler
             magazine_only = false,
             accepted_bullets = {},
-            accepted_magazines = {}
+            accepted_magazines = {},
+            initial_mag = "empty"
         },
         visuals = {
             --mesh
