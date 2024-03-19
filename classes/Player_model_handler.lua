@@ -64,9 +64,9 @@ function player_model:update(dt)
 --gun bones:
     local first, second = player:get_eye_offset()
     local pprops = handler:get_properties()
-    local eye_pos = vector.new(0, (pprops.eye_height*10)/pprops.visual_size.y, 0)+first
+    local eye_pos = vector.new(0, (pprops.eye_height*10)/pprops.visual_size.y, 0)+vector.divide(first, pprops.visual_size)
     if handler.control_handler.ads then
-        eye_pos.x = handler.horizontal_offset*10
+        eye_pos.x = ((handler.horizontal_offset*10)/pprops.visual_size.x) --horizontal_offset already is eye_offset on x
     end
     player:set_bone_position(self.bone_names.hipfire, self.offsets.relative.arm_right, {x=-(pitch*gun.consts.HIP_PLAYER_GUN_ROT_RATIO), y=180-player_axial_offset.y, z=0})
     --player:set_bone_position(self.bone_names.reticle, eye_pos, vector.new(combined.x, 180-combined.y, 0))
