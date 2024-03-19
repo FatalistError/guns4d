@@ -63,7 +63,8 @@ function player_model:update(dt)
 
 --gun bones:
     local first, second = player:get_eye_offset()
-    local eye_pos = vector.new(0, handler:get_properties().eye_height*10, 0)+first
+    local pprops = handler:get_properties()
+    local eye_pos = vector.new(0, (pprops.eye_height*10)/pprops.visual_size.y, 0)+first
     if handler.control_handler.ads then
         eye_pos.x = handler.horizontal_offset*10
     end
@@ -86,7 +87,8 @@ function player_model:update_arm_bones(dt)
     local handler = self.handler
     local gun = handler.gun
 
-    local left_bone, right_bone = self.offsets.global.arm_left, self.offsets.global.arm_right
+    local pprops = handler:get_properties()
+    local left_bone, right_bone = vector.multiply(self.offsets.global.arm_left, pprops.visual_size), vector.multiply(self.offsets.global.arm_right, pprops.visual_size)
     local left_trgt, right_trgt = gun:get_arm_aim_pos() --this gives us our offsets relative to the gun.
     --get the real position of the gun's bones relative to the player (2nd param true)
     left_trgt = gun:get_pos(left_trgt, true)

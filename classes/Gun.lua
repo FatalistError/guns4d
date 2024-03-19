@@ -535,18 +535,19 @@ function gun_default:get_pos(added_pos, relative, debug)
     local handler = self.handler
     local bone_location
     local gun_offset
+    local pprops = handler:get_properties()
     if handler.control_handler.ads then
         gun_offset = self.properties.ads.offset
         bone_location = player:get_eye_offset() or vector.zero()
-        bone_location.y = bone_location.y + handler:get_properties().eye_height
+        bone_location.y = bone_location.y + pprops.eye_height
         bone_location.x = handler.horizontal_offset
     else
         --minetest is really wacky.
         gun_offset = self.properties.hip.offset
         bone_location = vector.new(handler.player_model_handler.offsets.global.hipfire)
-        bone_location.x = bone_location.x / 10
-        bone_location.z = bone_location.z / 10
-        bone_location.y = bone_location.y / 10
+        bone_location.x = (bone_location.x / 10)*pprops.visual_size.x
+        bone_location.y = (bone_location.y / 10)*pprops.visual_size.y
+        bone_location.z = (bone_location.z / 10)*pprops.visual_size.z
     end
     if added_pos then
         gun_offset = gun_offset+added_pos
