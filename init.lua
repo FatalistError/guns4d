@@ -15,7 +15,9 @@ Guns4d.config = {
     infinite_ammo_priv = "guns4d_infinite_ammo",
     interpret_initial_wear_as_ammo = false,
     punch_from_player_not_gun = true,
-    vertical_rotation_factor = 10
+    vertical_rotation_factor = 10,
+    use_simple_headshot = true, --holdover feature before a more complex system is implemented
+    headshot_damage_factor = 2
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }
