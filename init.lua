@@ -27,8 +27,15 @@ local path = minetest.get_modpath("guns4d")
 
 print("file read?")
 local conf = Settings(path.."/guns4d_settings.conf"):to_table() or {}
+local mt_conf = minetest.settings:to_table()
 for i, v in pairs(Guns4d.config) do
-    Guns4d.config[i] = conf[i] or minetest.settings["guns4d."..i] or Guns4d.config[i]
+    --Guns4d.config[i] = conf[i] or minetest.settings["guns4d."..i] or Guns4d.config[i]
+    --cant use or because it'd evaluate to false if the setting is alse
+    if mt_conf[i] ~= nil then
+        Guns4d.config[i] = mt_conf[i]
+    elseif conf[i] ~= nil then
+        Guns4d.config[i] = conf[i]
+    end
 end
 
 dofile(path.."/infinite_ammo.lua")
