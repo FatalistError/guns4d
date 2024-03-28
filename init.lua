@@ -12,12 +12,14 @@ Guns4d.config = {
     control_hybrid_toggle_threshold = .3,
     control_held_toggle_threshold = 0,
     empty_symbol = "0e",
+    default_damage_group = "fleshy",
     infinite_ammo_priv = "guns4d_infinite_ammo",
     interpret_initial_wear_as_ammo = false,
     punch_from_player_not_gun = true,
     vertical_rotation_factor = 10,
-    use_simple_headshot = true, --holdover feature before a more complex system is implemented
-    headshot_damage_factor = 2
+    simple_headshot = true, --holdover feature before a more complex system is implemented
+    simple_headshot_body_ratio = .75, --percentage of hitbox height that is body.
+    headshot_damage_factor = 1.75
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }

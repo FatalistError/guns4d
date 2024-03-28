@@ -192,7 +192,6 @@ function ray:hit_entity(object)
     local bullet_sharp_pen = self.sharp_penetration-(self.sharp_penetration*dropoff_ratio*self.energy_sharp_ratio)
     local effective_sharp_pen = Guns4d.math.clamp(bullet_sharp_pen - (resistance.guns4d_mmRHA or 0), 0, math.huge)
     local converted_Pa = (bullet_sharp_pen-effective_sharp_pen) * self.sharp_to_blunt_conversion_factor
-    minetest.chat_send_all(bullet_sharp_pen)
     local bullet_blunt_pen = converted_Pa+(self.blunt_penetration-(self.blunt_penetration*dropoff_ratio*(1-self.energy_sharp_ratio)))
     local effective_blunt_pen = Guns4d.math.clamp(bullet_blunt_pen - (resistance.guns4d_Pa or 0), 0, math.huge)
     self:apply_damage(object, effective_sharp_pen, effective_blunt_pen)
@@ -212,14 +211,26 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
     local sharp_dmg = self.raw_sharp_damage*sharp_ratio
 
     --now apply damage groups.
+    local headshot = 1
+    if Guns4d.config.simple_headshot then
+        local sb = object:get_properties().selectionbox
+        local above_chest = (math.abs(sb[2])+math.abs(sb[5]))*Guns4d.config.simple_headshot_body_ratio
+        local hit_pos = self.pos-object:get_pos()
+        local lowest_point = ((sb[2] < sb[5]) and sb[2]) or sb[5]
+        if (hit_pos.y-lowest_point) > above_chest then
+            headshot = Guns4d.config.headshot_damage_factor
+        end
+        minetest.chat_send_all((hit_pos.y-lowest_point))
+    end
     local damage_values = {}
     for i, v in pairs(self.blunt_damage_groups) do
-        damage_values[i] = v*blunt_ratio
+        damage_values[i] = v*blunt_ratio*headshot
     end
     for i, v in pairs(self.sharp_damage_groups) do
-        damage_values[i] = (damage_values[i] or 0) +v*sharp_ratio
+        damage_values[i] = (damage_values[i] or 0) + (v*sharp_ratio*headshot)
     end
-    damage_values.fleshy = (damage_values.fleshy or 0)+blunt_dmg+sharp_dmg
+    damage_values[Guns4d.config.default_damage_group] = (damage_values[Guns4d.config.default_damage_group] or 0)+((blunt_dmg+sharp_dmg)*headshot)
+    minetest.chat_send_all(damage_values.fleshy)
     object:punch((Guns4d.config.punch_from_player_not_gun and self.player) or self.gun.entity, 1000, {damage_groups=damage_values}, self.dir)
 end
 function ray:bullet_hole(pos, normal)
