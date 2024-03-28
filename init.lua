@@ -76,11 +76,7 @@ minetest.register_on_joinplayer(function(player)
         objref_mtable = getmetatable(player)
 
         local old_set_fov = objref_mtable.set_fov
-        Guns4d.old_set_fov = function(...)
-            minetest.chat_send_all(dump({...}))
-            old_set_fov(...)
-        end
-        local new_old_set = Guns4d.old_set_fov
+        Guns4d.old_set_fov = old_set_fov
         function objref_mtable.set_fov(self, ...)
             local handler = Guns4d.handler_by_ObjRef[self]
             local fov = select(1, ...)
@@ -95,7 +91,7 @@ minetest.register_on_joinplayer(function(player)
             end
             local args = {...}
             args[1] = fov --basically permenantly set the player's fov to 80, making multipliers and resets return there.
-            new_old_set(self, unpack(args))
+            old_set_fov(self, unpack(args))
         end
 
         local old_get_pos = objref_mtable.get_pos
