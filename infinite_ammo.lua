@@ -3,7 +3,6 @@
 minetest.register_privilege(Guns4d.config.infinite_ammo_priv, {
     description = "allows player to have infinite ammo.",
     give_to_singleplayer = false,
-    give_to_admin = true,
     on_grant = function(name, granter_name)
         local handler = Guns4d.players[name]
         handler.infinite_ammo = true
