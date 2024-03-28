@@ -74,6 +74,7 @@ function player_handler:update(dt)
         --delete model handler object (this resets the player model)
         self.player_model_handler:prepare_deletion()
         self.player_model_handler = nil
+        --patch for spriteguns.
         if (not spriteguns) or (spriteguns and (not spriteguns.registered_guns[player:get_wielded_item():get_name()])) then
             player:hud_set_flags({wielditem = true, crosshair = true}) --reenable hud elements
         end

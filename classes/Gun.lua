@@ -1,3 +1,7 @@
+--- Gun class
+-- this is the system used to represent guns and their attributes directly.
+-- @module Gun
+
 local Vec = vector
 local gun_default = {
     --itemstack = Itemstack
@@ -6,11 +10,18 @@ local gun_default = {
     itemstring = "",
     registered = {},
     property_modifiers = {},
+
+    --- properties
     properties = {
-        magnification = 1,
-        hip = { --used by gun entity (attached offset)
+        infinite_inventory_overlay = "inventory_overlay_inf_ammo.png", -- defines the filename to to be used as the overlay on the item when the player has infinite ammo.
+        breathing_scale = .5, -- the max angluler offset caused by breathing.
+        flash_offset = Vec.new(), -- used by fire() (for fsx and ray start pos) [RENAME NEEDED]
+        firerateRPM = 600, -- used by update() and by extent fire() + default controls. The firerate of the gun. Rounds per minute
+        burst = 3, -- how many rounds in burst using when firemode is at "burst"
+        ammo_handler = Ammo_handler,
+        hip = {
             offset = Vec.new(),
-            sway_vel_mul = 5, --these are multipliers for various attributes. Does support fractional vals (which can be useful if you want to make hipfire more random with spread.)
+            sway_vel_mul = 5,
             sway_angle_mul = 1,
         },
         ads = { --used by player_handler, animation handler (eye bone offset from horizontal_offset), gun entity (attached offset)
@@ -29,7 +40,7 @@ local gun_default = {
             burst =  "inventory_overlay_burst.png",
             safe = "inventory_overlay_safe.png"
         },
-        bloom = {
+        --[[bloom = { not yet implemented.
             base_aiming = 0, --amount of bloom at a full rest while aiming down sights (if possible)
             base_hip = 0, --amount of bloom at rest while not aiming down sights.
             recoil = {
@@ -42,8 +53,7 @@ local gun_default = {
                 amount = 0,
                 ratio = 0,
             }
-        },
-        infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
+        },]]
         recoil = { --used by update_recoil()
             velocity_correction_factor = { --velocity correction factor is currently very broken.
                 gun_axial = 1,
@@ -96,7 +106,6 @@ local gun_default = {
             gun_axial = {x=1, y=-1},
             player_axial = {x=1,y=1},
         },
-        breathing_scale = .5, --the max angluler offset caused by breathing.
         control_actions = { --used by control_handler
             __overfill=true, --this table will not be filled in.
             aim = Guns4d.default_controls.aim,
@@ -105,10 +114,14 @@ local gun_default = {
             on_use = Guns4d.default_controls.on_use,
             firemode = Guns4d.default_controls.firemode
         },
+        mobile_control_actions = {
+
+        },
         charging = { --how the gun "cocks"
             require_draw_on_swap = true,
             bolt_charge_mode = "none", --"none"-chamber is always full, "catch"-when fired to dry bolt will not need to be charged after reload, "no_catch" bolt will always need to be charged after reload.
             default_draw_time = 1,
+            --sound = soundspec
         },
         reload = { --used by defualt controls. Still provides usefulness elsewhere.
             __overfill=true,
@@ -188,10 +201,6 @@ local gun_default = {
         --inventory_image
         --inventory_image_empty
          --used by ammo_handler
-        flash_offset = Vec.new(), --used by fire() (for fsx and ray start pos) [RENAME NEEDED]
-        firerateRPM = 600, --used by update() and by extent fire() + default controls
-        burst = 3, --default burst length
-        ammo_handler = Ammo_handler
     },
     offsets = {
         recoil = {
@@ -829,240 +838,16 @@ function gun_default:prepare_deletion()
     if self.sprite_scope then self.sprite_scope:prepare_deletion() end
     if self.crosshair then self.crosshair:prepare_deletion() end
 end
-local valid_ctrls = { --for validation of controls.
-    up=true,
-    down=true,
-    left=true,
-    right=true,
-    jump=true,
-    aux1=true,
-    sneak=true,
-    dig=true,
-    place=true,
-    LMB=true,
-    RMB=true,
-    zoom=true,
-}
+
+Guns4d.gun = gun_default
+dofile(minetest.get_modpath("guns4d").."/classes/gun_construct.lua")
+
 gun_default.construct = function(def)
     if def.instance then
-        --make some quick checks.
-        assert(def.handler, "no player handler object provided")
-
-        --initialize some variables
-        def.player = def.handler.player
-        local meta = def.itemstack:get_meta()
-        def.meta = meta
-        --create ID so we can track switches between weapons, also get some other data.
-        if meta:get_string("guns4d_id") == "" then
-            local id = tostring(Guns4d.unique_id.generate())
-            meta:set_string("guns4d_id", id)
-            def.player:set_wielded_item(def.itemstack)
-            def.id = id
-            def.current_firemode = 1
-            meta:set_int("guns4d_firemode", 1)
-        else
-            def.id = meta:get_string("guns4d_id")
-            def.current_firemode = meta:get_int("guns4d_firemode")
-        end
-        def.ammo_handler = def.properties.ammo_handler:new({ --initialize ammo handler from gun and gun metadata.
-            gun = def
-        })
-        local ammo = def.ammo_handler.ammo
-        if def.properties.require_draw_on_swap then
-            ammo.next_bullet = "empty"
-        end
-        minetest.after(0, function() if ammo.total_bullets > 0 then def:draw() end end)
-        def:update_image_and_text_meta() --has to be called manually in post as ammo_handler would not exist yet.
-        def.player:set_wielded_item(def.itemstack)
-        --unavoidable table instancing
-        def.properties = Guns4d.table.fill(def.base_class.properties, def.properties)
-        def.particle_spawners = {} --Instantiatable_class only shallow copies. So tables will not change, and thus some need to be initialized.
-        def.property_modifiers = {}
-        def.total_offset_rotation = {
-            gun_axial = Vec.new(),
-            player_axial = Vec.new(),
-        }
-        def.player_rotation = Vec.new(def.properties.initial_vertical_rotation,0,0)
-        --initialize all offsets
-       --def.offsets = Guns4d.table.deep_copy(def.base_class.offsets)
-        def.offsets = {}
-        for offset, tbl in pairs(def.base_class.offsets) do
-            def.offsets[offset] = {}
-            for i, v in pairs(tbl) do
-                if type(v) == "table" and v.x then
-                    def.offsets[offset][i] = vector.new()
-                else
-                    def.offsets[offset][i] = v
-                end
-            end
-        end
-        def.animation_rotation = vector.new()
-        --def.velocities = Guns4d.table.deep_copy(def.base_class.velocities)
-        def.velocities = {}
-        for i, tbl in pairs(def.base_class.velocities) do
-            def.velocities[i] = {}
-            def.velocities[i].gun_axial = Vec.new()
-            def.velocities[i].player_axial = Vec.new()
-        end
-        --properties have been assigned, create necessary objects TODO: completely change this system for defining them.
-        if def.properties.sprite_scope then
-            def.sprite_scope = def.properties.sprite_scope:new({
-                gun = def
-            })
-        end
-        if def.properties.crosshair then
-            def.crosshair = def.properties.crosshair:new({
-                gun = def
-            })
-        end
-        if def.custom_construct then def:custom_construct() end
+        gun_default.construct_instance(def)
     elseif def.name ~= "__guns4d:default__" then
-        local props = def.properties
-
-        --validate controls, done before properties are filled to avoid duplication.
-        if props.control_actions then
-            for i, control in pairs(props.control_actions) do
-                if not (i=="on_use") and not (i=="on_secondary_use") then
-                    assert(control.conditions, "no conditions provided for control")
-                    for _, condition in pairs(control.conditions) do
-                        if not valid_ctrls[condition] then
-                            assert(false, "invalid key: '"..condition.."'")
-                        end
-                    end
-                end
-            end
-        end
-
-        --fill in the properties.
-        def.properties = Guns4d.table.fill(def.parent_class.properties, props or {})
-        def.consts = Guns4d.table.fill(def.parent_class.consts, def.consts or {})
-        props = def.properties --have to reinitialize this as the reference is replaced.
-
-        --print(table.tostring(props))
-        def.b3d_model = mtul.b3d_reader.read_model(props.visuals.mesh, true)
-        def.b3d_model.global_frames = {
-            arm_right = {}, --the aim position of the right arm
-            arm_left = {}, --the aim position of the left arm
-            rotation = {} --rotation of the gun (this is assumed as gun_axial, but that's probably fucked for holo sight alignments)
-        }
-        --print(table.tostring(def.b3d_model))
-        --precalculate keyframe "samples" for intepolation.
-        local left = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.arm_left, true)
-        local right = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.arm_right, true)
-        local main = mtul.b3d_nodes.get_node_by_name(def.b3d_model, props.visuals.root, true)
-        --we add 2 because we have to add 1 for the loop to make it there if it's a float val, and MTUL uses a system where frame 0 is 1
-        for target_frame = 0, def.b3d_model.node.animation.frames+1, def.consts.KEYFRAME_SAMPLE_PRECISION do
-            --we need to check that the bone exists first.
-            if left then
-                table.insert(def.b3d_model.global_frames.arm_left, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, left, nil, target_frame))/10)
-            else
-                def.b3d_model.global_frames.arm_left = nil
-            end
-
-            if right then
-                table.insert(def.b3d_model.global_frames.arm_right, vector.new(mtul.b3d_nodes.get_node_global_position(def.b3d_model, right, nil, target_frame))/10)
-            else
-                def.b3d_model.global_frames.arm_right = nil
-            end
-
-            if main then
-                --use -1 as it does not exist and thus will always go to the default resting pose
-                --we compose it by the inverse because we need to get the global CHANGE in rotation for the animation rotation offset. I really need to comment more often
-                local newvec = (mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, -1):inverse())*mtul.b3d_nodes.get_node_rotation(def.b3d_model, main, nil, target_frame)
-                --used to use euler
-                table.insert(def.b3d_model.global_frames.rotation, newvec)
-            end
-        end
-        --[[if main then
-            local quat = mtul.math.quat.new(main.keys[1].rotation)
-            print(dump(main.keys[1]), vector.new(quat:to_euler_angles_unpack(quat)))
-        end
-        for i, v in pairs(def.b3d_model.global_frames.rotation) do
-            print(i, dump(vector.new(v:to_euler_angles_unpack())*180/math.pi))
-        end]]
-       --print()
-        -- if it's not a template, then create an item, override some props
-        if def.name ~= "__template" then
-            assert(def.itemstring, "no itemstring provided. Cannot create a gun without an associated itemstring.")
-            local item_def = minetest.registered_items[def.itemstring]
-            assert(rawget(def, "name"), "no name provided in new class")
-            assert(rawget(def, "itemstring"), "no itemstring provided in new class")
-            assert(not((props.ammo.capacity) and (not props.ammo.magazine_only)), "gun does not accept magazines, but has no set capcity! Please define ammo.capacity")
-            assert(item_def, def.itemstring.." : item is not registered.")
-
-            --override methods so control handler can do it's job
-            local old_on_use = item_def.on_use
-            local old_on_s_use = item_def.on_secondary_use
-            def.properties.inventory_image = item_def.inventory_image
-            --override the item to hook in controls. (on_drop needed)
-            minetest.override_item(def.itemstring, {
-                on_use = function(itemstack, user, pointed_thing)
-                    if old_on_use then
-                        old_on_use(itemstack, user, pointed_thing)
-                    end
-                    Guns4d.players[user:get_player_name()].control_handler:on_use(itemstack, pointed_thing)
-                end,
-                on_secondary_use = function(itemstack, user, pointed_thing)
-                    if old_on_s_use then
-                        old_on_s_use(itemstack, user, pointed_thing)
-                    end
-                    Guns4d.players[user:get_player_name()].control_handler:on_secondary_use(itemstack, pointed_thing)
-                end
-            })
-        end
-
-        --TODO this may need to be renamed and put in constructor for instances (modifications could later change ammo types.)
-        def.accepted_bullets = {}
-        for _, v in pairs(def.properties.ammo.accepted_bullets) do
-            def.accepted_bullets[v] = true
-        end
-        def.accepted_magazines = {}
-        for _, v in pairs(def.properties.ammo.accepted_magazines) do
-            def.accepted_magazines[v] = true
-        end
-        --add gun def to the registered table
-        Guns4d.gun.registered[def.name] = def
-
-        --register the visual entity
-        minetest.register_entity(def.name.."_visual", {
-            initial_properties = {
-                visual = "mesh",
-                mesh = props.visuals.mesh,
-                textures = props.textures,
-                glow = 0,
-                pointable = false,
-                static_save = false,
-                backface_culling = props.visuals.backface_culling
-            },
-            on_step = function(self, dtime)
-                local obj = self.object
-                if not self.parent_player then obj:remove() return end
-                local player = self.parent_player
-                local handler = Guns4d.players[player:get_player_name()]
-                local lua_object = handler.gun
-                if not lua_object then obj:remove() return end
-                --this is changing the point of rotation if not aiming, this is to make it look less shit.
-                local axial_modifier = Vec.new()
-                if not handler.control_handler.ads then
-                    local pitch = lua_object.total_offset_rotation.player_axial.x+lua_object.player_rotation.x
-                    axial_modifier = Vec.new(pitch*(1-lua_object.consts.HIP_PLAYER_GUN_ROT_RATIO),0,0)
-                end
-                local axial_rot = lua_object.total_offset_rotation.gun_axial+axial_modifier
-                --attach to the correct bone, and rotate
-                local visibility = true
-                if lua_object.sprite_scope and lua_object.sprite_scope.hide_gun and (not (handler.ads_location == 0)) then
-                    visibility = false
-                end
-                if handler.control_handler.ads  then
-                    local normal_pos = (props.ads.offset)*10
-                    obj:set_attach(player, lua_object.consts.AIMING_BONE, normal_pos, -axial_rot, visibility)
-                else
-                    local normal_pos = Vec.new(props.hip.offset)*10
-                    -- Vec.multiply({x=normal_pos.x, y=normal_pos.z, z=-normal_pos.y}, 10)
-                    obj:set_attach(player, lua_object.consts.HIPFIRE_BONE, normal_pos, -axial_rot, visibility)
-                end
-            end,
-        })
+        --print(dump(def))
+        gun_default.construct_base_class(def)
     end
 end
 Guns4d.gun = Instantiatable_class:inherit(gun_default)
