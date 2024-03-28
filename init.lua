@@ -32,7 +32,7 @@ for i, v in pairs(Guns4d.config) do
     --Guns4d.config[i] = conf[i] or minetest.settings["guns4d."..i] or Guns4d.config[i]
     --cant use or because it'd evaluate to false if the setting is alse
     if mt_conf[i] ~= nil then
-        Guns4d.config[i] = mt_conf[i]
+        Guns4d.config[i] = mt_conf["guns4d."..i]
     elseif conf[i] ~= nil then
         Guns4d.config[i] = conf[i]
     end
