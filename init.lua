@@ -28,8 +28,7 @@ local path = minetest.get_modpath("guns4d")
 print("file read?")
 local conf = Settings(path.."/guns4d_settings.conf")
 for i, v in pairs(conf:to_table() or {}) do
-    print(i,v)
-    Guns4d.config[i] = v
+    Guns4d.config[i] = v or minetest.settings["guns4d."..i]
 end
 
 dofile(path.."/infinite_ammo.lua")
