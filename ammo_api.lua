@@ -4,7 +4,8 @@ Default_bullet = {
     range = 100,
     force_mmRHA = 1,
     dropoff_mmRHA = 0,
-    damage = 0,
+    raw_blunt_damage = 0,
+    raw_sharp_damage = 0
 }
 Default_mag = {
     capacity = 1,

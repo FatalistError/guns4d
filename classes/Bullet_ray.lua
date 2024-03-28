@@ -9,7 +9,9 @@ local ray = {
     --exit_direction = dir,
     --range_left = def.bullet.range,
     --energy = def.bullet.penetration_RHA
-    mmRHA_to_Pa_energy_ratio = .5,
+    sharp_to_blunt_conversion_factor = .5, -- 1mmRHA is converted to 1mPA of blunt force
+    blunt_damage_groups = {}, --minetest.deserialize(Guns4d.config.default_blunt_groups), --these are multiplied by blunt_damage
+    sharp_damage_groups = {}, --minetest.deserialize(Guns4d.config.default_sharp_groups),
     ITERATION_DISTANCE = .3,
     damage = 0
 }
@@ -92,6 +94,7 @@ function ray:_cast()
             --if it's an object, make sure it's not the player object
             --note that while it may seem like this will create a infinite hit loop, it resolves itself as the intersection_point of the next ray will be close enough as to skip the pointed. See first line of iterator.
             if (hit.type == "object") and (hit.ref ~= self.player) and ((not self.last_pointed_object) or (hit.ref ~= self.last_pointed_object.ref)) then
+                end_pos = hit.intersection_point
                 if self.over_penetrate then
                     pointed_object = hit
                     break
@@ -100,7 +103,6 @@ function ray:_cast()
                     continue = false
                     break
                 end
-                end_pos = pointed_object.intersection_point
             end
         end
     end
@@ -115,7 +117,8 @@ function ray:_iterate(initialized)
     local distance = vector.distance(self.pos, end_pos)
     if self.state == "free" then
         self.energy = self.energy-(distance*self.energy_dropoff)
-
+        --minetest.chat_send_all((distance*self.energy_dropoff))
+        --minetest.chat_send_all((distance))
         if next_state == "transverse" then
             print(vector.distance(self.pos, end_pos), vector.distance(self.pos, self.pos+(self.dir*self.range)))
             self:bullet_hole(end_pos, end_normal)
@@ -184,13 +187,15 @@ function ray:hit_entity(object)
     assert(self.instance, "attempt to call obj method on a class")
 
     local resistance = object:get_armor_groups() -- support for different body parts is needed here, that's for... a later date, though.
-    local sharp_pen = self.sharp_penetration-(self.sharp_penetration*(self.energy/self.init_energy)*self.energy_sharp_ratio)
-    sharp_pen = Guns4d.math.clamp(sharp_pen - (resistance.guns4d_mmRHA or 0), 0, 65535)
-    local converted_Pa = (resistance.guns4d_mmRHA or 0) * self.mmRHA_to_Pa_energy_ratio
-
-    local blunt_pen = converted_Pa+(self.blunt_penetration-(self.blunt_penetration*(self.energy/self.init_energy)*(1-self.energy_sharp_ratio)))
-    blunt_pen = Guns4d.math.clamp(blunt_pen - (resistance.guns4d_Pa or 0), 0, 65535)
-    self:apply_damage(object, sharp_pen, blunt_pen)
+    --calculate the amount of penetration we've lost based on how much of the energy is converted to penetration (energy_sharp_ratio)
+    local dropoff_ratio = (1-(self.energy/self.init_energy))
+    local bullet_sharp_pen = self.sharp_penetration-(self.sharp_penetration*dropoff_ratio*self.energy_sharp_ratio)
+    local effective_sharp_pen = Guns4d.math.clamp(bullet_sharp_pen - (resistance.guns4d_mmRHA or 0), 0, math.huge)
+    local converted_Pa = (bullet_sharp_pen-effective_sharp_pen) * self.sharp_to_blunt_conversion_factor
+    minetest.chat_send_all(bullet_sharp_pen)
+    local bullet_blunt_pen = converted_Pa+(self.blunt_penetration-(self.blunt_penetration*dropoff_ratio*(1-self.energy_sharp_ratio)))
+    local effective_blunt_pen = Guns4d.math.clamp(bullet_blunt_pen - (resistance.guns4d_Pa or 0), 0, math.huge)
+    self:apply_damage(object, effective_sharp_pen, effective_blunt_pen)
 
     --raw damage first
 end
@@ -206,29 +211,16 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
     local blunt_dmg = self.raw_blunt_damage*blunt_ratio
     local sharp_dmg = self.raw_sharp_damage*sharp_ratio
 
-    local hp = (object:get_hp()-blunt_dmg)-sharp_dmg
-    --print(blunt_dmg, sharp_dmg, blunt_ratio, sharp_ratio)
-    --print(self.blunt_penetration, self.sharp_penetration)
-    if hp < 0 then hp = 0 end
-    object:set_hp(hp, {type="set_hp", from="guns4d"})
-
     --now apply damage groups.
-    if self.blunt_damage_groups then
-        local damage_values = {}
-        for i, v in pairs(self.blunt_damage_groups) do
-            damage_values[i] = v*blunt_ratio
-        end
-        object:punch((Guns4d.config.punch_from_player_not_gun and self.player) or self.gun.entity, 1000, {damage_groups=damage_values}, self.dir)
+    local damage_values = {}
+    for i, v in pairs(self.blunt_damage_groups) do
+        damage_values[i] = v*blunt_ratio
     end
-    if self.sharp_damage_groups then
-        local damage_values = {}
-        for i, v in pairs(self.sharp_damage_groups) do
-            damage_values[i] = v*sharp_ratio
-        end
-        object:punch((Guns4d.config.punch_from_player_not_gun and self.player) or self.gun.entity, 1000, {damage_groups=damage_values}, self.dir)
+    for i, v in pairs(self.sharp_damage_groups) do
+        damage_values[i] = (damage_values[i] or 0) +v*sharp_ratio
     end
-    --punch SUCKS for this, apparently armor can only have flat rates of protection, which is sort of the worst thing i've ever heard.
-    --object:punch()
+    damage_values.fleshy = (damage_values.fleshy or 0)+blunt_dmg+sharp_dmg
+    object:punch((Guns4d.config.punch_from_player_not_gun and self.player) or self.gun.entity, 1000, {damage_groups=damage_values}, self.dir)
 end
 function ray:bullet_hole(pos, normal)
     assert(self.instance, "attempt to call obj method on a class")
