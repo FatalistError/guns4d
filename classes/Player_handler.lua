@@ -10,9 +10,10 @@ local player_handler = {
     look_rotation = {x=0, y=0},
     look_offset = Vec.new(),
     ads_location = 0, --interpolation scalar for gun aiming location
-    default_fov = 80,
-    fov = 80,
-    horizontal_offset = 0
+    default_fov = Guns4d.config.default_fov,
+    fov = Guns4d.config.default_fov,
+    horizontal_offset = 0,
+    unreliability_update_timer = 1, --update for server unreliabilities or issues.
 }
 function player_handler:update(dt)
     assert(self.instance, "attempt to call object method on a class")
@@ -73,7 +74,9 @@ function player_handler:update(dt)
         --delete model handler object (this resets the player model)
         self.player_model_handler:prepare_deletion()
         self.player_model_handler = nil
-        player:hud_set_flags({wielditem = true, crosshair = true}) --reenable hud elements
+        if (not spriteguns) or (spriteguns and (not spriteguns.registered_guns[player:get_wielded_item():get_name()])) then
+            player:hud_set_flags({wielditem = true, crosshair = true}) --reenable hud elements
+        end
     end
 
 
@@ -139,7 +142,9 @@ function player_handler:set_fov(val, transition)
 end
 function player_handler:unset_fov(transition)
     self.fov_lock = false
-    Guns4d.old_set_fov(self.player, self.default_fov, nil, transition)
+    --minetest.chat_send_all(transition)
+    --https://github.com/minetest/minetest/issues/14499, setting a transition time seems to fix it
+    Guns4d.old_set_fov(self.player, self.default_fov, false, Guns4d.math.clamp(transition or 0, .15, math.huge))
 end
 --doubt I'll ever use this... but just in case I don't want to forget.
 function player_handler:get_pos()

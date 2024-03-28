@@ -19,6 +19,7 @@ Guns4d.config = {
     vertical_rotation_factor = 10,
     simple_headshot = true, --holdover feature before a more complex system is implemented
     simple_headshot_body_ratio = .75, --percentage of hitbox height that is body.
+    default_fov = 80,
     headshot_damage_factor = 1.75
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
@@ -69,20 +70,32 @@ minetest.register_on_joinplayer(function(player)
 
     Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname]
     --set the FOV to a predictable value
-    player:set_fov(80)
+    player:set_fov(Guns4d.config.default_fov)
     --ObjRef overrides will be integrated into MTUL (eventually TM)
     if not objref_mtable then
         objref_mtable = getmetatable(player)
 
         local old_set_fov = objref_mtable.set_fov
-        Guns4d.old_set_fov = old_set_fov
+        Guns4d.old_set_fov = function(...)
+            minetest.chat_send_all(dump({...}))
+            old_set_fov(...)
+        end
+        local new_old_set = Guns4d.old_set_fov
         function objref_mtable.set_fov(self, ...)
             local handler = Guns4d.handler_by_ObjRef[self]
+            local fov = select(1, ...)
             if handler then --check, just in case it's not a player (and thus should throw an error)
-                handler.default_fov = select(1, ...)
+                if fov == 0 then
+                    fov = Guns4d.config.default_fov
+                elseif select(2, ...) == true then
+                    fov = Guns4d.config.default_fov*fov
+                end
+                handler.default_fov = fov
                 if handler.fov_lock then return end
             end
-            old_set_fov(self, ...)
+            local args = {...}
+            args[1] = fov --basically permenantly set the player's fov to 80, making multipliers and resets return there.
+            new_old_set(self, unpack(args))
         end
 
         local old_get_pos = objref_mtable.get_pos
