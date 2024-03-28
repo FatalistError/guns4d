@@ -220,7 +220,6 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
         if (hit_pos.y-lowest_point) > above_chest then
             headshot = Guns4d.config.headshot_damage_factor
         end
-        minetest.chat_send_all((hit_pos.y-lowest_point))
     end
     local damage_values = {}
     for i, v in pairs(self.blunt_damage_groups) do
@@ -230,7 +229,6 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
         damage_values[i] = (damage_values[i] or 0) + (v*sharp_ratio*headshot)
     end
     damage_values[Guns4d.config.default_damage_group] = (damage_values[Guns4d.config.default_damage_group] or 0)+((blunt_dmg+sharp_dmg)*headshot)
-    minetest.chat_send_all(damage_values.fleshy)
     object:punch((Guns4d.config.punch_from_player_not_gun and self.player) or self.gun.entity, 1000, {damage_groups=damage_values}, self.dir)
 end
 function ray:bullet_hole(pos, normal)
