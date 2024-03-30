@@ -20,7 +20,8 @@ Guns4d.config = {
     simple_headshot = true, --holdover feature before a more complex system is implemented
     simple_headshot_body_ratio = .75, --percentage of hitbox height that is body.
     default_fov = 80,
-    headshot_damage_factor = 1.75
+    headshot_damage_factor = 1.75,
+    enable_touchscreen_command_name = "guns4d_enable_touchmode",
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }
@@ -45,6 +46,7 @@ dofile(path.."/item_entities.lua")
 dofile(path.."/play_sound.lua")
 dofile(path.."/visual_effects.lua")
 dofile(path.."/default_controls.lua")
+dofile(path.."/touch_support.lua")
 dofile(path.."/block_values.lua")
 dofile(path.."/ammo_api.lua")
 path = path .. "/classes"
@@ -54,7 +56,7 @@ dofile(path.."/Control_handler.lua")
 dofile(path.."/Ammo_handler.lua")
 dofile(path.."/Sprite_scope.lua")
 dofile(path.."/Dynamic_crosshair.lua")
-dofile(path.."/Gun.lua")
+dofile(path.."/Gun.lua") --> loads /classes/gun_construct.lua
 dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
 dofile(path.."/Proxy_table.lua")

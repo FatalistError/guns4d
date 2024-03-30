@@ -40,7 +40,7 @@ function player_handler:update(dt)
                 self.player_model_handler = nil
             end
             self.player_model_handler = Guns4d.player_model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
-            self.control_handler = Guns4d.control_handler:new({player=player, actions=self.gun.properties.control_actions, gun=self.gun})
+            self.control_handler = Guns4d.control_handler:new({player=player, gun=self.gun, touchscreen=self.touchscreen})
 
             --this needs to be stored for when the gun is unset!
             self.horizontal_offset = self.gun.properties.ads.horizontal_offset

@@ -106,7 +106,7 @@ local gun_default = {
             gun_axial = {x=1, y=-1},
             player_axial = {x=1,y=1},
         },
-        control_actions = { --used by control_handler
+        pc_control_actions = { --used by control_handler
             __overfill=true, --this table will not be filled in.
             aim = Guns4d.default_controls.aim,
             auto = Guns4d.default_controls.auto,
@@ -114,8 +114,13 @@ local gun_default = {
             on_use = Guns4d.default_controls.on_use,
             firemode = Guns4d.default_controls.firemode
         },
-        mobile_control_actions = {
-
+        touch_control_actions = {
+            __overfill=true,
+            aim = Guns4d.default_touch_controls.aim,
+            auto = Guns4d.default_touch_controls.auto,
+            reload = Guns4d.default_touch_controls.reload,
+            on_secondary_use = Guns4d.default_touch_controls.on_secondary_use,
+            firemode = Guns4d.default_touch_controls.firemode
         },
         charging = { --how the gun "cocks"
             require_draw_on_swap = true,
@@ -223,10 +228,10 @@ local gun_default = {
             player_axial = Vec.new(),
         },
     },
-    spread = {
+    --[[spread = {
         recoil = vector.new(),
         walking = vector.new()
-    },
+    },]]
     animation_rotation = vector.new(),
     --[[total_offset_rotation = { --can't be in offsets, as they're added automatically.
         gun_axial = Vec.new(),
@@ -263,7 +268,7 @@ local gun_default = {
         ANIMATIONS_OFFSET_AIM = false,
         LOOP_IDLE_ANIM = false
     },
-    animation_data = { --where animations data is stored.
+    --[[animation_data = { --where animations data is stored.
         anim_runtime = 0,
         length = 0,
         fps = 0,
@@ -272,8 +277,7 @@ local gun_default = {
     --[[animations = {
 
         }
-    ]]
-    },
+    },]]
     bolt_charged = false,
     particle_spawners = {},
     current_firemode = 1,

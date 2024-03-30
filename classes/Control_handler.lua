@@ -1,6 +1,6 @@
 Guns4d.control_handler = {
     --[[example:
-    controls = {
+    actions_pc = {
         reload = {
             conditions = { --the list of controls (see lua_api.txt) to call
                 "shift",
@@ -15,6 +15,7 @@ Guns4d.control_handler = {
     }
     ]]
     ads = false,
+    touchscreen = false
 }
 --data table:
 --[[
@@ -32,6 +33,10 @@ end]]
 --this function always ends up a mess. I rewrote it here 2 times,
 --and in 3dguns I rewrote it at least 3 times. It's always just...
 --impossible to understand. So if you see ALOT of comments, that's why.
+function controls:get_actions()
+    assert(self.instance, "attempt to call object method on a class")
+    return (self.touchscreen and self.actions_touch) or self.actions_pc
+end
 function controls:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     self.player_pressed = self.player:get_player_control()
@@ -39,7 +44,7 @@ function controls:update(dt)
     local call_queue = {} --so I need to have a "call" queue so I can tell the functions the names of other active controls (busy_list)
     local busy_list = self.busy_list or {} --list of controls that have their conditions met. Has to be reset at END of update, so on_use and on_secondary_use can be marked
     if not (self.gun.rechamber_time > 0 and self.gun.ammo_handler.ammo.next_bullet == "empty") then --check if the gun is being charged.
-        for i, control in pairs(self.actions) do
+        for i, control in pairs(self:get_actions()) do
             if not (i=="on_use") and not (i=="on_secondary_use") then
                 local def = control
                 local data = control.data
@@ -104,37 +109,53 @@ function controls:update(dt)
 end
 function controls:on_use(itemstack, pointed_thing)
     assert(self.instance, "attempt to call object method on a class")
-    if self.actions.on_use then
-        self.actions.on_use(itemstack, self.handler, pointed_thing)
+    local actions = self:get_actions()
+    if actions.on_use then
+        actions.on_use(itemstack, self.handler, pointed_thing)
     end
 end
 function controls:on_secondary_use(itemstack, pointed_thing)
     assert(self.instance, "attempt to call object method on a class")
-    if self.actions.on_secondary_use then
-        self.actions.on_secondary_use(itemstack, self.handler, pointed_thing)
+    local actions = self:get_actions()
+    if actions.on_secondary_use then
+        actions.on_secondary_use(itemstack, self.handler, pointed_thing)
     end
 end
 ---@diagnostic disable-next-line: duplicate-set-field
+function controls:toggle_touchscreen_mode(active)
+    if active~=nil then self.touchscreen=active else self.touchscreen = not self.touchscreen end
+    self.handler.touchscreen = self.touchscreen
+    for i, action in pairs((self.touchscreen and self.actions_pc) or self.actions_touch) do
+        if not (i=="on_use") and not (i=="on_secondary_use") then
+            action.timer = action.timer or 0
+            action.data = nil --no need to store excess data
+        end
+    end
+    for i, action in pairs((self.touchscreen and self.actions_touch) or self.actions_pc) do
+        if not (i=="on_use") and not (i=="on_secondary_use") then
+            action.timer = action.timer or 0
+            action.data = {
+                timer = action.timer,
+                continue = false,
+                time_held = 0,
+                current_mode = (action.mode=="hybrid" and "toggle") or action.mode or "hold"
+            }
+        end
+    end
+end
 function controls.construct(def)
     if def.instance then
-        assert(def.actions, "no actions provided")
+        assert(def.gun.properties.pc_control_actions, "no actions for pc controls provided")
+        assert(def.gun.properties.touch_control_actions, "no actions for touchscreen controls provided")
         assert(def.player, "no player provided")
-        def.actions = Guns4d.table.deep_copy(def.actions)
+        --instantiate controls (as we will be adding to the table)
+        def.actions_pc = Guns4d.table.deep_copy(def.gun.properties.pc_control_actions)
+        def.actions_touch = Guns4d.table.deep_copy(def.gun.properties.touch_control_actions)
         def.busy_list = {}
         def.handler = Guns4d.players[def.player:get_player_name()]
-        def.mode = def.mode or "hold"
-        for i, action in pairs(def.actions) do
-            if not (i=="on_use") and not (i=="on_secondary_use") then
-                action.timer = action.timer or 0
-                action.data = {
-                    timer = action.timer,
-                    continue = false,
-                    time_held = 0,
-                    current_mode = (def.mode=="hybrid" and "toggle") or def.mode
-                }
-            end
-        end
-        table.sort(def.actions, function(a,b)
+        def:toggle_touchscreen_mode(def.touchscreen)
+
+        table.sort(def.actions_pc, function(a,b)
             return #a.conditions > #b.conditions
         end)
     end

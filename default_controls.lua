@@ -35,7 +35,7 @@ Guns4d.default_controls.firemode = {
         end
     end
 }
-Guns4d.default_controls.toggle_safety = {
+--[[Guns4d.default_controls.toggle_safety = {
     conditions = {"sneak", "zoom"},
     loop = false,
     timer = 2,
@@ -48,8 +48,8 @@ Guns4d.default_controls.toggle_safety = {
 
         end
     end
-}
-Guns4d.default_controls.on_use = function(itemstack, handler, pointed_thing)
+}]]
+Guns4d.default_controls.on_use = function(itemstack, handler, pointed_thing, busy_list)
     local gun = handler.gun
     local fmode = gun.properties.firemodes[gun.current_firemode]
     if fmode ~= "safe" and not (gun.burst_queue > 0) then
