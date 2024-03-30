@@ -1,7 +1,5 @@
 minetest.register_chatcommand(Guns4d.config.enable_touchscreen_command_name, {
-    parameters = "player",
     description = "toggle wether the user is using a mobile device so controls can be adjusted for an optimal mobile experience",
-    privs = {privs=true},
     func = function(caller, arg)
         local handler = Guns4d.players[caller]
         if handler and handler.control_handler then
