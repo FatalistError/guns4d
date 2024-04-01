@@ -12,8 +12,38 @@ local ray = {
     sharp_to_blunt_conversion_factor = .5, -- 1mmRHA is converted to 1mPA of blunt force
     blunt_damage_groups = {}, --minetest.deserialize(Guns4d.config.default_blunt_groups), --these are multiplied by blunt_damage
     sharp_damage_groups = {}, --minetest.deserialize(Guns4d.config.default_sharp_groups),
-    ITERATION_DISTANCE = .3,
-    damage = 0
+    pass_sounds = {
+        --[1] will be preferred if present
+        supersonic = {
+            sound = "bullet_crack",
+            max_hear_distance = 3,
+            pitch = {
+                min = .6,
+                max = 1.5
+            },
+            gain = {
+                min = .9, --this uses distance instead of randomness
+                max = .4
+            }
+        },
+        subsonic = {
+            sound = "bullet_whizz",
+            max_hear_distance = 3,
+            pitch = {
+                min = .5,
+                max = 1.5
+            },
+            gain = {
+                min = .3, --this uses distance instead of randomness
+                max = .9
+            }
+        },
+    },
+    supersonic_energy = Guns4d.config.minimum_supersonic_energy_assumption,
+    pass_sound_max_distance = 3,
+    damage = 0,
+    energy = 0,
+    ITERATION_DISTANCE = Guns4d.config.default_penetration_iteration_distance,
 }
 
 --find (valid) edge. Slabs or other nodeboxes that are not the last hit position are not considered (to account for holes) TODO: update to account for hollow nodes
@@ -250,48 +280,90 @@ function ray:bullet_hole(pos, normal)
         Guns4d.effects.spawn_bullet_hole_particle(pos, self.hole_scale, '(bullet_hole_1.png^(bullet_hole_2.png^[opacity:129))')
     end
 end
+function ray:play_bullet_pass_sounds()
+    --iteration done, damage applied, find players to apply bullet whizz to
+    local start_pos = self.init_pos
+    local played_for = {}
+    for i = #self.history, 1, -1 do
+        local v = self.history[i]
+        for _, player in pairs(minetest.get_connected_players()) do
+            if (player~=self.player) and not played_for[player] then
+                local pos = player:get_pos()+vector.new(0,player:get_properties().eye_height,0)
+                local nearest = Guns4d.nearest_point_on_line(start_pos, v.pos, pos)
+                if vector.distance(nearest, pos) < self.pass_sound_max_distance then
+                    played_for[player] = true
+                    if self.pass_sounds[1] then
+                        local sound = Guns4d.table.deep_copy(self.pass_sounds[1])
+                        sound.pos = nearest
+                        Guns4d.play_sounds(self.pass_sounds[1])
+                    else
+                        --interpolate to find the energy of the shot to determine supersonic or not.
+                        local v1
+                        if #self.history > i then v1 = v[i+1].energy else v1 = self.init_energy end
+                        local v2 = v.energy
+
+                        local ratio = vector.distance(start_pos, nearest)/vector.distance(start_pos, pos)
+                        local energy_at_point = v1+((v2-v1)*(1-ratio))
+
+                        local sound = self.pass_sounds.subsonic
+                        if energy_at_point >= self.supersonic_energy then
+                            sound = self.pass_sounds.supersonic
+                        end
+                        sound = Guns4d.table.deep_copy(sound)
+                        sound.pos = nearest
+                        for _, t in pairs({"gain", "pitch"}) do
+                            if sound[t].min then
+                                sound[t] = sound[t].max+((sound[t].min-sound[t].max)*(vector.distance(nearest, pos)/self.pass_sound_max_distance))
+                            end
+                        end
+                        Guns4d.play_sounds(sound)
+                    end
+                end
+            end
+        end
+        start_pos = v.pos
+    end
+end
 function ray.construct(def)
     if def.instance then
-        assert(def.player, "no player")
+        --these asserts aren't necessary, probably drags down performance a tiny bit.
+
+        --[[assert(def.player, "no player")
         assert(def.pos, "no position")
         assert(def.dir, "no direction")
 
         assert(def.gun, "no Gun object")
         assert(def.range, "no range")
         assert(def.energy, "no energy")
-        assert(def.energy_dropoff, "no energy dropoff")
+        assert(def.energy_dropoff, "no energy dropoff")]]
 
         --use this if you don't want to use the built-in system for penetrations.
-        assert(not(def.ignore_penetration and not rawget(def, "hit_entity")), "bullet ray cannot ignore default penetration if hit_entity() is undefined. Use ignore_penetration for custom damage systems." )
-        if not def.ignore_penetration then
-            assert((not (def.blunt_penetration and def.energy)) or (def.blunt_penetration < def.energy), "blunt penetration may not be greater than energy! Blunt penetration is in Joules/Megapascals, energy is also in Joules.")
+       -- assert((not (def.blunt_penetration and def.energy)) or (def.blunt_penetration < def.energy), "blunt penetration may not be greater than energy! Blunt penetration is in Joules/Megapascals, energy is also in Joules.")
 
-            --"raw" damages define the damage (unaffected by armor groups) for the initial penetration value of each type.
-            --def.sharp_damage_groups = {} --tool capabilities
-            --def.blunt_damage_groups = {}
-
-            --guns4d mmRHA is used in traditional context.
-            assert((not def.blunt_damage_groups) or not def.blunt_damage_groups["guns4d_mmRHA"], "guns4d_mmRHA damage group is not used in a traditional context. To increase penetration, increase sharp_penetration field.")
-            assert((not def.blunt_damage_groups) or not def.blunt_damage_groups["guns4d_Pa"], "guns4d_Pa is not used in a traditional context. To increase blunt penetration, increase blunt_penetration field.")
+        --guns4d mmRHA is used in traditional context.
+        --assert((not def.blunt_damage_groups) or not def.blunt_damage_groups["guns4d_mmRHA"], "guns4d_mmRHA damage group is not used in a traditional context. To increase penetration, increase sharp_penetration field.")
+        --assert((not def.blunt_damage_groups) or not def.blunt_damage_groups["guns4d_Pa"], "guns4d_Pa is not used in a traditional context. To increase blunt penetration, increase blunt_penetration field.")
 
 
-            def.raw_sharp_damage = def.raw_sharp_damage or 0
-            def.raw_blunt_damage = def.raw_blunt_damage or 0
-            def.sharp_penetration = def.sharp_penetration or 0
-            if def.sharp_penetration==0 then
-                def.blunt_penetration = def.blunt_penetration or def.energy/2
-            else
-                def.blunt_penetration = def.blunt_penetration or def.energy
-            end
-            def.energy_sharp_ratio = (def.energy-def.blunt_penetration)/def.energy
+        def.raw_sharp_damage = def.raw_sharp_damage or 0
+        def.raw_blunt_damage = def.raw_blunt_damage or 0
+        def.sharp_penetration = def.sharp_penetration or 0
+        if def.sharp_penetration==0 then
+            def.blunt_penetration = def.blunt_penetration or def.energy/2
+        else
+            def.blunt_penetration = def.blunt_penetration or def.energy
         end
+        def.energy_sharp_ratio = (def.energy-def.blunt_penetration)/def.energy
+
         def.init_energy = def.energy
         --blunt pen is in the same units (1 Joule/Area^3 = 1 Pa), so we use it to make the ratio by subtraction.
 
         def.dir = vector.new(def.dir)
         def.pos = vector.new(def.pos)
         def.history = {}
+        def.init_pos = vector.new(def.pos) --has to be cloned before iteration
         def:_iterate()
+        def:play_bullet_pass_sounds()
     end
 end
 Guns4d.bullet_ray = Instantiatable_class:inherit(ray)

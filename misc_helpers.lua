@@ -284,3 +284,16 @@ function Guns4d.rltv_point_to_hud(pos, fov, aspect)
     local z = (pos.z/pos.z)*a11
 	return {x=x / 2,y=-y / 2} --output needs to be offset by +.5 on both for HUD elements, but this cannot be integrated.
 end
+
+--Code: Elkien3 (CC BY-SA 3.0)
+--https://github.com/Elkien3/spriteguns/blob/1c632fe12c35c840d6c0b8307c76d4dfa44d1bd7/init.lua#L76
+function Guns4d.nearest_point_on_line(lineStart, lineEnd, pnt)
+    local line = vector.subtract(lineEnd, lineStart)
+    local len = vector.length(line)
+    line = vector.normalize(line)
+
+    local v = vector.subtract(pnt, lineStart)
+    local d = vector.dot(v, line)
+    d = Guns4d.math.clamp(d, 0, len);
+    return vector.add(lineStart, vector.multiply(line, d))
+end

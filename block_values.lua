@@ -26,7 +26,7 @@ minetest.register_on_mods_loaded(function()
             RHA = RHA / groups.oddly_breakable_by_hand
         end
         if groups.choppy then
-            RHA = RHA/(5*groups.choppy)
+            RHA = RHA/(10*groups.choppy)
         end
         if groups.flora or groups.grass then
             RHA = 0

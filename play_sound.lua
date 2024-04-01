@@ -32,8 +32,10 @@ local sqrt = math.sqrt
 -- however has the following changed or guns4d specific parameters.
 -- @field min_hear_distance this is useful if you wish to play a sound which has a "far" sound, such as distant gunshots. incompatible `with to_player`
 -- @field sounds a @{misc_helpers.weighted_randoms| weighted_randoms table} for randomly selecting sounds. The output will overwrite the `sound` field.
--- @field to_player 4dguns changes `to_player` so it only plays positionless audio (as it is only intended for first person audio)
+-- @field to_player 4dguns changes `to_player` so it only plays positionless audio (as it is only intended for first person audio). If set to string "from_player" and player present
+-- @field player this is so to_player being set to "from_player". It's to be set to the player which fired the weapon.
 -- @field delay delay the playing of the sound
+-- @field has_speed_of_sound = true
 -- @table guns4d_soundspec
 
 local function handle_min_max(tbl)
@@ -84,6 +86,7 @@ function Guns4d.play_sounds(soundspecs_list)
     sound_handles[handle] = {}
     local handle_object = sound_handles[handle]
     for i, soundspec in pairs(soundspecs_list) do
+        if soundspec.to_player == "from_player" then soundspec.to_player = soundspec.player:get_player_name() end --setter of sound may not have access to this info, so add a method to use it.
         assert(not (soundspec.to_player and soundspec.min_distance), "in argument '"..tostring(i).."' `min_distance` and `to_player` are incompatible parameters.")
         local sound = soundspec.sound
         local outval
@@ -95,9 +98,9 @@ function Guns4d.play_sounds(soundspecs_list)
         if type(sound) == "table" then
             sound = Guns4d.math.weighted_randoms(sound)
         end
-        assert(sound, "no sound found")
-        if not mtul.paths.media_paths[sound..".ogg"] then
-            minetest.log("error", "no sound by the name `"..mtul.paths.media_paths[sound..".ogg"].."`")
+        assert(sound, "no sound provided")
+        if not mtul.paths.media_paths[(sound or "[NIL]")..".ogg"] then
+            minetest.log("error", "no sound by the name `"..mtul.paths.media_paths[(sound or "[NIL]")..".ogg"].."`")
         end
         --print(dump(soundspecs_list), i)
         if soundspec.to_player then soundspec.pos = nil end

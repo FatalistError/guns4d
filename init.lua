@@ -22,6 +22,8 @@ Guns4d.config = {
     default_fov = 80,
     headshot_damage_factor = 1.75,
     enable_touchscreen_command_name = "guns4d_enable_touchmode",
+    minimum_supersonic_energy_assumption = 900, --used to determine the energy of a "supersonic" bullet for bullet whizzing sound effects
+    default_penetration_iteration_distance = .25,
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }
@@ -29,7 +31,7 @@ local path = minetest.get_modpath("guns4d")
 
 print("file read?")
 local conf = Settings(path.."/guns4d_settings.conf"):to_table() or {}
-local mt_conf = minetest.settings:to_table()
+local mt_conf = minetest.settings:to_table() --allow use of MT config for servers that regularly update 4dguns through it's development
 for i, v in pairs(Guns4d.config) do
     --Guns4d.config[i] = conf[i] or minetest.settings["guns4d."..i] or Guns4d.config[i]
     --cant use or because it'd evaluate to false if the setting is alse
