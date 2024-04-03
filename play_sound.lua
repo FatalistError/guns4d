@@ -85,9 +85,9 @@ function Guns4d.play_sounds(soundspecs_list)
     local handle = #sound_handles+1 --determine the sound handle before playing
     sound_handles[handle] = {}
     local handle_object = sound_handles[handle]
-    for i, soundspec in pairs(soundspecs_list) do
+    for arg, soundspec in pairs(soundspecs_list) do
         if soundspec.to_player == "from_player" then soundspec.to_player = soundspec.player:get_player_name() end --setter of sound may not have access to this info, so add a method to use it.
-        assert(not (soundspec.to_player and soundspec.min_distance), "in argument '"..tostring(i).."' `min_distance` and `to_player` are incompatible parameters.")
+        assert(not (soundspec.to_player and soundspec.min_distance), "in argument '"..tostring(arg).."' `min_distance` and `to_player` are incompatible parameters.")
         local sound = soundspec.sound
         local outval
         for i, v in pairs(soundspec) do
@@ -117,12 +117,13 @@ function Guns4d.play_sounds(soundspecs_list)
                 if (dist > soundspec.min_hear_distance) and (player~=exclude_player_ref) then
                     soundspec.exclude_player = nil --not needed anyway because we can just not play it for this player.
                     soundspec.to_player = player:get_player_name()
-                    play_sound(sound, soundspec, handle, i)
+                    play_sound(sound, soundspec, handle, arg)
                 end
             end
         else
+            print(dump(soundspec))
             soundspec.sound = nil
-            play_sound(sound, soundspec, handle, i)
+            play_sound(sound, soundspec, handle, arg)
         end
     end
     return handle

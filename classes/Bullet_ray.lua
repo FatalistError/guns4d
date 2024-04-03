@@ -16,31 +16,33 @@ local ray = {
         --[1] will be preferred if present
         supersonic = {
             sound = "bullet_crack",
-            max_hear_distance = 3,
+            --max_hear_distance = 3,
             pitch = {
-                min = .6,
-                max = 1.5
+                min = 1.2,
+                max = 1
             },
             gain = {
-                min = .9, --this uses distance instead of randomness
-                max = .4
+                min = -.5, --this uses distance instead of randomness
+                max = 1
             }
         },
         subsonic = {
             sound = "bullet_whizz",
-            max_hear_distance = 3,
+            --max_hear_distance = 3,
             pitch = {
-                min = .5,
+                min = .7,
                 max = 1.5
             },
             gain = {
-                min = .3, --this uses distance instead of randomness
-                max = .9
+                min = 0, --this uses distance instead of randomness
+                max = 1
             }
         },
     },
     supersonic_energy = Guns4d.config.minimum_supersonic_energy_assumption,
-    pass_sound_max_distance = 3,
+    pass_sound_max_distance = 6,
+    mix_supersonic_and_subsonic_sounds = Guns4d.config.mix_supersonic_and_subsonic_sounds,
+    pass_sound_mixing_factor = Guns4d.config.default_pass_sound_mixing_factor, --determines the ratio to use based on energy
     damage = 0,
     energy = 0,
     ITERATION_DISTANCE = Guns4d.config.default_penetration_iteration_distance,
@@ -150,7 +152,7 @@ function ray:_iterate(initialized)
         --minetest.chat_send_all((distance*self.energy_dropoff))
         --minetest.chat_send_all((distance))
         if next_state == "transverse" then
-            print(vector.distance(self.pos, end_pos), vector.distance(self.pos, self.pos+(self.dir*self.range)))
+            --print(vector.distance(self.pos, end_pos), vector.distance(self.pos, self.pos+(self.dir*self.range)))
             self:bullet_hole(end_pos, end_normal)
         end
     else
@@ -302,21 +304,42 @@ function ray:play_bullet_pass_sounds()
                         if #self.history > i then v1 = v[i+1].energy else v1 = self.init_energy end
                         local v2 = v.energy
 
-                        local ratio = vector.distance(start_pos, nearest)/vector.distance(start_pos, pos)
-                        local energy_at_point = v1+((v2-v1)*(1-ratio))
+                        local ip_r = vector.distance(start_pos, nearest)/vector.distance(start_pos, pos)
+                        local energy_at_point = v1+((v2-v1)*(1-ip_r))
+                        local relative_distance = vector.distance(nearest, pos)/self.pass_sound_max_distance
 
-                        local sound = self.pass_sounds.subsonic
-                        if energy_at_point >= self.supersonic_energy then
-                            sound = self.pass_sounds.supersonic
-                        end
-                        sound = Guns4d.table.deep_copy(sound)
-                        sound.pos = nearest
-                        for _, t in pairs({"gain", "pitch"}) do
-                            if sound[t].min then
-                                sound[t] = sound[t].max+((sound[t].min-sound[t].max)*(vector.distance(nearest, pos)/self.pass_sound_max_distance))
+                        if self.mix_supersonic_and_subsonic_sounds then
+                            local f = self.pass_sound_mixing_factor
+                            local x = (energy_at_point*relative_distance)/self.supersonic_energy
+                            local denominator = ((x-1)+math.sqrt(f))^2
+                            local mix_ratio = Guns4d.math.clamp(1-(f/denominator), 0,1)
+                            local sounds = {Guns4d.table.deep_copy(self.pass_sounds.supersonic), Guns4d.table.deep_copy(self.pass_sounds.subsonic)}
+                            for _, sound in pairs(sounds) do
+                                for _, t in pairs({"gain", "pitch"}) do
+                                    if sound[t].min then
+                                        sound[t] = sound[t].max+((sound[t].min-sound[t].max)*relative_distance)
+                                    end
+                                end
                             end
+                            minetest.chat_send_all(dump({f, x, denominator, mix_ratio}))
+                            sounds[1].gain = sounds[1].gain*mix_ratio     --supersonic
+                            sounds[2].gain = sounds[2].gain*(1-mix_ratio) --subsonic
+                            sounds.pos = nearest
+                            Guns4d.play_sounds(sounds)
+
+                            local sound = self.pass_sounds.subsonic
+                            if energy_at_point >= self.supersonic_energy then
+                                sound = self.pass_sounds.supersonic
+                            end
+                            sound = Guns4d.table.deep_copy(sound)
+                            sound.pos = nearest
+                            for _, t in pairs({"gain", "pitch"}) do
+                                if sound[t].min then
+                                    sound[t] = sound[t].max+((sound[t].min-sound[t].max)*relative_distance)
+                                end
+                            end
+                            Guns4d.play_sounds(sound)
                         end
-                        Guns4d.play_sounds(sound)
                     end
                 end
             end

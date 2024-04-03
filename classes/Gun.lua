@@ -298,6 +298,12 @@ function gun_default:draw()
     if props.visuals.animations.draw then
         self:set_animation(props.visuals.animations.draw, props.charging.default_draw_time)
     end
+    if props.sounds.draw then
+        local sounds = Guns4d.table.deep_copy(props.sounds.draw)
+        sounds.player = self.player
+        sounds.pos = self.pos
+        Guns4d.play_sounds(sounds)
+    end
     self.ammo_handler:chamber_round()
     self.rechamber_time = props.charging.default_draw_time
 end
@@ -446,7 +452,7 @@ function gun_default:attempt_fire()
             self:recoil()
             self:muzzle_flash()
 
-            print(dump(self.properties.sounds.fire))
+            --print(dump(self.properties.sounds.fire))
             local fire_sound = Guns4d.table.deep_copy(self.properties.sounds.fire) --important that we copy because play_sounds modifies it.
             fire_sound.pos = self.pos
             Guns4d.play_sounds(fire_sound)
