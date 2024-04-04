@@ -325,6 +325,7 @@ function ray:play_bullet_pass_sounds()
                             sounds[1].gain = sounds[1].gain*mix_ratio     --supersonic
                             sounds[2].gain = sounds[2].gain*(1-mix_ratio) --subsonic
                             sounds.pos = nearest
+                            sounds.to_player = player:get_player_name()
                             Guns4d.play_sounds(sounds)
 
                             local sound = self.pass_sounds.subsonic
