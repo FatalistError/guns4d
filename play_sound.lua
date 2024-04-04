@@ -121,7 +121,7 @@ function Guns4d.play_sounds(soundspecs_list)
                 end
             end
         else
-            print(dump(soundspec))
+            --print(dump(soundspec))
             soundspec.sound = nil
             play_sound(sound, soundspec, handle, arg)
         end

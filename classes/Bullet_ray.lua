@@ -321,7 +321,7 @@ function ray:play_bullet_pass_sounds()
                                     end
                                 end
                             end
-                            minetest.chat_send_all(dump({f, x, denominator, mix_ratio}))
+                            --minetest.chat_send_all(dump({f, x, denominator, mix_ratio}))
                             sounds[1].gain = sounds[1].gain*mix_ratio     --supersonic
                             sounds[2].gain = sounds[2].gain*(1-mix_ratio) --subsonic
                             sounds.pos = nearest
