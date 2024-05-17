@@ -182,14 +182,36 @@ function Ammo_handler:load_magazine()
         return
     end
 end
-function Ammo_handler:inventory_has_ammo()
+function Ammo_handler:load_single_cartridge()
+    local inv = self.inventory
+    local gun = self.gun
+    local ammo = self.ammo
+    local bullet
+    if self.ammo.total_bullets >= gun.properties.ammo.capacity then return false end
+    for i, v in pairs(inv:get_list("main")) do
+        if gun.accepted_bullets[v:get_name()] then
+            self:update_meta()
+            bullet = v:get_name()
+            v:take_item(1)
+            inv:set_stack("main", i, v)
+        end
+    end
+    if bullet then
+        ammo.loaded_bullets[bullet] = (ammo.loaded_bullets[bullet] or 0)+1
+        ammo.total_bullets = ammo.total_bullets+1
+        self:update_meta()
+        return true
+    end
+    return false
+end
+function Ammo_handler:inventory_has_ammo(only_cartridges)
     local inv = self.inventory
     local gun = self.gun
     for i, v in pairs(inv:get_list("main")) do
-        if gun.accepted_magazines[v:get_name()] and (tally_ammo_from_meta(v:get_meta())>0) then
+        if (not only_cartridges) and gun.accepted_magazines[v:get_name()] and (tally_ammo_from_meta(v:get_meta())>0) then
             return true
         end
-        if (not gun.properties.ammo.magazine_only) and gun.accepted_bullets[v:get_name()] then
+        if ((only_cartridges or not gun.properties.ammo.magazine_only) and gun.accepted_bullets[v:get_name()]) then
             return true
         end
     end

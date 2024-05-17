@@ -266,7 +266,7 @@ end
 --for the following function only:
 --for license see the link on the next line (direct permission was granted).
 --https://github.com/3dreamengine/3DreamEngine
-function Guns4d.rltv_point_to_hud(pos, fov, aspect)
+function Guns4d.math.rltv_point_to_hud(pos, fov, aspect)
 	local n = .1 --near
 	local f = 1000 --far
 	local scale = math.tan(fov * math.pi / 360)
@@ -287,7 +287,7 @@ end
 
 --Code: Elkien3 (CC BY-SA 3.0)
 --https://github.com/Elkien3/spriteguns/blob/1c632fe12c35c840d6c0b8307c76d4dfa44d1bd7/init.lua#L76
-function Guns4d.nearest_point_on_line(lineStart, lineEnd, pnt)
+function Guns4d.math.nearest_point_on_line(lineStart, lineEnd, pnt)
     local line = vector.subtract(lineEnd, lineStart)
     local len = vector.length(line)
     line = vector.normalize(line)
@@ -296,4 +296,34 @@ function Guns4d.nearest_point_on_line(lineStart, lineEnd, pnt)
     local d = vector.dot(v, line)
     d = Guns4d.math.clamp(d, 0, len);
     return vector.add(lineStart, vector.multiply(line, d))
+end
+
+function Guns4d.math.rand_box_muller(deviation)
+    local tau = math.pi*2
+    --our first value cant be 0
+    math.randomseed(math.random())
+    local r1 = 0
+    while r1 == 0 do r1=math.random() end
+    local r2=math.random()
+    print(r1, r2)
+
+    local a = deviation * math.sqrt(-2.0*math.log(r1))
+    return a * math.cos(tau * r1), a * math.sin(tau * r2);
+end
+local e = 2.7182818284590452353602874713527 --I don't know how to find it otherwise...
+--deviation just changes the distribution, range is the maximum spread
+function Guns4d.math.angular_normal_distribution(deviation)
+    local x=math.random()
+    --print(x)
+    --positive only normal distribution
+    local a = (1/(deviation*math.sqrt(2*math.pi)))
+    local exp = (-.5*(x/deviation)^2)
+    local exp_x_1 = (-.5*(1/deviation)^2) --exp value where x=1
+    local y=( (a*e^exp) - (a*e^exp_x_1) )/( a - (a*e^exp_x_1) ) --subtraction is to bring the value of x=1 to 0 on the curve and the division is to keep it normalized to an output of one
+    print(y)
+    local theta = math.random()*math.pi*2
+    return y*math.cos(theta), y*math.sin(theta)
+end
+function Guns4d.math.round(n)
+    return (n-math.floor(n)<.5 and math.floor(n)) or math.ceil(n)
 end

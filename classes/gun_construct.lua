@@ -198,46 +198,60 @@ local function initialize_b3d_animation_data(self, props)
     end]]
     --print()
 end
-local function complete_item(self, props)
+local function reregister_item(self, props)
     assert(self.itemstring, "no itemstring provided. Cannot create a gun without an associated itemstring.")
     local item_def = minetest.registered_items[self.itemstring]
     assert(rawget(self, "name"), "no name provided in new class")
     assert(rawget(self, "itemstring"), "no itemstring provided in new class")
-    assert(not((props.ammo.capacity) and (not props.ammo.magazine_only)), "gun does not accept magazines, but has no set capcity! Please define ammo.capacity")
+    assert(props.ammo.capacity or props.ammo.magazine_only, "gun does not accept magazines, but has no set capcity! Please define ammo.capacity")
     assert(item_def, self.itemstring.." : item is not registered.")
 
     --override methods so control handler can do it's job
     local old_on_use = item_def.on_use
     local old_on_s_use = item_def.on_secondary_use
+    local old_on_drop = item_def.on_drop
     self.properties.inventory_image = item_def.inventory_image
     --override the item to hook in controls. (on_drop needed)
     minetest.override_item(self.itemstring, {
         on_use = function(itemstack, user, pointed_thing)
-            if old_on_use then
-                old_on_use(itemstack, user, pointed_thing)
-            end
             Guns4d.players[user:get_player_name()].control_handler:on_use(itemstack, pointed_thing)
+            if old_on_use then
+                return old_on_use(itemstack, user, pointed_thing)
+            end
         end,
         on_secondary_use = function(itemstack, user, pointed_thing)
-            if old_on_s_use then
-                old_on_s_use(itemstack, user, pointed_thing)
-            end
             Guns4d.players[user:get_player_name()].control_handler:on_secondary_use(itemstack, pointed_thing)
+            if old_on_s_use then
+                return old_on_s_use(itemstack, user, pointed_thing)
+            end
+        end,
+        on_drop = function(itemstack, user, pos)
+            local cancel_drop = Guns4d.players[user:get_player_name()].control_handler:on_drop(itemstack)
+            if (not cancel_drop) and old_on_drop then
+                return old_on_drop(itemstack, user, pos)
+            end
         end
     })
+    Guns4d.register_item(self.itemstring, {
+        collisionbox = self.consts.ITEM_COLLISIONBOX,
+        selectionbox = self.consts.ITEM_SELECTIONBOX,
+        mesh = self.properties.visuals.mesh,
+        textures = self.properties.visuals.textures,
+        animation = self.properties.visuals.animations.loaded
+    })
 end
-local function create_visual_entity(self,props)
-    minetest.register_entity(self.name.."_visual", {
+local function create_visual_entity(def, props)
+    minetest.register_entity(def.name.."_visual", {
         initial_properties = {
             visual = "mesh",
             mesh = props.visuals.mesh,
-            textures = props.textures,
+            textures = props.visuals.textures,
             glow = 0,
             pointable = false,
             static_save = false,
             backface_culling = props.visuals.backface_culling
         },
-        on_step = function(self, dtime)
+        on_step = --[[def.entity_function or]] function(self)
             local obj = self.object
             if not self.parent_player then obj:remove() return end
             local player = self.parent_player
@@ -258,11 +272,11 @@ local function create_visual_entity(self,props)
             end
             if handler.control_handler.ads  then
                 local normal_pos = (props.ads.offset)*10
-                obj:set_attach(player, lua_object.consts.AIMING_BONE, normal_pos, -axial_rot, visibility)
+                obj:set_attach(player, handler.player_model_handler.bone_names.aim, normal_pos, -axial_rot, visibility)
             else
                 local normal_pos = vector.new(props.hip.offset)*10
                 -- vector.multiply({x=normal_pos.x, y=normal_pos.z, z=-normal_pos.y}, 10)
-                obj:set_attach(player, lua_object.consts.HIPFIRE_BONE, normal_pos, -axial_rot, visibility)
+                obj:set_attach(player, handler.player_model_handler.bone_names.hipfire, normal_pos, -axial_rot, visibility)
             end
         end,
     })
@@ -282,7 +296,7 @@ function gun_default:construct_base_class()
 
     -- if it's not a template, then create an item, override some props
     if self.name ~= "__template" then
-        complete_item(self, props)
+        reregister_item(self, props)
     end
     --create sets. This may need to be put in instances of modifications can change accepted ammos
     self.accepted_bullets = {}

@@ -125,7 +125,9 @@ local gun_default = {
         charging = { --how the gun "cocks"
             require_draw_on_swap = true,
             bolt_charge_mode = "none", --"none"-chamber is always full, "catch"-when fired to dry bolt will not need to be charged after reload, "no_catch" bolt will always need to be charged after reload.
-            default_draw_time = 1,
+            draw_time = 1,
+            draw_animation = "draw",
+            draw_sound = "draw"
             --sound = soundspec
         },
         reload = { --used by defualt controls. Still provides usefulness elsewhere.
@@ -135,12 +137,14 @@ local gun_default = {
         },
         ammo = { --used by ammo_handler
             magazine_only = false,
+            --capacity = 0, --this is only needed if magazine_only = false
             accepted_bullets = {},
             accepted_magazines = {},
             initial_mag = "empty"
         },
         visuals = {
-            --mesh
+            --textures = {},
+            --mesh="string.b3d",
             backface_culling = true,
             root = "gun",
             magazine = "magazine",
@@ -252,8 +256,6 @@ local gun_default = {
     consts = {
         HIP_PLAYER_GUN_ROT_RATIO = .75,
         AIM_OUT_AIM_IN_SPEED_RATIO = 2.5,
-        HIPFIRE_BONE = "guns3d_hipfire_bone", --these shouldn't be here at all, these need to be model determinant.
-        AIMING_BONE = "guns3d_aiming_bone",
         KEYFRAME_SAMPLE_PRECISION = .1, --[[what frequency to take precalcualted keyframe samples. The lower this is the higher the memory allocation it will need- though minimal.
         This will fuck shit up if you change it after gun construction/inheritence (interpolation between precalculated vectors will not work right)]]
         WAG_CYCLE_SPEED = 1.6,
@@ -266,7 +268,10 @@ local gun_default = {
         HAS_WAG = true,
         HAS_GUN_AXIAL_OFFSETS = true,
         ANIMATIONS_OFFSET_AIM = false,
-        LOOP_IDLE_ANIM = false
+        LOOP_IDLE_ANIM = false,
+        THIRD_PERSON_GAIN_MULTIPLIER = Guns4d.config.third_person_gain_multiplier,
+        ITEM_COLLISIONBOX = ((not Guns4d.config.realistic_items) and {-.1,-.1,-.1,   .1,.1,.1}) or {-.1,-.05,-.1,   .1,.15,.1},
+        ITEM_SELECTIONBOX = {-.2,-.2,-.2,   .1,.2,.2},
     },
     --[[animation_data = { --where animations data is stored.
         anim_runtime = 0,
@@ -295,17 +300,15 @@ end
 function gun_default:draw()
     assert(self.instance, "attempt to call object method on a class")
     local props = self.properties
-    if props.visuals.animations.draw then
-        self:set_animation(props.visuals.animations.draw, props.charging.default_draw_time)
+    if props.visuals.animations[props.charging.draw_animation] then
+        self:set_animation(props.visuals.animations[props.charging.draw_animation], props.charging.draw_time)
     end
-    if props.sounds.draw then
-        local sounds = Guns4d.table.deep_copy(props.sounds.draw)
-        sounds.player = self.player
-        sounds.pos = self.pos
-        Guns4d.play_sounds(sounds)
+    if props.sounds[props.charging.draw_sound] then
+        local sounds = Guns4d.table.deep_copy(props.sounds[props.charging.draw_sound])
+        self:play_sounds(sounds)
     end
     self.ammo_handler:chamber_round()
-    self.rechamber_time = props.charging.default_draw_time
+    self.rechamber_time = props.charging.draw_time
 end
 --update gun, the main function.
 function gun_default:update(dt)
@@ -442,7 +445,7 @@ function gun_default:attempt_fire()
                 player = self.player,
                 --we don't want it to be doing fuckshit and letting players shoot through walls.
                 pos = pos-((self.handler.control_handler.ads and dir*self.properties.ads.offset.z) or dir*self.properties.hip.offset.z),
-                dir = dir,
+                --dir = dir, this is now collected directly by calling get_dir so pellets and spread can be handled by the bullet_ray instance.
                 gun = self
             })
             Guns4d.bullet_ray:new(bullet_def)
@@ -455,7 +458,7 @@ function gun_default:attempt_fire()
             --print(dump(self.properties.sounds.fire))
             local fire_sound = Guns4d.table.deep_copy(self.properties.sounds.fire) --important that we copy because play_sounds modifies it.
             fire_sound.pos = self.pos
-            Guns4d.play_sounds(fire_sound)
+            self:play_sounds(fire_sound)
 
             self.rechamber_time = 60/self.properties.firerateRPM
             return true
@@ -516,37 +519,72 @@ function gun_default:get_player_axial_dir(rltv)
     end, hud)]]
     return dir
 end
-function gun_default:get_dir(rltv)
+--this needs to be optimized because it may be called frequently...
+function gun_default:get_dir(rltv, offset_x, offset_y)
     assert(self.instance, "attempt to call object method on a class")
     local rotation = self.total_offset_rotation
     local handler = self.handler
     --rotate x and then y.
-    local dir = Vec.new(Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0}))
-    dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
-    if not rltv then
+    --old code. I used a site (symbolab.com) to precalculate the rotation matrices to save on performance since spread has to run this.
+    --local dir = Vec.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.gun_axial.x+rotation.player_axial.x)*math.pi/180), z=0})
+    --dir = Vec.rotate(dir, {y=((rotation.gun_axial.y+rotation.player_axial.y)*math.pi/180), x=0, z=0})
+    local p = -(rotation.gun_axial.x+rotation.player_axial.x+(offset_x or 0))*math.pi/180
+    local y = -(rotation.gun_axial.y+rotation.player_axial.y+(offset_y or 0))*math.pi/180
+    local Cy = math.cos(y)
+    local Sy = math.sin(y)
+    local Cp = math.cos(p)
+    local Sp = math.sin(p)
+    local dir = {
+        x=Sy*Cy,
+        y=-Sp,
+        z=Cy*Cp
+    }
+    if not rltv then --look rotation is that actual rotation of the player's camera, player_rotation is the gun's current rotation (because vertical rotation will differ for smoothness.)
         if (self.properties.sprite_scope and handler.control_handler.ads) or (self.properties.crosshair and not handler.control_handler.ads) then
             --we need the head rotation in either of these cases, as that's what they're showing.
-            dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
+            --dir = Vec.rotate(dir, {x=-handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
+            --[[
+            Cy = math.cos(y)
+            Sy = math.sin(y)
+            Cp = math.cos(p)
+            Sp = math.sin(p)
+            dir.x = (Cy*dir.x)+(Sy*Sp*dir.y)+(Sy*Cp*dir.z)
+            dir.y = (dir.y*Cp)-(dir.z*Sp)
+            dir.z = -(dir.x*Sy)+(dir.y*Sp*Cy)+(dir.z*Cy*Cp)]]
+            p = handler.look_rotation.x*math.pi/180
+            y = handler.look_rotation.y*math.pi/180
         else
-            dir = Vec.rotate(dir, {x=self.player_rotation.x*math.pi/180,y=self.player_rotation.y*math.pi/180,z=0})
+            p = -self.player_rotation.x*math.pi/180
+            y = -self.player_rotation.y*math.pi/180
+            --dir = Vec.rotate(dir, {x=self.player_rotation.x*math.pi/180,y=self.player_rotation.y*math.pi/180,z=0})
         end
+        Cy = math.cos(y)
+        Sy = math.sin(y)
+        Cp = math.cos(p)
+        Sp = math.sin(p)
+        dir = vector.new(
+            (Cy*dir.x)+(Sy*Sp*dir.y)+(Sy*Cp*dir.z),
+            (dir.y*Cp)-(dir.z*Sp),
+            (-dir.x*Sy)+(dir.y*Sp*Cy)+(dir.z*Cy*Cp)
+        )
+    else
+        dir = vector.new(dir)
     end
-
-    --local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
-    --[[local hud = player:hud_add({
-        hud_elem_type = "image_waypoint",
-        text = "muzzle_flash2.png",
-        world_pos =  hud_pos,
-        scale = {x=10, y=10},
-        alignment = {x=0,y=0},
-        offset = {x=0,y=0},
-    })
-    minetest.after(0, function(hud)
-        player:hud_remove(hud)
-    end, hud)]]
     return dir
 end
-
+--some old debug code for get_dir
+--local hud_pos = dir+player:get_pos()+{x=0,y=player:get_properties().eye_height,z=0}+vector.rotate(player:get_eye_offset()/10, {x=0,y=player_rotation.y*math.pi/180,z=0})
+--[[local hud = player:hud_add({
+    hud_elem_type = "image_waypoint",
+    text = "muzzle_flash2.png",
+    world_pos =  hud_pos,
+    scale = {x=10, y=10},
+    alignment = {x=0,y=0},
+    offset = {x=0,y=0},
+})
+minetest.after(0, function(hud)
+    player:hud_remove(hud)
+end, hud)]]
 --broken! doesn't properly reflect values.
 function gun_default:get_pos(added_pos, relative, debug)
     assert(self.instance, "attempt to call object method on a class")
@@ -742,7 +780,36 @@ function gun_default:clear_animation()
         self.entity:set_animation({x=self.properties.visuals.animations.empty.x, y=self.properties.visuals.animations.empty.y}, 0, 0, self.consts.LOOP_IDLE_ANIM)
     end
 end
+local function adjust_gain(tbl, v)
+    v = tbl.third_person_gain_multiplier or v
+    for i = 1, #tbl do
+        adjust_gain(tbl[i], v)
+    end
+    if tbl.gain and (tbl.split_audio_by_perspective~=false) then
+        if type(tbl.gain) == "number" then
+            tbl.gain = tbl.gain*v
+        else
+            tbl.gain.min = tbl.gain.min*v
+            tbl.gain.max = tbl.gain.max*v
+        end
+    end
+end
+function gun_default:play_sounds(sound)
+    local thpson_sound = Guns4d.table.deep_copy(sound)
+    local fsprsn_sound = Guns4d.table.deep_copy(sound)
+
+    thpson_sound.pos = self.pos
+    thpson_sound.player = self.player
+    thpson_sound.exclude_player = self.player
+    adjust_gain(thpson_sound, self.consts.THIRD_PERSON_GAIN_MULTIPLIER)
+
+    fsprsn_sound.player = self.player
+    fsprsn_sound.to_player = "from_player"
+
+    return Guns4d.play_sounds(thpson_sound), Guns4d.play_sounds(fsprsn_sound)
+end
 function gun_default:update_breathing(dt)
+    assert(self.instance)
     local breathing_info = {pause=1.4, rate=4.2}
     --we want X to be between 0 and 4.2. Since math.pi is a positive crest, we want X to be above it before it reaches our-
     --"length" (aka rate-pause), thus it will pi/length or pi/(rate-pause) will represent out slope of our control.

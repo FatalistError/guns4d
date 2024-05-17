@@ -67,7 +67,7 @@ end
 local reload_actions = {}
 function Guns4d.default_controls.register_reloading_state_type(name, def)
     assert(type(def)=="table", "improper definition type")
-    assert(type(def.on_completion)=="function", "action has no completion function")
+    assert(type(def.on_completion)=="function", "action has no completion function") --return a bool (or nil) indicating wether to progress. Nil returns the function (breaking out of the reload cycle.)
     assert(type(def.validation_check)=="function") --return bool indicating wether it is valid. If nil it is assumed to be valid
     reload_actions[name] = def
 end
@@ -92,21 +92,21 @@ reg_mstate("unload_mag", {
 
 reg_mstate("store", {
     on_completion = function(gun, ammo_handler, next_state)
-        local pause = false
+        --[[local pause = false
         --needs to happen before so we don't detect the ammo we just unloaded
         if not ammo_handler:inventory_has_ammo() then
             pause=true
-        end
+        end]]
         if gun.properties.ammo.magazine_only and (ammo_handler.ammo.loaded_mag ~= "empty") then
             ammo_handler:unload_magazine()
         else
             ammo_handler:unload_all()
         end
         --if there's no ammo make hold so you don't reload the same ammo you just unloaded.
-        if pause then
+        --[[if pause then
             return
         end
-        return true
+        return true]]
     end,
     validation_check = function(gun, ammo_handler, next_state)
         if gun.properties.ammo.magazine_only and (ammo_handler.ammo.loaded_mag == "empty") then
@@ -150,7 +150,19 @@ reg_mstate("load", {
         return true
     end
 })
-
+reg_mstate("load_cartridge", {
+    on_completion = function(gun, ammo_handler, next_state)
+        return not ammo_handler:load_single_cartridge() --it returns wether the cartidge could be loaded
+    end,
+    validation_check = function(gun, ammo_handler, next_state)
+        if (ammo_handler.ammo.total_bullets<gun.properties.ammo.capacity) and ammo_handler:inventory_has_ammo(true) then
+            minetest.chat_send_all(dump((ammo_handler:inventory_has_ammo(true))))
+            return true
+        else
+            return false
+        end
+    end
+})
 reg_mstate("charge", {
     on_completion = function(gun, ammo_handler)
         ammo_handler:chamber_round()
@@ -159,8 +171,9 @@ reg_mstate("charge", {
     validation_check = function(gun, ammo_handler, next_state)
         if (ammo_handler.ammo.next_bullet ~= "empty") or (ammo_handler.ammo.total_bullets == 0) then
             return false
+        else
+            return true
         end
-        return true
     end
 })
 Guns4d.default_controls.reload = {
@@ -259,11 +272,10 @@ Guns4d.default_controls.reload = {
                 if type(next_state.sounds) == "table" then
                     sounds = Guns4d.table.deep_copy(props.reload[next_state_index].sounds)
                 elseif type(next_state.sounds) == "string" then
-                    sounds = assert(props.sounds[next_state.sounds])
+                    sounds = Guns4d.table.deep_copy(assert(props.sounds[next_state.sounds], "no sound by the name of "..next_state.sounds))
                 end
                 sounds.pos = gun.pos
-                sounds.max_hear_distance = sounds.max_hear_distance or gun.consts.DEFAULT_MAX_HEAR_DISTANCE
-                data.played_sounds = Guns4d.play_sounds(sounds)
+                data.played_sounds = {gun:play_sounds(sounds)}
             end
             --print(dump(next_state_index))
             --end

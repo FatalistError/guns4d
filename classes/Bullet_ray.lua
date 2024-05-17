@@ -3,8 +3,7 @@ local ray = {
     state = "free",
     --pos = pos,
     last_node = "",
-    hole_entity = "guns4d:bullet_hole",
-    normal = vector.new(),
+    bullet_hole_class = Guns4d.bullet_hole,
     --last_dir
     --exit_direction = dir,
     --range_left = def.bullet.range,
@@ -45,6 +44,10 @@ local ray = {
     pass_sound_mixing_factor = Guns4d.config.default_pass_sound_mixing_factor, --determines the ratio to use based on energy
     damage = 0,
     energy = 0,
+    spread_deviation = 1, --deviation of the standard distribution represented. The lower the closer to the center of the spread a pellet is more likely to be.
+    spread = 0, --defaults to 1 if pellets present but spread not defined.
+    pellets = 1,
+    wall_penetration = true, --turns off by default if pellets are greater then one.
     ITERATION_DISTANCE = Guns4d.config.default_penetration_iteration_distance,
 }
 
@@ -63,7 +66,7 @@ function ray:find_transverse_edge()
         return pointed.intersection_point, pointed.intersection_normal
     end
 end
-function ray:_cast()
+function ray:cast()
     assert(self.instance, "attempt to call obj method on a class")
     local next_state = self.state --next state of course the state of the next ray.
 
@@ -84,7 +87,7 @@ function ray:_cast()
         end_pos = self.pos+(self.dir*self.range)
     end
     --do the main raycast. We don't account for mmRHA dropoff here.
-    local continue = true --indicates wether to :_iterate wether the Bullet_ray has ended
+    local continue = true --indicates wether to :iterate wether the Bullet_ray has ended
     local cast = minetest.raycast(self.pos, end_pos, true, true)
     local edge_length
     if edge then
@@ -142,9 +145,9 @@ function ray:_cast()
     return pointed_node, pointed_object, next_state, end_pos, end_normal, continue
 end
 --the main function.
-function ray:_iterate(initialized)
+function ray:iterate()
     assert(self.instance, "attempt to call obj method on a class")
-    local pointed_node, pointed_object, next_state, end_pos, end_normal, continue = self:_cast()
+    local pointed_node, pointed_object, next_state, end_pos, end_normal, continue = self:cast()
 
     local distance = vector.distance(self.pos, end_pos)
     if self.state == "free" then
@@ -163,7 +166,7 @@ function ray:_iterate(initialized)
         --calc penetration loss from traveling through the block
         local penetration_loss = distance*Guns4d.node_properties[self.last_node_name].mmRHA
         --calculate our energy loss based on the percentage of energy our penetration represents.
-        self.energy = self.energy-((self.init_energy*self.energy_sharp_ratio)*(penetration_loss/self.sharp_penetration))
+        self.energy = self.energy-((self.init_def.energy*self.energy_sharp_ratio)*(penetration_loss/self.sharp_penetration))
     end
     --set values for next iteration.
     self.range = self.range-distance
@@ -191,7 +194,7 @@ function ray:_iterate(initialized)
         normal = end_normal, --end normal may be nil, as it's only for hit effects.
     })
     if continue and self.range > 0 and self.energy > 0 then
-        self:_iterate(true)
+        self:iterate()
     end
     --[[if not initialized then
         for i, v in pairs(self.history) do
@@ -220,7 +223,7 @@ function ray:hit_entity(object)
 
     local resistance = object:get_armor_groups() -- support for different body parts is needed here, that's for... a later date, though.
     --calculate the amount of penetration we've lost based on how much of the energy is converted to penetration (energy_sharp_ratio)
-    local dropoff_ratio = (1-(self.energy/self.init_energy))
+    local dropoff_ratio = (1-(self.energy/self.init_def.energy))
     local bullet_sharp_pen = self.sharp_penetration-(self.sharp_penetration*dropoff_ratio*self.energy_sharp_ratio)
     local effective_sharp_pen = Guns4d.math.clamp(bullet_sharp_pen - (resistance.guns4d_mmRHA or 0), 0, math.huge)
     local converted_Pa = (bullet_sharp_pen-effective_sharp_pen) * self.sharp_to_blunt_conversion_factor
@@ -265,14 +268,14 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
 end
 function ray:bullet_hole(pos, normal)
     assert(self.instance, "attempt to call obj method on a class")
-    local nearby_players = false
+    --[[local nearby_players = false
     for pname, player in pairs(minetest.get_connected_players()) do
         if vector.distance(player:get_pos(), pos) < 50 then
             nearby_players = true; break
         end
-    end
+    end]]
     --if it's close enough to any players, then add it
-    if nearby_players then
+    --[[if nearby_players then
         --this entity will keep track of itself.
         local ent = minetest.add_entity(pos+(normal*(.0001+math.random()/1000)), self.hole_entity)
         ent:set_rotation(vector.dir_to_rotation(normal))
@@ -280,18 +283,23 @@ function ray:bullet_hole(pos, normal)
         lua_ent.block_pos = pos
     else
         Guns4d.effects.spawn_bullet_hole_particle(pos, self.hole_scale, '(bullet_hole_1.png^(bullet_hole_2.png^[opacity:129))')
-    end
+    end]]
+    local bullet_hole = self.bullet_hole_class:new({
+        pos = vector.new(pos),
+        rotation = vector.dir_to_rotation(normal)
+    })
+   -- ent:set_rotation(vector.dir_to_rotation(normal))
 end
 function ray:play_bullet_pass_sounds()
     --iteration done, damage applied, find players to apply bullet whizz to
-    local start_pos = self.init_pos
+    local start_pos = self.init_def.pos
     local played_for = {}
     for i = #self.history, 1, -1 do
         local v = self.history[i]
         for _, player in pairs(minetest.get_connected_players()) do
             if (player~=self.player) and not played_for[player] then
                 local pos = player:get_pos()+vector.new(0,player:get_properties().eye_height,0)
-                local nearest = Guns4d.nearest_point_on_line(start_pos, v.pos, pos)
+                local nearest = Guns4d.math.nearest_point_on_line(start_pos, v.pos, pos)
                 if vector.distance(nearest, pos) < self.pass_sound_max_distance then
                     played_for[player] = true
                     if self.pass_sounds[1] then
@@ -301,7 +309,7 @@ function ray:play_bullet_pass_sounds()
                     else
                         --interpolate to find the energy of the shot to determine supersonic or not.
                         local v1
-                        if #self.history > i then v1 = v[i+1].energy else v1 = self.init_energy end
+                        if #self.history > i then v1 = v[i+1].energy else v1 = self.init_def.energy end
                         local v2 = v.energy
 
                         local ip_r = vector.distance(start_pos, nearest)/vector.distance(start_pos, pos)
@@ -348,6 +356,32 @@ function ray:play_bullet_pass_sounds()
         start_pos = v.pos
     end
 end
+function ray:simple_cast(pos, dir)
+    local cast = minetest.raycast(pos, pos+(dir*self.range), true, true)
+    local pointed
+    for hit in cast do
+        if hit.type == "node" and Guns4d.node_properties[minetest.get_node(hit.under).name].behavior ~= "ignore" then
+            self:bullet_hole(hit.intersection_point, hit.intersection_normal)
+            pointed = hit
+            break
+        end
+    end
+    if pointed then
+        table.insert(self.history, {
+            pos = pointed.intersection_pos,
+            energy = self.energy, --TODO, ENERGY CALCS
+            state = "free",
+            last_node = (pointed.under and minetest.get_node(pointed.under).name),
+            normal = pointed.intersection_normal, --end normal may be nil, as it's only for hit effects.
+        })
+    else
+        table.insert(self.history, {
+            pos = pos+(dir*self.range),
+            energy = self.energy, --TODO, ENERGY CALCS
+            state = "free",
+        })
+    end
+end
 function ray.construct(def)
     if def.instance then
         --these asserts aren't necessary, probably drags down performance a tiny bit.
@@ -379,15 +413,40 @@ function ray.construct(def)
         end
         def.energy_sharp_ratio = (def.energy-def.blunt_penetration)/def.energy
 
-        def.init_energy = def.energy
+        def.init_def = {
+            energy = def.energy,
+            pos = def.pos,
+            dir = def.dir or def.gun:get_dir(),
+            range = def.range
+        }
+        if def.pellets > 1 then
+            if rawget(def, "wall_penetration") == nil then
+                def.wall_penetration = false
+            end
+            if rawget(def, "spread") == nil then
+                def.spread = 1
+            end
+        end
         --blunt pen is in the same units (1 Joule/Area^3 = 1 Pa), so we use it to make the ratio by subtraction.
-
-        def.dir = vector.new(def.dir)
-        def.pos = vector.new(def.pos)
-        def.history = {}
-        def.init_pos = vector.new(def.pos) --has to be cloned before iteration
-        def:_iterate()
-        def:play_bullet_pass_sounds()
+        local init_def = def.init_def
+        for i=1,def.pellets do
+            local x, y = Guns4d.math.angular_normal_distribution(def.spread_deviation)
+            --x, y = (math.random()-.5)*2, (math.random()-.5)*2
+            local dir = def.gun:get_dir(false, x*def.spread, y*def.spread)
+            if def.wall_penetration then
+                def.energy = init_def.energy
+                def.dir = dir or vector.new(init_def.dir)
+                def.pos = vector.new(init_def.pos)
+                def.range = init_def.range
+                def.history = {}
+                def:iterate()
+                def:play_bullet_pass_sounds()
+            else
+                def.history = {} --we still have to use this for the pass sounds
+                def:simple_cast(init_def.pos, dir or init_def.dir)
+                def:play_bullet_pass_sounds()
+            end
+        end
     end
 end
 Guns4d.bullet_ray = Instantiatable_class:inherit(ray)

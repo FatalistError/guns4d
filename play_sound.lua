@@ -35,7 +35,9 @@ local sqrt = math.sqrt
 -- @field to_player 4dguns changes `to_player` so it only plays positionless audio (as it is only intended for first person audio). If set to string "from_player" and player present
 -- @field player this is so to_player being set to "from_player". It's to be set to the player which fired the weapon.
 -- @field delay delay the playing of the sound
--- @field has_speed_of_sound = true
+-- @field attenuation_rate float the rate of dropoff for a sound. I figure this is a bit more intuitive then jacking the gain up super high for every sound... Set the default in config.
+-- @field split_audio_by_perspective true [GUN CLASS SPECIFIC] tells the gun wether to split into third and first person (positionless) audio and adjust gain.
+-- @field third_person_gain_multiplier float [GUN CLASS SPECIFIC] replaces the constant/config value "third_person_gain_multiplier/THIRD_PERSON_GAIN_MULTIPLIER".
 -- @table guns4d_soundspec
 
 local function handle_min_max(tbl)
@@ -84,12 +86,11 @@ function Guns4d.play_sounds(soundspecs_list)
     end
     local handle = #sound_handles+1 --determine the sound handle before playing
     sound_handles[handle] = {}
-    local handle_object = sound_handles[handle]
+    --local handle_object = sound_handles[handle]
     for arg, soundspec in pairs(soundspecs_list) do
         if soundspec.to_player == "from_player" then soundspec.to_player = soundspec.player:get_player_name() end --setter of sound may not have access to this info, so add a method to use it.
         assert(not (soundspec.to_player and soundspec.min_distance), "in argument '"..tostring(arg).."' `min_distance` and `to_player` are incompatible parameters.")
         local sound = soundspec.sound
-        local outval
         for i, v in pairs(soundspec) do
             if type(v) == "table" and v.min then
                 soundspec[i]=handle_min_max(v)
@@ -102,28 +103,33 @@ function Guns4d.play_sounds(soundspecs_list)
         if not mtul.paths.media_paths[(sound or "[NIL]")..".ogg"] then
             minetest.log("error", "no sound by the name `"..mtul.paths.media_paths[(sound or "[NIL]")..".ogg"].."`")
         end
+        local exclude_player_ref = soundspec.exclude_player
+        if type(soundspec.exclude_player)=="string" then
+            exclude_player_ref = minetest.get_player_by_name(soundspec.exclude_player)
+        elseif soundspec.exclude_player then
+            exclude_player_ref = soundspec.exclude_player
+            soundspec.exclude_player = exclude_player_ref:get_player_name()
+        end
         --print(dump(soundspecs_list), i)
         if soundspec.to_player then soundspec.pos = nil end
-        if soundspec.min_hear_distance then
-            local exclude_player_ref
-            if soundspec.exclude_player then
-                exclude_player_ref = minetest.get_player_by_name(soundspec.exclude_player)
-            end
-            --play sound for all players outside min hear distance
-            for _, player in pairs(minetest.get_connected_players()) do
-                soundspec.sound = nil
-                local pos = player:get_pos()
-                local dist = sqrt( sqrt((pos.x-soundspec.pos.x)^2+(pos.y-soundspec.pos.y)^2)^2 + (pos.z-soundspec.pos.z)^2)
-                if (dist > soundspec.min_hear_distance) and (player~=exclude_player_ref) then
-                    soundspec.exclude_player = nil --not needed anyway because we can just not play it for this player.
-                    soundspec.to_player = player:get_player_name()
-                    play_sound(sound, soundspec, handle, arg)
-                end
-            end
-        else
-            --print(dump(soundspec))
+        --play sound for all players outside min hear distance
+        local original_gain = soundspec.gain or 1
+        local attenuation_rate = soundspec.attenuation_rate or Guns4d.config.default_audio_attenuation_rate
+        local player_list = ((not soundspec.to_player) and minetest.get_connected_players()) or {minetest.get_player_by_name(soundspec.to_player)}
+        for _, player in pairs(player_list) do
             soundspec.sound = nil
-            play_sound(sound, soundspec, handle, arg)
+            local pos = player:get_pos()
+            local dist = 0
+            if soundspec.pos then
+                dist = sqrt( sqrt((pos.x-(soundspec.pos.x))^2+(pos.y-soundspec.pos.y)^2)^2 + (pos.z-soundspec.pos.z)^2)
+            end
+            if ((not soundspec.max_hear_distance) or (dist <= soundspec.max_hear_distance)) and ((not soundspec.min_hear_distance) or (dist > soundspec.min_hear_distance)) and (player~=exclude_player_ref) then
+                print(player:get_player_name(), dist, sound, (dist-(soundspec.min_hear_distance or 0))*attenuation_rate, soundspec.min_hear_distance)
+                soundspec.exclude_player = nil --not needed anyway because we can just not play it for this player.
+                soundspec.to_player = player:get_player_name()
+                soundspec.gain = original_gain/(Guns4d.math.clamp((dist-(soundspec.min_hear_distance or 0))*attenuation_rate, 1, math.huge)^2) --so i found out the hard way that it doesn't fucking reduce volume by distance if there's a to_player. Kind of pisses me off.
+                play_sound(sound, soundspec, handle, arg)
+            end
         end
     end
     return handle

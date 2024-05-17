@@ -11,7 +11,7 @@ Guns4d.config = {
     show_gun_inv_ammo_count = true,
     control_hybrid_toggle_threshold = .3,
     control_held_toggle_threshold = 0,
-    empty_symbol = "0e",
+    empty_symbol = "E",
     default_damage_group = "fleshy",
     infinite_ammo_priv = "guns4d_infinite_ammo",
     interpret_initial_wear_as_ammo = false,
@@ -23,15 +23,19 @@ Guns4d.config = {
     headshot_damage_factor = 1.75,
     enable_touchscreen_command_name = "guns4d_enable_touchmode",
     minimum_supersonic_energy_assumption = 900, --used to determine the energy of a "supersonic" bullet for bullet whizzing sound effects
+    default_audio_attenuation_rate = .8, --changes the dropoff rate of sound. Acts as a multiplier for the distance used to calculate inverse square law. Most guns (from the gun packs) set their own, so this is mainly for reloads.
     mix_supersonic_and_subsonic_sounds = true,
     default_pass_sound_mixing_factor = 10,
+    third_person_gain_multiplier = 1/3,
     default_penetration_iteration_distance = .25,
+    maximum_bullet_holes = 20,
+    --enable_assert = false,
+    realistic_items = true
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }
 local path = minetest.get_modpath("guns4d")
 
-print("file read?")
 local conf = Settings(path.."/guns4d_settings.conf"):to_table() or {}
 local mt_conf = minetest.settings:to_table() --allow use of MT config for servers that regularly update 4dguns through it's development
 for i, v in pairs(Guns4d.config) do
@@ -44,6 +48,7 @@ for i, v in pairs(Guns4d.config) do
     end
 end
 
+
 dofile(path.."/infinite_ammo.lua")
 dofile(path.."/misc_helpers.lua")
 dofile(path.."/item_entities.lua")
@@ -55,6 +60,7 @@ dofile(path.."/block_values.lua")
 dofile(path.."/ammo_api.lua")
 path = path .. "/classes"
 dofile(path.."/Instantiatable_class.lua")
+dofile(path.."/Bullet_hole.lua")
 dofile(path.."/Bullet_ray.lua")
 dofile(path.."/Control_handler.lua")
 dofile(path.."/Ammo_handler.lua")

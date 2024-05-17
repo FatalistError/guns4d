@@ -75,7 +75,7 @@ function Guns4d.effects.muzzle_flash(self)
     }
     })
 end
-function Guns4d.effects.spawn_bullet_hole_particle(pos, size, texture)
+--[[function Guns4d.effects.spawn_bullet_hole_particle(pos, size, texture)
     --modern syntax isn't accepted by add particle to my knowledge, or it's not documented.
     --so I have to use a particle spawner
     minetest.add_particlespawner({
@@ -155,4 +155,4 @@ minetest.register_entity("guns4d:bullet_hole", {
             self.object:set_properties(properties)
         end
     end
-})
+})]]

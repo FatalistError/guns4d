@@ -12,6 +12,9 @@ Guns4d.control_handler = {
             loop = false,
             func=function(active, interrupted, data, busy_controls)
         }
+        on_use = function()
+        on_secondary_use = function()
+        on_drop = function() return a bool to indicate wether to drop the item or not.
     }
     ]]
     ads = false,
@@ -112,6 +115,12 @@ function controls:on_use(itemstack, pointed_thing)
     local actions = self:get_actions()
     if actions.on_use then
         actions.on_use(itemstack, self.handler, pointed_thing)
+    end
+end
+function controls:on_drop(itemstack, pointed_thing, pos)
+    local actions = self:get_actions()
+    if actions.on_drop then
+        return actions.on_use(itemstack, self.handler, pos)
     end
 end
 function controls:on_secondary_use(itemstack, pointed_thing)
