@@ -298,29 +298,27 @@ function Guns4d.math.nearest_point_on_line(lineStart, lineEnd, pnt)
     return vector.add(lineStart, vector.multiply(line, d))
 end
 
-function Guns4d.math.rand_box_muller(deviation)
+--[[function Guns4d.math.rand_box_muller(deviation)
     local tau = math.pi*2
     --our first value cant be 0
     math.randomseed(math.random())
     local r1 = 0
     while r1 == 0 do r1=math.random() end
     local r2=math.random()
-    print(r1, r2)
 
     local a = deviation * math.sqrt(-2.0*math.log(r1))
     return a * math.cos(tau * r1), a * math.sin(tau * r2);
-end
+end]]
 local e = 2.7182818284590452353602874713527 --I don't know how to find it otherwise...
 --deviation just changes the distribution, range is the maximum spread
 function Guns4d.math.angular_normal_distribution(deviation)
     local x=math.random()
     --print(x)
     --positive only normal distribution
-    local a = (1/(deviation*math.sqrt(2*math.pi)))
-    local exp = (-.5*(x/deviation)^2)
+    local a = 1/(deviation*math.sqrt(2*math.pi))
+    local exp = -.5*(x/deviation)^2
     local exp_x_1 = (-.5*(1/deviation)^2) --exp value where x=1
     local y=( (a*e^exp) - (a*e^exp_x_1) )/( a - (a*e^exp_x_1) ) --subtraction is to bring the value of x=1 to 0 on the curve and the division is to keep it normalized to an output of one
-    print(y)
     local theta = math.random()*math.pi*2
     return y*math.cos(theta), y*math.sin(theta)
 end

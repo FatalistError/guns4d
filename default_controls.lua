@@ -150,13 +150,25 @@ reg_mstate("load", {
         return true
     end
 })
+reg_mstate("load_cartridge_once", {
+    on_completion = function(gun, ammo_handler, next_state)
+        ammo_handler:load_single_cartridge() --load one time, always continue
+        return true
+    end,
+    validation_check = function(gun, ammo_handler, next_state)
+        if (ammo_handler.ammo.total_bullets<gun.properties.ammo.capacity) and ammo_handler:inventory_has_ammo(true) then
+            return true
+        else
+            return false
+        end
+    end
+})
 reg_mstate("load_cartridge", {
     on_completion = function(gun, ammo_handler, next_state)
         return not ammo_handler:load_single_cartridge() --it returns wether the cartidge could be loaded
     end,
     validation_check = function(gun, ammo_handler, next_state)
         if (ammo_handler.ammo.total_bullets<gun.properties.ammo.capacity) and ammo_handler:inventory_has_ammo(true) then
-            minetest.chat_send_all(dump((ammo_handler:inventory_has_ammo(true))))
             return true
         else
             return false

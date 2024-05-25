@@ -124,7 +124,6 @@ function Guns4d.play_sounds(soundspecs_list)
                 dist = sqrt( sqrt((pos.x-(soundspec.pos.x))^2+(pos.y-soundspec.pos.y)^2)^2 + (pos.z-soundspec.pos.z)^2)
             end
             if ((not soundspec.max_hear_distance) or (dist <= soundspec.max_hear_distance)) and ((not soundspec.min_hear_distance) or (dist > soundspec.min_hear_distance)) and (player~=exclude_player_ref) then
-                print(player:get_player_name(), dist, sound, (dist-(soundspec.min_hear_distance or 0))*attenuation_rate, soundspec.min_hear_distance)
                 soundspec.exclude_player = nil --not needed anyway because we can just not play it for this player.
                 soundspec.to_player = player:get_player_name()
                 soundspec.gain = original_gain/(Guns4d.math.clamp((dist-(soundspec.min_hear_distance or 0))*attenuation_rate, 1, math.huge)^2) --so i found out the hard way that it doesn't fucking reduce volume by distance if there's a to_player. Kind of pisses me off.

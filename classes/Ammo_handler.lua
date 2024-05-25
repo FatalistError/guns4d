@@ -199,6 +199,12 @@ function Ammo_handler:load_single_cartridge()
     if bullet then
         ammo.loaded_bullets[bullet] = (ammo.loaded_bullets[bullet] or 0)+1
         ammo.total_bullets = ammo.total_bullets+1
+        if self.gun.bolt_charged or (self.gun.properties.charging.bolt_charge_mode == "none") then
+            ammo.next_bullet = Guns4d.math.weighted_randoms(ammo.loaded_bullets) or "empty"
+            self.gun.bolt_charged = false
+        else
+            ammo.next_bullet = "empty"
+        end
         self:update_meta()
         return true
     end
