@@ -248,7 +248,7 @@ function ray:apply_damage(object, sharp_pen, blunt_pen)
     --raw damage values
     local blunt_dmg = self.raw_blunt_damage*blunt_ratio
     local sharp_dmg = self.raw_sharp_damage*sharp_ratio
-    print(self.energy, "b,s dmg:", blunt_dmg, sharp_dmg, "ratio:", blunt_ratio, sharp_ratio, "input", blunt_pen, sharp_pen, "...", self.energy_sharp_ratio)
+    --print(self.energy, "b,s dmg:", blunt_dmg, sharp_dmg, "ratio:", blunt_ratio, sharp_ratio, "input", blunt_pen, sharp_pen, "...", self.energy_sharp_ratio)
 
     --now apply damage groups.
     local headshot = 1
@@ -282,7 +282,7 @@ function ray:play_bullet_pass_sounds()
     --iteration done, damage applied, find players to apply bullet whizz to
     local start_pos = self.init_def.pos
     local played_for = self.whizz_sound_players
-    print(dump(self.history))
+    --print(dump(self.history))
     for i = #self.history, 1, -1 do
         local v = self.history[i]
         for _, player in pairs(minetest.get_connected_players()) do

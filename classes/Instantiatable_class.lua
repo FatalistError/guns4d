@@ -32,9 +32,9 @@ function Instantiatable_class:inherit(def)
             def._construct_low(parameters)
         end
     end
-    def.construct(def)
     --iterate through table properties
     setmetatable(def, {__index = self})
+    def.construct(def) --moved this to call after the setmetatable, it doesnt seem to break anything, and how it should be? I dont know when I changed it... hopefully not totally broken.
     return def
 end
 --- construct

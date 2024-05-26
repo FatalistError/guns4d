@@ -1,18 +1,13 @@
-local Vec = vector
---[[offsets = {
-    head = vector.new(0,6.3,0),
-    arm_right = vector.new(-3.15, 5.5, 0),
-    arm_right_global = vector.new(-3.15, 11.55, 0), --can be low precision
-    arm_left = vector.new(3.15, 5.5, 0),
-    arm_left_global = vector.new(3.15, 11.55, 0),
-}]]
+
+--this file creates the base class for player model handlers. This is set up for multiple models that have the same bones but may have different meshes.
+
 Guns4d.player_model_handler = {
     handlers = {}, --not for children, this stores a global list of handlers by meshname.
     offsets = {
         global = {
             --right arm (for hipfire bone)
         },
-        relative = { --none of these are specifically needed... perhaps delegate this to the
+        relative = { --none of these are specifically needed...
             --left arm
             --right arm
             --head
@@ -21,15 +16,16 @@ Guns4d.player_model_handler = {
     inv_rotation = {}, --stores inverse rotation for bone aiming
     --REMEMBER! bones must be named differently from their original model's counterparts, because minetest was written by monkeys who were supervised by clowns. (no way to unset them.)
     bone_names = {
-        arm_right = "guns3d_arm_right",
-        arm_left = "guns3d_arm_left",
-        aim = "guns3d_aiming_bone",
-        hipfire = "guns3d_hipfire_bone",
-        head = "guns3d_head"
+        arm_right = "guns4d_arm_right",
+        arm_left = "guns4d_arm_left",
+        aim = "guns4d_aiming_bone",
+        hipfire = "guns4d_hipfire_bone",
+        head = "guns4d_head"
     },
     still_frame = 0, --the frame to take bone offsets from. This system has to be improved in the future (to allow better animation support)- it works for now though.
     compatible_meshes = { --list of meshes and their corresponding partner meshes for this handler.
-        ["character.b3d"] = "guns3d_character.b3d"
+        ["character.b3d"] = "guns4d_character.b3d",
+        __overfill = true
     },
     fallback_mesh = "guns3d_character.b3d", --if no meshes are found in "compatible_meshes" it chooses this one.
     is_new_default = true --this will set the this to be the default handler.
@@ -136,16 +132,23 @@ function player_model.construct(def)
             if player_model.handlers[og_mesh] then minetest.log("warning", "Guns4d: mesh '"..og_mesh.."' overridden by a handler class, this will replace the old handler. Is this a mistake?") end
             player_model.handlers[replacement_mesh] = def
         end
-        if def.is_new_default then
-            player_model.set_default_handler(def)
+
+        --find a valid model to read.
+        local read_model
+        for i, v in pairs(def.compatible_meshes) do
+            if (type(i)=="string") and (i~="__overfill") then
+                read_model=v
+            end
         end
-        local i, v = next(def.compatible_meshes)
-        local b3d_table = mtul.b3d_reader.read_model(v, true)
+        assert(read_model, "at least one compatible mesh required by default for offset detection.")
+        local b3d_table = mtul.b3d_reader.read_model(read_model, true)
+
         --[[all of the compatible_meshes should be identical in terms of guns4d specific bones and offsets (arms, head).
         Otherwise a new handler should be different. With new compatibilities]]
         ---@diagnostic disable-next-line: redefined-local
         for i, v in pairs({"arm_right", "arm_left", "head"}) do
             --print(def.bone_names[v])
+
             local node = mtul.b3d_nodes.get_node_by_name(b3d_table, def.bone_names[v], true)
 
             local transform, rotation = mtul.b3d_nodes.get_node_global_transform(node, def.still_frame)

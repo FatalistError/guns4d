@@ -64,7 +64,7 @@ function Guns4d.ammo.register_magazine(def)
     def.accepted_bullets_set = {} --this table is a "lookup" table, I didn't go to college so I have no idea
     for i, v in pairs(def.accepted_bullets) do
         --TODO: make an actual error/minetest.log
-        if not Guns4d.ammo.registered_bullets[v] then print("guns4D: WARNING! bullet "..v.." not registered! is this a mistake?") end --TODO replace with minetest.log
+        if not Guns4d.ammo.registered_bullets[v] then minetest.log("error", "guns4D: WARNING! bullet "..v.." not registered! is this a mistake?") end --TODO replace with minetest.log
         def.accepted_bullets_set[v] = true
     end
     Guns4d.ammo.registered_magazines[def.itemstring] = def

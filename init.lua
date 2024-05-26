@@ -34,9 +34,9 @@ Guns4d.config = {
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }
-local path = minetest.get_modpath("guns4d")
+local modpath = minetest.get_modpath("guns4d")
 
-local conf = Settings(path.."/guns4d_settings.conf"):to_table() or {}
+local conf = Settings(modpath.."/guns4d_settings.conf"):to_table() or {}
 local mt_conf = minetest.settings:to_table() --allow use of MT config for servers that regularly update 4dguns through it's development
 for i, v in pairs(Guns4d.config) do
     --Guns4d.config[i] = conf[i] or minetest.settings["guns4d."..i] or Guns4d.config[i]
@@ -49,16 +49,16 @@ for i, v in pairs(Guns4d.config) do
 end
 
 
-dofile(path.."/infinite_ammo.lua")
-dofile(path.."/misc_helpers.lua")
-dofile(path.."/item_entities.lua")
-dofile(path.."/play_sound.lua")
-dofile(path.."/visual_effects.lua")
-dofile(path.."/default_controls.lua")
-dofile(path.."/touch_support.lua")
-dofile(path.."/block_values.lua")
-dofile(path.."/ammo_api.lua")
-path = path .. "/classes"
+dofile(modpath.."/infinite_ammo.lua")
+dofile(modpath.."/misc_helpers.lua")
+dofile(modpath.."/item_entities.lua")
+dofile(modpath.."/play_sound.lua")
+dofile(modpath.."/visual_effects.lua")
+dofile(modpath.."/default_controls.lua")
+dofile(modpath.."/touch_support.lua")
+dofile(modpath.."/block_values.lua")
+dofile(modpath.."/ammo_api.lua")
+local path = modpath .. "/classes"
 dofile(path.."/Instantiatable_class.lua")
 dofile(path.."/Bullet_hole.lua")
 dofile(path.."/Bullet_ray.lua")
@@ -70,6 +70,11 @@ dofile(path.."/Gun.lua") --> loads /classes/gun_construct.lua
 dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
 dofile(path.."/Proxy_table.lua")
+
+--model compatibility
+path = modpath .. "/models"
+dofile(path.."/3darmor/init.lua")
+
 
 --load after
 path = minetest.get_modpath("guns4d")
