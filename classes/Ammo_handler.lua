@@ -194,6 +194,7 @@ function Ammo_handler:load_single_cartridge()
             bullet = v:get_name()
             v:take_item(1)
             inv:set_stack("main", i, v)
+            break
         end
     end
     if bullet then

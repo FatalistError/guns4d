@@ -19,6 +19,10 @@ local gun_default = {
         firerateRPM = 600, -- used by update() and by extent fire() + default controls. The firerate of the gun. Rounds per minute
         burst = 3, -- how many rounds in burst using when firemode is at "burst"
         ammo_handler = Ammo_handler,
+        item = {
+            collisionbox = ((not Guns4d.config.realistic_items) and {-.1,-.1,-.1,   .1,.1,.1}) or {-.1,-.05,-.1,   .1,.15,.1},
+            selectionbox = {-.1,-.1,-.1,   .1,.1,.1}
+        },
         hip = {
             offset = Vec.new(),
             sway_vel_mul = 5,
@@ -270,8 +274,8 @@ local gun_default = {
         ANIMATIONS_OFFSET_AIM = false,
         LOOP_IDLE_ANIM = false,
         THIRD_PERSON_GAIN_MULTIPLIER = Guns4d.config.third_person_gain_multiplier,
-        ITEM_COLLISIONBOX = ((not Guns4d.config.realistic_items) and {-.1,-.1,-.1,   .1,.1,.1}) or {-.1,-.05,-.1,   .1,.15,.1},
-        ITEM_SELECTIONBOX = {-.2,-.2,-.2,   .1,.2,.2},
+        --ITEM_COLLISIONBOX = ((not Guns4d.config.realistic_items) and {-.1,-.1,-.1,   .1,.1,.1}) or {-.1,-.05,-.1,   .1,.15,.1},
+        --ITEM_SELECTIONBOX = {-.2,-.2,-.2,   .2,.2,.2},
     },
     --[[animation_data = { --where animations data is stored.
         anim_runtime = 0,

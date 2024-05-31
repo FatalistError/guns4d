@@ -79,10 +79,6 @@ local function initialize_animation(self)
     self.animation_rotation = vector.new()
 end
 
-
---========================== MAIN INSTANCE CONSTRUCTOR ===============================
-
-
 function gun_default:construct_instance()
     assert(self.handler, "no player handler object provided")
 
@@ -112,7 +108,6 @@ function gun_default:construct_instance()
     end
     if self.custom_construct then self:custom_construct() end
 end
-
 
 --[[
 *
@@ -233,8 +228,8 @@ local function reregister_item(self, props)
         end
     })
     Guns4d.register_item(self.itemstring, {
-        collisionbox = self.consts.ITEM_COLLISIONBOX,
-        selectionbox = self.consts.ITEM_SELECTIONBOX,
+        collisionbox = self.properties.item.collisionbox,
+        selectionbox = self.properties.item.selectionbox,
         mesh = self.properties.visuals.mesh,
         textures = self.properties.visuals.textures,
         animation = self.properties.visuals.animations.loaded

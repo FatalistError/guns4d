@@ -49,21 +49,21 @@ local ray = {
     spread = 0, --defaults to 1 if pellets present but spread not defined.
     pellets = 1,
     wall_penetration = true, --turns off by default if pellets are greater then one.
-    ITERATION_DISTANCE = Guns4d.config.default_penetration_iteration_distance,
+    iteration_distance = Guns4d.config.default_penetration_iteration_distance,
 }
 
 --find (valid) edge. Slabs or other nodeboxes that are not the last hit position are not considered (to account for holes) TODO: update to account for hollow nodes
 function ray:find_transverse_edge()
     assert(self.instance, "attempt to call obj method on a class")
     local pointed
-    local cast1 = minetest.raycast(self.pos+(self.dir*(self.ITERATION_DISTANCE+.001)), self.pos, false, false)
+    local cast1 = minetest.raycast(self.pos+(self.dir*(self.iteration_distance+.001)), self.pos, false, false)
     for hit in cast1 do
         --we can't solidly predict all nodes, so ignore them as the distance will be solved regardless. If node name is different then
         if hit.type == "node" and (vector.distance(hit.intersection_point, self.pos) > 0.0001) and (vector.equals(hit.under, self.last_pointed_node.under) or not minetest.registered_nodes[self.last_node_name].node_box) then
             pointed = hit
         end
     end
-    if (pointed) and (vector.distance(pointed.intersection_point, self.pos) < self.ITERATION_DISTANCE) then
+    if (pointed) and (vector.distance(pointed.intersection_point, self.pos) < self.iteration_distance) then
         return pointed.intersection_point, pointed.intersection_normal
     end
 end
@@ -82,7 +82,7 @@ function ray:cast()
             end_pos = edge+(self.dir*.001) --give it a tolerance, it still needs to intersect with any node edges connected to the edge's block.
             next_state = "free"
         else
-            end_pos = self.pos+(self.dir*self.ITERATION_DISTANCE)
+            end_pos = self.pos+(self.dir*self.iteration_distance)
         end
     else
         end_pos = self.pos+(self.dir*self.range)
@@ -419,6 +419,9 @@ function ray.construct(def)
             end
             if rawget(def, "spread") == nil then
                 def.spread = 1
+            end
+            if rawget(def, "iteration_distance") == nil then
+                def.iteration_distance = 10
             end
         end
         --blunt pen is in the same units (1 Joule/Area^3 = 1 Pa), so we use it to make the ratio by subtraction.

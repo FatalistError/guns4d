@@ -30,7 +30,7 @@ Guns4d.config = {
     default_penetration_iteration_distance = .25,
     maximum_bullet_holes = 20,
     --enable_assert = false,
-    realistic_items = true
+    realistic_items = false
     --`["official_content.replace_ads_with_bloom"] = false,
     --`["official_content.uses_magazines"] = true
 }

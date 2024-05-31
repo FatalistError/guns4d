@@ -34,8 +34,9 @@ minetest.register_on_mods_loaded(function()
             behavior_type = "ignore"
         end
         if groups.leaves then
-            RHA = .0001
-            random_deviation = .005
+            --RHA = .0001
+            --random_deviation = .005
+            behavior_type = "ignore"
         end
         if groups.stone then
             RHA = 1/groups.stone
