@@ -64,7 +64,7 @@ function player_model:update(dt)
     if handler.control_handler.ads then
         eye_pos.x = ((handler.horizontal_offset*10)/pprops.visual_size.x) --horizontal_offset already is eye_offset on x
     end
-    player:set_bone_position(self.bone_names.hipfire, self.offsets.relative.arm_right, {x=-(pitch*gun.consts.HIP_PLAYER_GUN_ROT_RATIO), y=180-player_axial_offset.y, z=0})
+    player:set_bone_position(self.bone_names.hipfire, self.offsets.relative.arm_right, {x=-pitch, y=180-player_axial_offset.y, z=0})
     --player:set_bone_position(self.bone_names.reticle, eye_pos, vector.new(combined.x, 180-combined.y, 0))
     --can't use paxial dir as it needs to be relative on Y still.
     local dir = vector.rotate(gun.local_paxial_dir, {x=gun.player_rotation.x*math.pi/180,y=0,z=0})
@@ -101,7 +101,7 @@ function player_model:update_head(dt)
     local player = self.player
     local handler = self.handler
     local gun = handler.gun
-    player:set_bone_position(self.bone_names.head, self.offsets.relative.head, {x=-handler.look_rotation.x,z=0,y=0})
+    player:set_bone_position(self.bone_names.head, self.offsets.relative.head, {x=handler.look_rotation.x,z=0,y=0})
 end
 --should be renamed to "release" but, whatever.
 function player_model:prepare_deletion()

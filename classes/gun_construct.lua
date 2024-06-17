@@ -235,7 +235,7 @@ local function reregister_item(self, props)
         animation = self.properties.visuals.animations.loaded
     })
 end
-local function create_visual_entity(def, props)
+local function register_visual_entity(def, props)
     minetest.register_entity(def.name.."_visual", {
         initial_properties = {
             visual = "mesh",
@@ -246,34 +246,9 @@ local function create_visual_entity(def, props)
             static_save = false,
             backface_culling = props.visuals.backface_culling
         },
-        on_step = --[[def.entity_function or]] function(self)
-            local obj = self.object
-            if not self.parent_player then obj:remove() return end
-            local player = self.parent_player
-            local handler = Guns4d.players[player:get_player_name()]
-            local lua_object = handler.gun
-            if not lua_object then obj:remove() return end
-            --this is changing the point of rotation if not aiming, this is to make it look less shit.
-            local axial_modifier = vector.new()
-            if not handler.control_handler.ads then
-                local pitch = lua_object.total_offset_rotation.player_axial.x+lua_object.player_rotation.x
-                axial_modifier = vector.new(pitch*(1-lua_object.consts.HIP_PLAYER_GUN_ROT_RATIO),0,0)
-            end
-            local axial_rot = lua_object.total_offset_rotation.gun_axial+axial_modifier
-            --attach to the correct bone, and rotate
-            local visibility = true
-            if lua_object.sprite_scope and lua_object.sprite_scope.hide_gun and (not (handler.ads_location == 0)) then
-                visibility = false
-            end
-            if handler.control_handler.ads  then
-                local normal_pos = (props.ads.offset)*10
-                obj:set_attach(player, handler.player_model_handler.bone_names.aim, normal_pos, -axial_rot, visibility)
-            else
-                local normal_pos = vector.new(props.hip.offset)*10
-                -- vector.multiply({x=normal_pos.x, y=normal_pos.z, z=-normal_pos.y}, 10)
-                obj:set_attach(player, handler.player_model_handler.bone_names.hipfire, normal_pos, -axial_rot, visibility)
-            end
-        end,
+        on_step = function(self)
+            if not self.object:get_attach() then self.object:remove() end
+        end
     })
 end
 --========================== MAIN CLASS CONSTRUCTOR ===============================
@@ -304,5 +279,5 @@ function gun_default:construct_base_class()
     end
 
     Guns4d.gun.registered[self.name] = self --add gun self to the registered table
-    create_visual_entity(self, props)  --register the visual entity
+    register_visual_entity(self, props)  --register the visual entity
 end

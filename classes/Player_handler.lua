@@ -51,7 +51,7 @@ function player_handler:update(dt)
             --for the gun's scopes to work properly we need predictable offsets.
         end
         --update some properties.
-        self.look_rotation.x, self.look_rotation.y = Guns4d.math.clamp((player:get_look_vertical() or 0)*180/math.pi, -80, 80), 360-player:get_look_horizontal()*180/math.pi
+        self.look_rotation.x, self.look_rotation.y = Guns4d.math.clamp((-player:get_look_vertical() or 0)*180/math.pi, -80, 80), 360-player:get_look_horizontal()*180/math.pi
         if TICK % 10 == 0 then
             self.wininfo = minetest.get_player_window_information(self.player:get_player_name())
         end
