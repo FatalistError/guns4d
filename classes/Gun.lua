@@ -1,6 +1,5 @@
 --- Gun class
--- this is the system used to represent guns and their attributes directly.
--- @module Gun
+-- @classmod Gun
 
 local Vec = vector
 local gun_default = {
@@ -11,13 +10,18 @@ local gun_default = {
     registered = {},
     property_modifiers = {},
 
+    --ldoc will fuck this up, so fields are handled by external post-generation script.
+
     --- properties
+    -- the table containing every attribute of the gun.
+    -- @table properties
     properties = {
-        infinite_inventory_overlay = "inventory_overlay_inf_ammo.png", -- defines the filename to to be used as the overlay on the item when the player has infinite ammo.
-        breathing_scale = .5, -- the max angluler offset caused by breathing.
-        flash_offset = Vec.new(), -- used by fire() (for fsx and ray start pos) [RENAME NEEDED]
-        firerateRPM = 600, -- used by update() and by extent fire() + default controls. The firerate of the gun. Rounds per minute
-        burst = 3, -- how many rounds in burst using when firemode is at "burst"
+        --%start "properties"
+        infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
+        breathing_scale = .5, --the max angluler offset caused by breathing.
+        flash_offset = Vec.new(), --used by fire() (for fsx and ray start pos) [RENAME NEEDED]
+        firerateRPM = 600, --used by update() and by extent fire() + default controls. The firerate of the gun. Rounds per minute
+        burst = 3, --how many rounds in burst using when firemode is at "burst"
         ammo_handler = Ammo_handler,
         item = {
             collisionbox = ((not Guns4d.config.realistic_items) and {-.1,-.1,-.1,   .1,.1,.1}) or {-.1,-.05,-.1,   .1,.15,.1},
@@ -215,6 +219,7 @@ local gun_default = {
         --inventory_image_empty
          --used by ammo_handler
     },
+    --- offsets
     offsets = {
         recoil = {
             gun_axial = Vec.new(),
@@ -480,7 +485,7 @@ function gun_default:update_look_rotation(dt)
     local player_rot = self.player_rotation
     player_rot.y = -handler.look_rotation.y
     local rot_factor = Guns4d.config.vertical_rotation_factor*dt
-    rot_factor = rot_factor*(.5*(1+handler.ads_location))
+    rot_factor = rot_factor
     local next_vert_aim = ((player_rot.x-look_rotation.x)/(1+rot_factor))+look_rotation.x --difference divided by a value and then added back to the original
     if math.abs(look_rotation.x-next_vert_aim) > .005 then
         player_rot.x = next_vert_aim
@@ -490,11 +495,18 @@ function gun_default:update_look_rotation(dt)
 
     if not handler.control_handler.ads then
         local pitch = self.total_offset_rotation.player_axial.x+player_rot.x
-        self.offsets.look_snap.gun_axial.x = (pitch*(1-self.consts.HIP_ROTATION_RATIO))+(handler.look_rotation.x-player_rot.x)
+        local gun_axial = self.offsets.look_snap.gun_axial
+        local offset = handler.look_rotation.x-player_rot.x
+        gun_axial.x = Guns4d.math.clamp(offset, 0, 15*(offset/math.abs(offset)))
+        gun_axial.x = gun_axial.x+(pitch*(1-self.consts.HIP_ROTATION_RATIO))
         self.offsets.look_snap.player_axial.x = -pitch*(1-self.consts.HIP_ROTATION_RATIO)
     else
         self.offsets.look_snap.gun_axial.x = 0
         self.offsets.look_snap.player_axial.x = 0
+        --quick little experiment...
+        --[[local pitch = self.total_offset_rotation.player_axial.x+player_rot.x
+        self.offsets.look_snap.gun_axial.x = handler.look_rotation.x-player_rot.x
+        self.offsets.look_snap.player_axial.x = 0]]
     end
 end
 --============================================== positional info =====================================

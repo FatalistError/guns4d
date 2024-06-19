@@ -6,6 +6,6 @@ backtick_references=false
 file = {
    "../",
 }
-dir='../autogen_docs'
+dir='./outputted documentation'
 readme='../README.md'
 style='!new'
