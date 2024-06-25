@@ -173,7 +173,7 @@ end
 function player_handler:is_holding_gun()
     assert(self.instance, "attempt to call object method on a class")
     if self.wielded_item then
-        for name, obj in pairs(Guns4d.gun.registered) do
+        for name, obj in pairs(Guns4d.gun._registered) do
             if obj.itemstring == self.wielded_item:get_name() then
                 return obj
             end

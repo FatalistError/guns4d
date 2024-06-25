@@ -28,8 +28,10 @@ Ammo_handler = Instantiatable_class:inherit({
                     meta:set_int("guns4d_spawn_with_ammo", 0)
                     def:update_meta()
                 else
+                    --create or reinitialize ammo data
                     if meta:get_string("guns4d_loaded_bullets") == "" then
-                        def.ammo.loaded_mag = gun.properties.ammo.initial_mag or "empty"
+                        local ammo_props = gun.properties.ammo
+                        def.ammo.loaded_mag = ammo_props.initial_mag or (ammo_props.accepted_magazines and ammo_props.accepted_magazines[1]) or "empty"
                         def.ammo.next_bullet = "empty"
                         def.ammo.total_bullets = 0
                         def.ammo.loaded_bullets = {}

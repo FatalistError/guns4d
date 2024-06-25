@@ -205,7 +205,7 @@ function Guns4d.ammo.magazine(magname)
 end
 
 function Guns4d.ammo.magazine_of_gun(gunname, full, string)
-    local gprops = Guns4d.gun.registered[gunname].properties
+    local gprops = Guns4d.gun._registered[gunname].properties
     local magname = gprops.ammo.accepted_magazines[1]
     assert(magname, "magazines are not accepted")
     local mag = ItemStack(magname)

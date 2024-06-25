@@ -157,9 +157,9 @@ local function initialize_b3d_animation_data(self, props)
     }
     --print(table.tostring(self.b3d_model))
     --precalculate keyframe "samples" for intepolation.
-    local left = mtul.b3d_nodes.get_node_by_name(self.b3d_model, props.visuals.arm_left, true)
-    local right = mtul.b3d_nodes.get_node_by_name(self.b3d_model, props.visuals.arm_right, true)
-    local main = mtul.b3d_nodes.get_node_by_name(self.b3d_model, props.visuals.root, true)
+    local left = mtul.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_LEFT_BONE, true)
+    local right = mtul.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_RIGHT_BONE, true)
+    local main = mtul.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ROOT_BONE, true)
     --we add 2 because we have to add 1 for the loop to make it there if it's a float val, and MTUL uses a system where frame 0 is 1
     for target_frame = 0, self.b3d_model.node.animation.frames+1, self.consts.KEYFRAME_SAMPLE_PRECISION do
         --we need to check that the bone exists first.
@@ -261,6 +261,7 @@ function gun_default:construct_base_class()
     self.consts = Guns4d.table.fill(self.parent_class.consts, self.consts or {})
     props = self.properties
     validate_controls(props)
+    assert((self.properties.recoil.velocity_correction_factor.gun_axial>=1) and (self.properties.recoil.velocity_correction_factor.player_axial>=1), "velocity correction must not be less than one.")
 
     initialize_b3d_animation_data(self, props) --this is for animation offsets (like the spritescope uses)
 
@@ -278,6 +279,6 @@ function gun_default:construct_base_class()
         self.accepted_magazines[v] = true
     end
 
-    Guns4d.gun.registered[self.name] = self --add gun self to the registered table
+    Guns4d.gun._registered[self.name] = self --add gun self to the registered table
     register_visual_entity(self, props)  --register the visual entity
 end

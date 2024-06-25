@@ -1,5 +1,5 @@
---- Instantiatable_class. The system for defining classes in 4dguns. Please note the capital "I", Ldoc converts it to a lowercase in all of this file
--- @classmod Instantiatable_class
+--- The system for defining classes in 4dguns. Please note the capital "I", Ldoc converts it to a lowercase in all of this file
+-- @class Instantiatable_class
 
 Instantiatable_class = {
     instance = false,

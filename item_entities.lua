@@ -1,5 +1,3 @@
---- adds 3d items for guns and magazines
--- @script item_entities.lua
 
 Guns4d.registered_items = {}
 local old_spawn_item = core.spawn_item --didnt know if I had to use core instead of minetest or if they are the same reference, not chancing it though.
@@ -19,19 +17,8 @@ core.spawn_item = function(pos, item, ...)
     return old_spawn_item(pos, item, ...)
 end
 
---- table defining the new 3d entity for a dropped item
--- @field light_source int, equivelant to minetest itemdef version
--- @field size int, the size of the collision box
--- @field mesh string, the mesh to use for the item
--- @field textures table, a list of textures (see minetest entity documentation)
--- @field collisionbox_size, the size of collisionbox in tenths of meters.
--- @field selectionbox vector, xyz scale of the selectionbox
--- @field offset vector, xyz offset of the visual object from the collision and selectionbox. (so that magazines's origin can match their bone.)
--- @table guns4d_itemdef
-
 local defaults = {
     --light_source = 0,
-    collisionbox_size = 2,
     visual_size = 1,
     realistic = Guns4d.config.realistic_items,
     backface_culling = false,
@@ -39,10 +26,7 @@ local defaults = {
     selectionbox = {-.2,-.2,-.2,   .2,.2,.2},
     collisionbox = (Guns4d.config.realistic_items and {-.2,-.05,-.2,   .2,.15,.2}) or {-.2,-.2,-.2,   .2,.2,.2}
 }
---- replaces the item entity of the provided item with a 3d entity based on the definition
--- @param itemstring
--- @param def, a @{guns4d_itemdef}
--- @function Guns4d.register_item()
+
 function Guns4d.register_item(itemstring, def)
     assert(minetest.registered_items[itemstring], "item: `"..tostring(itemstring).."` not registered by minetest")
     assert(type(def)=="table", "definition is not a table")

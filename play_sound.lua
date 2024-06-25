@@ -1,59 +1,46 @@
 --- implements tools for quickly playing audio.
--- @script play_sound
+-- @module play_sound
 
 local sqrt = math.sqrt
 
---simple specification for playing a sound in relation to an action, acts as a layer of minetest.play_sound
---"gsp" guns4d-sound-spec
---first person for the gun holder, third person for everyone else. If first not present, third will be used.
---passes table directly to minetest.play_sound and adds a few additional parameters
---example:
---[[
-    additional properties
-    sounds = { --weighted randoms:
-        fire_fp = .5.
-        fire_fp_2 = .2.
-        fire_fp_3 = .3
-    },
-    pitch = {
-        min = .6,
-        max = 1
-    },
-    gain = 1, --format for pitch and gain is interchangable.
-    min_hear_distance = 20, --this is for distant gunshots, for example. Entirely optional. Cannot be used with to_player
 
-    exclude_player
-    to_player
-        --when present it automatically plays positionless audio, as this is for first person effects.
-]]
 
---- defines a sound.
--- This is passed to `minetest.sound_play` as a [ sound parameter table](https://github.com/minetest/minetest/blob/master/doc/lua_api.md#sound-parameter-table)
--- however has the following changed or guns4d specific parameters.
--- @field min_hear_distance this is useful if you wish to play a sound which has a "far" sound, such as distant gunshots. incompatible `with to_player`
--- @field sounds a @{misc_helpers.weighted_randoms| weighted_randoms table} for randomly selecting sounds. The output will overwrite the `sound` field.
--- @field to_player 4dguns changes `to_player` so it only plays positionless audio (as it is only intended for first person audio). If set to string "from_player" and player present
--- @field player this is so to_player being set to "from_player". It's to be set to the player which fired the weapon.
--- @field delay delay the playing of the sound
--- @field attenuation_rate float the rate of dropoff for a sound. I figure this is a bit more intuitive then jacking the gain up super high for every sound... Set the default in config.
--- @field split_audio_by_perspective true [GUN CLASS SPECIFIC] tells the gun wether to split into third and first person (positionless) audio and adjust gain.
--- @field third_person_gain_multiplier float [GUN CLASS SPECIFIC] replaces the constant/config value "third_person_gain_multiplier/THIRD_PERSON_GAIN_MULTIPLIER".
+--- Guns4d soundspec
+--
+-- simple specification for playing a sound in relation to an action, acts as a layer of minetest.play_sound.
+-- ATTENTION: read lua_api.md for more parameters! all parameters from there are valid unless otherwise stated here, these are auxillary.
 -- @table guns4d_soundspec
+-- @compact
+-- @field min_hear_distance `float` this is useful if you wish to play a sound which has a "far" sound, such as distant gunshots. incompatible `with to_player`
+-- @field sounds `table` a @{misc_helpers.weighted_randoms| weighted_randoms table} for randomly selecting sounds. The output will overwrite the `sound` field.
+-- @field to_player `objRef` 4dguns changes `to_player` so it only plays positionless audio (as it is only intended for first person audio). If set to string "from_player" and player present
+-- @field player `objRef` this is so to_player being set to "from_player". It's to be set to the player which fired the weapon.
+-- @field delay `float` delays the playing of the sound
+-- @field attenuation_rate `float` the rate of dropoff for a sound. I figure this is a bit more intuitive then jacking the gain up super high for every sound... Set the default in config.
+-- @field split_audio_by_perspective `bool` [GUN CLASS SPECIFIC] tells the gun wether to split into third and first person (positionless) audio and adjust gain.
+-- @field third_person_gain_multiplier `float` [GUN CLASS SPECIFIC] replaces the constant/config value "third_person_gain_multiplier/THIRD_PERSON_GAIN_MULTIPLIER".
+-- @example
+--    soundspec = {
+--      sounds = { --weighted randoms
+--          fire_fp = .5.
+--          fire_fp_2 = .2.
+--          fire_fp_3 = .3
+--      },
+--      pitch = {
+--          min = .6,
+--          max = 1
+--      },
+--      gain = 1, --format for pitch and gain is interchangable.
+--      min_hear_distance = 20, --this is for distant gunshots, for example. Entirely optional. Cannot be used with to_player
+--      exclude_player
+--      to_player
+--        --when present it automatically plays positionless audio, as this is for first person effects.
+--    }
+--
 
 local function handle_min_max(tbl)
     return tbl.min+(math.random()*(tbl.max-tbl.min))
 end
---- allows you to play one or more sounds with more complex features, so sounds can be easily coded for guns without the need for functions.
--- WARNING: this function modifies the tables passed to it, use `Guns4d.table.shallow_copy()` for guns4d_soundspecs
--- @param sound_specs a @{guns4d_soundspec} or a list of @{guns4d_soundspec}s indexed my number. Also allows for shared fields. Example:
---      {
---          to_player = "singeplayer",
---          min_distance = 100, --soundspec_to_play1 & soundspec_to_play2 share this parameter (as well as the to_player)
---          soundspec_to_play1,
---          soundspec_to_play2
---      }
--- @return out a Guns4d sound handle (an integer)
--- @function Guns4d.play_sounds
 local sound_handles = {}
 local function play_sound(sound, soundspec, handle, i)
     if soundspec.delay then
@@ -66,6 +53,19 @@ local function play_sound(sound, soundspec, handle, i)
         sound_handles[handle][i] = minetest.sound_play(sound, soundspec)
     end
 end
+
+--- allows you to play one or more sounds with more complex features, so sounds can be easily coded for guns without the need for functions.
+--
+-- WARNING: this function modifies the tables passed to it, use `Guns4d.table.shallow_copy()` or `table.copy` for inputted soundspecs
+-- @example
+--      {
+--          to_player = "singeplayer",
+--          min_distance = 100, --soundspec_to_play1 & soundspec_to_play2 will share this field as it is in the higher level table (as well as the above field)
+--          soundspec_to_play1, --a sound parameter table
+--          soundspec_to_play2
+--      }
+-- @tparam table soundspecs_list a list a list of soundspecs optionally accompanied with fields to be used in all of them.
+-- @treturn integer guns4d sound handle, used by stop_sounds & get_sounds
 function Guns4d.play_sounds(soundspecs_list)
     --print(dump(soundspecs_list))
     --support a list of sounds to play
@@ -133,18 +133,22 @@ function Guns4d.play_sounds(soundspecs_list)
     end
     return handle
 end
--- @param handle a Guns4d sound handle
--- @function Guns4d.get_sounds gets a list of currently playing Minetest sound handles from the Guns4d sound handle. Modification not reccomended.
+
+--- gets a list of currently playing Minetest sound handles from the Guns4d sound handle. Modification of table highly discouraged.
+-- @tparam integer handle a sound handle as returned by play_sounds
+-- @treturn table a list of sound handles as returned by minetest.sound_play()
 function Guns4d.get_sounds(handle)
     return sound_handles[handle]
 end
 --- stops a list of sounds
--- @param handle_list a list of minetest sound handles to stop, this is the returned output of @{guns4d.play_sounds
--- @function Guns4d.stop_sounds
+-- @tparam integer|table handle a guns4d sound handle OR list of minetest sound handles to stop
+-- @treturn bool returns true if successful.
 function Guns4d.stop_sounds(handle)
     local handle_list = (type(handle) == "table" and handle) or sound_handles[handle]
     if not handle_list then return false end
-    sound_handles[handle] = false --indicate to not play any delayed noises.
+    if type(handle) == "number" then
+        sound_handles[handle] = false --indicate to not play any delayed noises.
+    end
     for i, v in pairs(handle_list) do
         minetest.sound_stop(v)
     end
