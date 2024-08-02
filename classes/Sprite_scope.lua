@@ -1,4 +1,4 @@
-local Sprite_scope = Instantiatable_class:inherit({
+local Sprite_scope = mtul.class.new_class:inherit({
     images = {
         fore = {
             texture = "scope_fore.png",
@@ -51,24 +51,26 @@ Guns4d.sprite_scope = Sprite_scope
 --rename to draw?
 function Sprite_scope:update()
     local handler = self.handler
+    local gun = self.gun
+    local control_handler = gun.control_handler
     if handler.wininfo and self.handler.control_handler.ads then
         if not self.fov_set then
             self.fov_set = true
             handler:set_fov(80/self.magnification)
         end
-        local dir = self.gun.local_dir
+        local dir = gun.local_dir
         local ratio = handler.wininfo.size.x/handler.wininfo.size.y
 
-        if handler.ads_location ~= 1 then
-            dir = dir + (self.gun.properties.ads.offset+vector.new(self.gun.properties.ads.horizontal_offset,0,0))*0
+        if control_handler.ads_location ~= 1 then
+            dir = dir + (self.gun.properties.ads.offset+vector.new(gun.properties.ads.horizontal_offset,0,0))*0
         end
         local fov = self.player:get_fov()
         local real_aim = Guns4d.math.rltv_point_to_hud(dir, fov, ratio)
-        local anim_aim = Guns4d.math.rltv_point_to_hud(vector.rotate({x=0,y=0,z=1}, self.gun.animation_rotation*math.pi/180), fov, ratio)
+        local anim_aim = Guns4d.math.rltv_point_to_hud(vector.rotate({x=0,y=0,z=1}, gun.animation_rotation*math.pi/180), fov, ratio)
         real_aim.x = real_aim.x+anim_aim.x; real_aim.y = real_aim.y+anim_aim.y
 
         --print(dump(self.gun.animation_rotation))
-        local paxial_aim = Guns4d.math.rltv_point_to_hud(self.gun.local_paxial_dir, fov, ratio)
+        local paxial_aim = Guns4d.math.rltv_point_to_hud(gun.local_paxial_dir, fov, ratio)
         --so custom scopes can do their thing without doing more calcs
         self.hud_projection_real = real_aim
         self.hud_projection_paxial = paxial_aim
@@ -83,7 +85,7 @@ function Sprite_scope:update()
         self.fov_set = false
         handler:unset_fov()
     end
-    local angle =math.sqrt(self.gun.total_offset_rotation.gun_axial.x^2+self.gun.total_offset_rotation.gun_axial.y^2)
+    local angle =math.sqrt(gun.total_offsets.gun_axial.x^2+gun.total_offsets.gun_axial.y^2)
     for i, v in pairs(self.elements) do
         local def = self.images[i]
         local tex = def.texture
@@ -95,7 +97,7 @@ function Sprite_scope:update()
                 factor = (factor - ((angle-def.misalignment_opacity_threshold_angle)/def.misalignment_opacity_maximum_angle))
             end
         end
-        self.player:hud_change(v, "text", tex.."^[opacity:"..tostring(math.ceil((25.5*handler.ads_location))*10))
+        self.player:hud_change(v, "text", tex.."^[opacity:"..tostring(math.ceil((25.5*control_handler.ads_location))*10))
     end
 end
 function Sprite_scope:prepare_deletion()

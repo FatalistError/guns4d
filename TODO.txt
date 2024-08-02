@@ -104,7 +104,7 @@ MTUL subtasks
 
 this won't be fun.
 documentation
-    ( ) Instantiatable_class
+    ( ) mtul.class.new_class
     ( ) Player_model_handler
         ( ) Registering a model for compatibility
 

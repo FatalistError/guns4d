@@ -1,4 +1,4 @@
-Ammo_handler = Instantiatable_class:inherit({
+Ammo_handler = mtul.class.new_class:inherit({
     name = "Ammo_handler",
     construct = function(def)
         if def.instance then

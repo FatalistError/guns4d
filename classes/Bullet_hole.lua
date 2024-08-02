@@ -35,7 +35,7 @@ minetest.register_globalstep(function(dt)
         end
     end
 end)
-Guns4d.bullet_hole = Instantiatable_class:inherit({
+Guns4d.bullet_hole = mtul.class.new_class:inherit({
     texture = 'bullet_hole.png',
     exp_time = 30, --how much time a rendered bullet hole takes to expire
     unrendered_exptime = 10, --how much time an unrendered bullet hole takes to expire

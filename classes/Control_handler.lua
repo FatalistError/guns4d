@@ -18,6 +18,7 @@ Guns4d.control_handler = {
     }
     ]]
     ads = false,
+    ads_location = 0,
     touchscreen = false
 }
 --data table:
@@ -46,7 +47,8 @@ function controls:update(dt)
     local pressed = self.player_pressed
     local call_queue = {} --so I need to have a "call" queue so I can tell the functions the names of other active controls (busy_list)
     local busy_list = self.busy_list or {} --list of controls that have their conditions met. Has to be reset at END of update, so on_use and on_secondary_use can be marked
-    if not (self.gun.rechamber_time > 0 and self.gun.ammo_handler.ammo.next_bullet == "empty") then --check if the gun is being charged.
+    local gun = self.gun
+    if not (gun.rechamber_time > 0 and gun.ammo_handler.ammo.next_bullet == "empty") then --check if the gun is being charged.
         for i, control in pairs(self:get_actions()) do
             if not (i=="on_use") and not (i=="on_secondary_use") then
                 local def = control
@@ -103,11 +105,19 @@ function controls:update(dt)
             end
         end
         for i, tbl in pairs(call_queue) do
-            tbl.control.func(tbl.active, tbl.interrupt, tbl.data, busy_list, self.handler.gun, self.handler)
+            tbl.control.func(tbl.active, tbl.interrupt, tbl.data, busy_list, gun, self.handler)
         end
         self.busy_list = {}
     elseif self.busy_list then
         self.busy_list = nil
+    end
+    --eye offsets and ads_location
+    if self.ads and (self.ads_location<1) then
+        --if aiming, then increase ADS location
+        self.ads_location = Guns4d.math.clamp(self.ads_location + (dt/gun.properties.ads.aim_time), 0, 1)
+    elseif (not self.ads) and (self.ads_location>0) then
+        local divisor = gun.properties.ads.aim_time/gun.consts.AIM_OUT_AIM_IN_SPEED_RATIO
+        self.ads_location = Guns4d.math.clamp(self.ads_location - (dt/divisor), 0, 1)
     end
 end
 function controls:on_use(itemstack, pointed_thing)
@@ -162,6 +172,7 @@ function controls.construct(def)
         def.actions_touch = Guns4d.table.deep_copy(def.gun.properties.touch_control_actions)
         def.busy_list = {}
         def.handler = Guns4d.players[def.player:get_player_name()]
+        --def.control_handler = def.handler.control_handler          has to be created afterwards so have the playerhandler add it to the fields.
         def:toggle_touchscreen_mode(def.touchscreen)
 
         table.sort(def.actions_pc, function(a,b)
@@ -169,4 +180,4 @@ function controls.construct(def)
         end)
     end
 end
-Guns4d.control_handler = Instantiatable_class:inherit(Guns4d.control_handler)
+Guns4d.control_handler = mtul.class.new_class:inherit(Guns4d.control_handler)

@@ -48,6 +48,8 @@ for i, v in pairs(Guns4d.config) do
     end
 end
 
+minetest.rmdir(modpath.."/temp", true)
+minetest.mkdir(modpath.."/temp")
 
 dofile(modpath.."/infinite_ammo.lua")
 dofile(modpath.."/misc_helpers.lua")
@@ -59,7 +61,6 @@ dofile(modpath.."/touch_support.lua")
 dofile(modpath.."/block_values.lua")
 dofile(modpath.."/ammo_api.lua")
 local path = modpath .. "/classes"
-dofile(path.."/Instantiatable_class.lua")
 dofile(path.."/Bullet_hole.lua")
 dofile(path.."/Bullet_ray.lua")
 dofile(path.."/Control_handler.lua")
@@ -69,7 +70,6 @@ dofile(path.."/Dynamic_crosshair.lua")
 dofile(path.."/Gun.lua") --> loads /classes/gun_construct.lua
 dofile(path.."/Player_model_handler.lua")
 dofile(path.."/Player_handler.lua")
-dofile(path.."/Proxy_table.lua")
 
 --model compatibility
 path = modpath .. "/models"

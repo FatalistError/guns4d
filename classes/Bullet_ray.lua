@@ -445,4 +445,4 @@ function ray.construct(def)
         end
     end
 end
-Guns4d.bullet_ray = Instantiatable_class:inherit(ray)
+Guns4d.bullet_ray = mtul.class.new_class:inherit(ray)

@@ -1,4 +1,4 @@
-local Dynamic_crosshair = Instantiatable_class:inherit({
+local Dynamic_crosshair = mtul.class.new_class:inherit({
     increments = 1, --the number of pixels the reticle moves per frame.
     frames = 32, --this defines the length of the sprite sheet. But it also helps us know how wide it is (since we have increments.)
     image = "dynamic_crosshair_circular.png",
@@ -37,20 +37,21 @@ function Dynamic_crosshair:update(dt)
     assert(self.instance, "attemptr to call object method on a class")
     local handler = self.handler
     local gun = self.gun
-    if handler.wininfo and not handler.control_handler.ads then
+    local control_handler = gun.control_handler
+    if handler.wininfo and not control_handler.ads then
         local fov = self.player:get_fov()
         --we have to recalc the rough direction, otherwise walking will look wonky.
         local temp_vector = vector.new()
 
         for offset, v in pairs(gun.offsets) do
-            if (offset ~= "walking" or not self.normalize_walking) and (offset ~= "breathing" or not self.normalize_breathing) and (offset ~= "sway" or not self.normalize_sway) and (offset ~= "look_snap" or not self.normalize_sway) then
+            if (offset ~= "walking" or not self.normalize_walking) and (offset ~= "breathing" or not self.normalize_breathing) and (offset ~= "sway" or not self.normalize_sway) and (offset ~= "look" or not self.normalize_sway) then
                 temp_vector = temp_vector + absolute_vector(v.player_axial) + absolute_vector(v.gun_axial)
             end
         end
         if gun.consts.HAS_SWAY and self.normalize_sway then
             local max_angle =
-                gun.properties.sway.max_angle.gun_axial*gun.multiplier_coefficient(gun.properties.sway.hipfire_angle_multiplier.gun_axial, 1-handler.ads_location)
-                + gun.properties.sway.max_angle.player_axial*gun.multiplier_coefficient(gun.properties.sway.hipfire_angle_multiplier.player_axial, 1-handler.ads_location)
+                gun.properties.sway.max_angle.gun_axial*gun.multiplier_coefficient(gun.properties.sway.hipfire_angle_multiplier.gun_axial, 1-control_handler.ads_location)
+                + gun.properties.sway.max_angle.player_axial*gun.multiplier_coefficient(gun.properties.sway.hipfire_angle_multiplier.player_axial, 1-control_handler.ads_location)
             temp_vector = temp_vector + {x=max_angle, y=max_angle, z=0}
         end
         --make breathing just add to the overall rotation vector (as it could be in that circle at any time, and it looks better and is more fitting)

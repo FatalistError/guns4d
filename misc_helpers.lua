@@ -56,7 +56,9 @@ function Guns4d.math.weighted_randoms(tbl)
         scaled_weight = scaled_weight + v[2]
     end
 end
-
+function Guns4d.math.smooth_ratio(r)
+    return ((math.sin((r-.5)*math.pi))+1)/2
+end
 --[[
 --for table vectors that aren't vector objects
 local function tolerance_check(a,b,tolerance)

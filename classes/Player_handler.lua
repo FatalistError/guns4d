@@ -8,12 +8,10 @@ local player_handler = {
     --player_model_handler = player_model_handler
     --infinite_ammo = false
     look_rotation = {x=0, y=0},
-    look_offset = Vec.new(),
-    ads_location = 0, --interpolation scalar for gun aiming location
+    last_eye_offset = Vec.new(),
     default_fov = Guns4d.config.default_fov,
     fov = Guns4d.config.default_fov,
-    horizontal_offset = 0,
-    unreliability_update_timer = 1, --update for server unreliabilities or issues.
+    --unreliability_update_timer = 1, --update for server unreliabilities or issues.
 }
 function player_handler:update(dt)
     assert(self.instance, "attempt to call object method on a class")
@@ -22,7 +20,6 @@ function player_handler:update(dt)
     local held_gun = self:is_holding_gun() --get the gun class that is associated with the held gun
     if held_gun then
         --was there a gun last time? did the wield index change?
-        local old_index = self.wield_index
         self.wield_index = player:get_wield_index()
         --initialize all handlers and objects
         if (not self.gun) or (self.gun.id ~= self.wielded_item:get_meta():get_string("guns4d_id")) then
@@ -41,13 +38,10 @@ function player_handler:update(dt)
             end
             self.player_model_handler = Guns4d.player_model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
             self.control_handler = Guns4d.control_handler:new({player=player, gun=self.gun, touchscreen=self.touchscreen})
-
-            --this needs to be stored for when the gun is unset!
-            self.horizontal_offset = self.gun.properties.ads.horizontal_offset
+            self.gun.control_handler=self.control_handler
 
             --set_hud_flags
             player:hud_set_flags({wielditem = false, crosshair = false})
-
             --for the gun's scopes to work properly we need predictable offsets.
         end
         --update some properties.
@@ -60,7 +54,8 @@ function player_handler:update(dt)
         self.gun:update(dt) --gun should be updated first so self.dir is available.
         self.control_handler:update(dt)
         self.player_model_handler:update(dt)
-
+        player:set_eye_offset(self.gun.total_offsets.look_trans*10)
+        self.last_eye_offset = self.gun.total_offsets.look_trans
         --this has to be checked after control handler
         if TICK % 4 == 0 then
             self.touching_ground = self:get_is_on_ground()
@@ -80,21 +75,6 @@ function player_handler:update(dt)
         end
     end
 
-
-    --eye offsets and ads_location
-    if (self.control_handler and self.control_handler.ads) and (self.ads_location<1) then
-        --if aiming, then increase ADS location
-        self.ads_location = Guns4d.math.clamp(self.ads_location + (dt/self.gun.properties.ads.aim_time), 0, 1)
-    elseif ((not self.control_handler) or (not self.control_handler.ads)) and self.ads_location>0 then
-        local divisor = .2
-        if self.gun then
-            divisor = self.gun.properties.ads.aim_time/self.gun.consts.AIM_OUT_AIM_IN_SPEED_RATIO
-        end
-        self.ads_location = Guns4d.math.clamp(self.ads_location - (dt/divisor), 0, 1)
-    end
-
-    self.look_offset.x = self.horizontal_offset*self.ads_location
-    player:set_eye_offset(self.look_offset*10)
     --some status stuff
     --stored properties and pos must be reset as they could be outdated.
     self.properties = nil
@@ -206,7 +186,6 @@ end
 --note that construct is NOT called as a method
 function player_handler.construct(def)
     if def.instance then
-        def.old_mesh = def.player:get_properties().mesh
         assert(def.player, "no player obj provided to player_handler on construction")
         --this is important, as setting a value within a table would set it for all tables otherwise
         for i, v in pairs(player_handler) do
@@ -218,4 +197,4 @@ function player_handler.construct(def)
         def.infinite_ammo = minetest.check_player_privs(def.player, Guns4d.config.infinite_ammo_priv)
     end
 end
-Guns4d.player_handler = Instantiatable_class:inherit(player_handler)
+Guns4d.player_handler = mtul.class.new_class:inherit(player_handler)

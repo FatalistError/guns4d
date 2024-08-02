@@ -43,9 +43,12 @@ end
 
 local function initialize_physics(self)
     --initialize rotation offsets
-    self.total_offset_rotation = {
+    self.total_offsets = {
         gun_axial = vector.new(),
         player_axial = vector.new(),
+        gun_trans = vector.new(),
+        player_trans = vector.new(),
+        look_trans =  vector.new()
     }
     self.offsets = {}
     for offset, tbl in pairs(self.base_class.offsets) do
@@ -89,7 +92,7 @@ function gun_default:construct_instance()
 
     --unavoidable table instancing
     self.properties = Guns4d.table.fill(self.base_class.properties, self.properties)
-    self.particle_spawners = {} --Instantiatable_class only shallow copies. So tables will not change, and thus some need to be initialized.
+    self.particle_spawners = {} --mtul.class.new_class only shallow copies. So tables will not change, and thus some need to be initialized.
     self.property_modifiers = {}
 
     initialize_animation(self)
