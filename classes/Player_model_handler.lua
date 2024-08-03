@@ -65,7 +65,7 @@ Guns4d.player_model_handler = {
 local player_model = Guns4d.player_model_handler
 function player_model.set_default_handler(class_or_name)
     assert(class_or_name, "class or mesh name (string) needed. Example: 'character.b3d' sets the default handler to whatever handler is used for character.b3d.")
-    local handler = assert(((type(class_or_name) == "table") and class_or_name) or player_model.get_handler(class_or_name), "no handler by the name '"..tostring(class_or_name).."' found.")
+    local handler = assert(((type(class_or_name) == "class") and class_or_name) or player_model.get_handler(class_or_name), "no handler by the name '"..tostring(class_or_name).."' found.")
     assert(not handler.instance, "cannot set instance of a handler as the default player_model_handler")
     player_model.default_handler = handler
 end
@@ -184,7 +184,7 @@ function player_model:update_aiming(dt)
     pos.x = (pos.x/10)*vs.x
     pos.y = (pos.y/10)*vs.y
     pos.z = (pos.z/10)*vs.z
-    minetest.chat_send_all(dump(pos))
+   -- minetest.chat_send_all(dump(pos))
 end
 
 function player_model:update_arm_bones(dt)

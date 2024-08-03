@@ -84,7 +84,6 @@ local objref_mtable
 minetest.register_on_joinplayer(function(player)
     local pname = player:get_player_name()
     Guns4d.players[pname] = player_handler:new({player=player}) --player handler does just what it sounds like- see classes/Player_handler
-
     Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname]
     --set the FOV to a predictable value
     player:set_fov(Guns4d.config.default_fov)
@@ -174,6 +173,21 @@ minetest.register_on_joinplayer(function(player)
             end
             return old_remove(self)
         end
+
+
+
+        --[[minetest.after(1, function(playername)
+            minetest.get_player_by_name(playername):hud_add({
+                hud_elem_type = "compass",
+                text = "gun_mrkr.png",
+                scale = {x=1, y=1},
+                alignment = {x=0,y=0},
+                position = {x=.5,y=.5},
+                size = {x=200, y=200},
+                offset = {x=-.5,y=.5},
+                direction = 0
+            })
+        end, player:get_player_name())]]
     end
 end)
 --we grab the ObjRef metatable from the first available source.
@@ -202,5 +216,13 @@ minetest.register_globalstep(function(dt)
             handler = player_handler:new({player=player})
         end
         handler:update(dt)
+            --[[minetest.get_player_by_name(player):hud_add({
+                hud_elem_type = "compass",
+                text = "gay.png",
+                scale = {x=10, y=10},
+                alignment = {x=0,y=0},
+                offset = {x=-.5,y=-.5},
+                direction = 0
+            })]]
     end
 end)

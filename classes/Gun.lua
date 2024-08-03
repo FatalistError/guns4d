@@ -347,11 +347,15 @@ local gun_default = {
     },
     --- offsets
     --
-    -- a list of tables each containing two vectors, a gun_axial offset and a player_axial offset. These are required for automatic initialization of offsets.
+    -- a list of tables each containing offset vectors These are required for automatic initialization of offsets.
     -- @example
     --      recoil = {
-    --          gun_axial = {x=0, y=0}
-    --          player_axial = {x=0, y=0}
+    --          gun_axial = {x=0, y=0}, --rotation of the gun around it's origin
+    --          player_axial = {x=0, y=0}, --rotation of the gun around the bone it's attached to
+    --          --translations of gun
+    --          player_trans = {x=0, y=0, z=0}, --translation of the bone the gun is attached to
+    --          eye_trans = {x=0, y=0, z=0}, --trnaslation of the player's look
+    --          gun_tran = {x=0, y=0, z=0}s  --translation of the gun relative to the bone it's attachted to.
     --      }
     -- @table lvl1_fields.offsets
     -- @compact
@@ -518,7 +522,7 @@ function gun_default:update(dt)
     --translations
     total_offset.player_trans.x = 0; total_offset.player_trans.y = 0; total_offset.player_trans.z = 0
     total_offset.gun_trans.x = 0; total_offset.gun_trans.y = 0; total_offset.gun_trans.z = 0
-    total_offset.look_trans.x = 0; total_offset.look_trans.y = 0; total_offset.gun_trans.z = 0
+    total_offset.look_trans.x = 0; total_offset.look_trans.y = 0; total_offset.look_trans.z = 0
     --this doesnt work.
     for type, _ in pairs(total_offset) do
         for i, offset in pairs(self.offsets) do
@@ -540,7 +544,13 @@ function gun_default:update_burstfire()
     end
 end
 function gun_default:cycle_firemodes()
-    self.current_firemode = ((self.current_firemode)%(#self.properties.firemodes))+1
+    --cannot get length using length operator because it's a proxy table
+    local length = 0
+    for i, v in ipairs(self.properties.firemodes) do
+        length = length+1
+    end
+    self.current_firemode = ((self.current_firemode)%(length))+1
+
     self.meta:set_int("guns4d_firemode", self.current_firemode)
     self:update_image_and_text_meta()
     self.player:set_wielded_item(self.itemstack)
@@ -569,7 +579,11 @@ function gun_default:update_image_and_text_meta(meta)
         image = self.properties.inventory_image_empty
     end
     --add the firemode overlay to the image
-    if #self.properties.firemodes > 1 and self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]] then
+    local firemodes = 0
+    for i, v in pairs(self.properties.firemodes) do
+        firemodes = firemodes+1
+    end
+    if firemodes > 1 and self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]] then
         image = image.."^"..self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]]
     end
     if self.handler.infinite_ammo then
@@ -675,15 +689,19 @@ function gun_default:update_look_offsets(dt)
         gun_axial.x = Guns4d.math.clamp(offset, 0, 15*(offset/math.abs(offset)))
         gun_axial.x = gun_axial.x+(pitch*(1-hip.axis_rotation_ratio))
         self.offsets.look.player_axial.x = -pitch*(1-hip.axis_rotation_ratio)
-
         self.offsets.look.look_trans.x = 0
     else
         self.offsets.look.gun_axial.x = 0
-        --aiming look translations
-
+        self.offsets.look.player_axial.x = 0
     end
     local location = Guns4d.math.clamp(Guns4d.math.smooth_ratio(self.control_handler.ads_location)*2, 0, 1)
     self.offsets.look.look_trans.x = ads.horizontal_offset*location
+    local fwd_offset = 0
+    if look_rotation.x < 0 then --minetest's pitch is inverted, checking here if it's above horizon.
+        fwd_offset = math.abs(math.sin(look_rotation.x*math.pi/180))*props.ads.offset.z*location
+    end
+    self.offsets.look.player_trans.z = fwd_offset
+    self.offsets.look.look_trans.z = fwd_offset
 end
 --============================================== positional info =====================================
 --all of this dir shit needs to be optimized HARD
@@ -763,7 +781,6 @@ function gun_default:get_pos(offset_pos, relative, ads, ignore_translations)
         pos = Vec.rotate(bone_location, {x=0, y=-handler.look_rotation.y*math.pi/180, z=0})
         pos = pos+Vec.rotate(gun_translation, Vec.dir_to_rotation(self.paxial_dir))
     else
-        print(dump(bone_location))
         pos = Vec.rotate(gun_translation, Vec.dir_to_rotation(self.local_paxial_dir)+{x=self.player_rotation.x*math.pi/180,y=0,z=0})+bone_location
     end
     --[[local hud_pos
@@ -815,7 +832,7 @@ function gun_default:update_entity()
         visibility = false
     end
     --Irrlicht uses counterclockwise but we use clockwise.
-    local pos = {}
+    local pos = self.gun_translation
     local ads = props.ads.offset
     local hip = props.hip.offset
     local offset = self.total_offsets.gun_trans

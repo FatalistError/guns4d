@@ -110,6 +110,7 @@ function gun_default:construct_instance()
         })
     end
     if self.custom_construct then self:custom_construct() end
+    self.properties = mtul.class.proxy_table:new(self.properties)
 end
 
 --[[

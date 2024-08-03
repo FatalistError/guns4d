@@ -85,8 +85,6 @@ function Guns4d.table.deep_copy(tbl, copy_metatable, indexed_tables)
     local metat = getmetatable(tbl)
     if metat then
         if copy_metatable then
-            setmetatable(new_table, Guns4d.table.deep_copy(metat, true))
-        else
             setmetatable(new_table, metat)
         end
     end
