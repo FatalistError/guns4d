@@ -61,6 +61,11 @@ minetest.register_on_mods_loaded(function()
             --random_deviation = .1
             behavior_type = "ignore"
         end
+        --"rolled homogenous armor"
+        if behavior_type=="ignore" then
+            RHA=0
+            random_deviation=0
+        end
         Guns4d.node_properties[i] = {mmRHA=RHA*1000, random_deviation=random_deviation, behavior=behavior_type}
     end
 end)

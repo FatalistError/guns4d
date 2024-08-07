@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   version="1.1"
+   id="svg1"
+   width="600"
+   height="840"
+   viewBox="0 0 600 840"
+   sodipodi:docname="guns4d_guide_cover.svg"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25, custom)"
+   inkscape:export-filename="guns4d_guide_cover.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1">
+    <rect
+       x="39.986777"
+       y="79.973554"
+       width="500.94545"
+       height="82.195041"
+       id="rect1" />
+    <filter
+       inkscape:menu="Shadows and Glows"
+       inkscape:menu-tooltip="Cut out, add inner shadow and colorize some parts of an image"
+       style="color-interpolation-filters:sRGB;"
+       inkscape:label="Drop Shadow"
+       id="filter54"
+       x="-0.022969412"
+       y="-0.27313864"
+       width="1.0504782"
+       height="1.6002572">
+      <feColorMatrix
+         values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.21 0.72 0.07 0 0 "
+         result="result1"
+         id="feColorMatrix49" />
+      <feColorMatrix
+         values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 2 0 "
+         result="result9"
+         id="feColorMatrix50" />
+      <feComposite
+         in2="result9"
+         in="SourceGraphic"
+         operator="in"
+         result="result4"
+         id="feComposite50" />
+      <feFlood
+         result="result2"
+         flood-color="rgb(0,0,0)"
+         id="feFlood50" />
+      <feComposite
+         in2="result9"
+         operator="in"
+         result="result10"
+         id="feComposite51" />
+      <feComposite
+         in2="result4"
+         operator="atop"
+         id="feComposite52" />
+      <feGaussianBlur
+         stdDeviation="3"
+         result="result8"
+         id="feGaussianBlur52" />
+      <feOffset
+         dx="3"
+         dy="3"
+         result="result3"
+         in="result8"
+         id="feOffset52" />
+      <feFlood
+         flood-opacity="1"
+         flood-color="rgb(219,173,62)"
+         result="result5"
+         id="feFlood52" />
+      <feMerge
+         result="result6"
+         id="feMerge54">
+        <feMergeNode
+           in="result5"
+           id="feMergeNode52" />
+        <feMergeNode
+           in="result3"
+           id="feMergeNode53" />
+        <feMergeNode
+           in="result4"
+           id="feMergeNode54" />
+      </feMerge>
+      <feComposite
+         in2="SourceGraphic"
+         operator="in"
+         result="fbSourceGraphic"
+         id="feComposite54" />
+      <feColorMatrix
+         result="fbSourceGraphicAlpha"
+         in="fbSourceGraphic"
+         values="0 0 0 -1 0 0 0 0 -1 0 0 0 0 -1 0 0 0 0 1 0"
+         id="feColorMatrix132" />
+      <feFlood
+         id="feFlood132"
+         result="flood"
+         in="fbSourceGraphic"
+         flood-opacity="1.000000"
+         flood-color="rgb(62,43,3)" />
+      <feGaussianBlur
+         id="feGaussianBlur132"
+         result="blur"
+         in="fbSourceGraphic"
+         stdDeviation="0.800000" />
+      <feOffset
+         id="feOffset132"
+         result="offset"
+         in="blur"
+         dx="-1.000000"
+         dy="-1.000000" />
+      <feComposite
+         id="feComposite132"
+         result="comp1"
+         operator="out"
+         in="flood"
+         in2="offset" />
+      <feComposite
+         id="feComposite133"
+         result="comp2"
+         operator="atop"
+         in="comp1"
+         in2="fbSourceGraphic" />
+    </filter>
+    <rect
+       x="39.986777"
+       y="79.973554"
+       width="500.94545"
+       height="82.195041"
+       id="rect133" />
+    <rect
+       x="39.986777"
+       y="79.973554"
+       width="500.94545"
+       height="82.195041"
+       id="rect134" />
+  </defs>
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     showgrid="false"
+     inkscape:zoom="0.63660655"
+     inkscape:cx="262.32843"
+     inkscape:cy="388.78016"
+     inkscape:window-width="1536"
+     inkscape:window-height="801"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1">
+    <inkscape:grid
+       id="grid1"
+       units="px"
+       originx="0"
+       originy="0"
+       spacingx="1"
+       spacingy="1"
+       empcolor="#0099e5"
+       empopacity="0.30196078"
+       color="#0099e5"
+       opacity="0.14901961"
+       empspacing="40"
+       dotted="true"
+       gridanglex="30"
+       gridanglez="30"
+       visible="false" />
+  </sodipodi:namedview>
+  <g
+     inkscape:groupmode="layer"
+     inkscape:label="Image"
+     id="g1"
+     sodipodi:insensitive="true">
+    <image
+       width="600"
+       height="840"
+       preserveAspectRatio="none"
+       style="image-rendering:optimizeSpeed"
+       xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAAVCAYAAACZm7S3AAAAsElEQVQ4EeWUQRLCIAxFIcWjuPcM&#10;3v9Ajq0gLyU1Llw0LM1MBwj/kZBmyNfbvaVuUi5JZEm1vlh+mfkZt+dDdWsfCypAzIOtVvWpf8zY&#10;R1u3VT0l99O88CDc5Ne+OM3p6T/BVsDQnbPsWAgmMg0TgomsDXP65w4gHBl+KjIHhO6sYLRgwFg4&#10;8tSdp6pN2qWN14EFnWOtx9obkUgVDd+Rtj0rBiLENDWqOsBOdPDzxr0BJWlMrDNt7JwAAAAASUVO&#10;RK5CYII=&#10;"
+       id="image1"
+       x="0"
+       y="0" />
+  </g>
+  <text
+     xml:space="preserve"
+     id="text1"
+     style="font-style:normal;font-weight:normal;font-size:42.6667px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect1);display:inline;fill:#000000;fill-opacity:1;stroke:none;filter:url(#filter54)"
+     transform="matrix(1,0,0,1.1513546,14.439669,1.8597261)"><tspan
+       x="39.986328"
+       y="119.54806"
+       id="tspan3"><tspan
+         style="font-family:'Britannic Bold';-inkscape-font-specification:'Britannic Bold, ';fill:#f9c923"
+         id="tspan2">Basic Weapons Handling</tspan></tspan></text>
+  <text
+     xml:space="preserve"
+     id="text133"
+     style="font-style:normal;font-weight:normal;font-size:42.6667px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect133);display:inline;fill:#c98e09;fill-opacity:1;stroke:none;filter:url(#filter54)"
+     transform="translate(14.439669,65.12004)"><tspan
+       x="39.986328"
+       y="119.54806"
+       id="tspan5"><tspan
+         style="font-family:'Britannic Bold';-inkscape-font-specification:'Britannic Bold, '"
+         id="tspan4">First edition</tspan></tspan></text>
+  <text
+     xml:space="preserve"
+     id="text134"
+     style="font-style:normal;font-weight:normal;font-size:29.3333px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect134);display:inline;fill:#c98e09;fill-opacity:1;stroke:none;filter:url(#filter54)"
+     transform="translate(14.439669,636.90177)"><tspan
+       x="39.986328"
+       y="107.18069"
+       id="tspan7"><tspan
+         style="font-family:'Britannic Bold';-inkscape-font-specification:'Britannic Bold, '"
+         id="tspan6">author: Fatalist Error</tspan></tspan></text>
+</svg>

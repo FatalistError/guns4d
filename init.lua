@@ -60,6 +60,7 @@ dofile(modpath.."/default_controls.lua")
 dofile(modpath.."/touch_support.lua")
 dofile(modpath.."/block_values.lua")
 dofile(modpath.."/ammo_api.lua")
+dofile(modpath.."/guide_book.lua")
 local path = modpath .. "/classes"
 dofile(path.."/Bullet_hole.lua")
 dofile(path.."/Bullet_ray.lua")

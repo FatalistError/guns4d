@@ -1062,12 +1062,10 @@ function gun_default:update_animation_rotation()
                 out = vector.new(self.b3d_model.global_frames.rotation[frame1]:to_euler_angles_unpack())*180/math.pi
                 --print("rawsent")
             else --to stop nan
-                local ip_ratio = current_frame-frame1
+                local ip_ratio = (current_frame-frame1)/(frame2-frame1)
                 local vec1 = self.b3d_model.global_frames.rotation[frame1]
                 local vec2 = self.b3d_model.global_frames.rotation[frame2]
                 out = vector.new(vec1:slerp(vec2, ip_ratio):to_euler_angles_unpack())*180/math.pi
-                --out = vec1+((vec1-vec2)*ip_ratio) --they're euler angles... actually I wouldnt think this works, but it's good enough for my purposes.
-                --print("interpolated")
             end
         else
             out = vector.copy(self.b3d_model.global_frames.rotation[1])
@@ -1083,8 +1081,8 @@ end
 local out = {arm_left=vector.new(), arm_right=vector.new()}
 function gun_default:get_arm_aim_pos()
     local current_frame = self.animation_data.current_frame+1
-    local frame1 = (math.floor(current_frame)/self.consts.KEYFRAME_SAMPLE_PRECISION)
-    local frame2 = (math.floor(current_frame)/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
+    local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
+    local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
     current_frame = current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION
 
     for i, v in pairs(out) do
@@ -1093,9 +1091,10 @@ function gun_default:get_arm_aim_pos()
                 if (not self.b3d_model.global_frames[i][frame2]) or (current_frame==frame1) then
                     out[i] = vector.copy(self.b3d_model.global_frames[i][frame1])
                 else --to stop nan
-                    local ip_ratio = current_frame-frame1
+                    local ip_ratio = (current_frame-frame1)/(frame2-frame1)
                     local vec1 = self.b3d_model.global_frames[i][frame1]
                     local vec2 = self.b3d_model.global_frames[i][frame2]
+                    print(current_frame, frame1, frame2, ip_ratio)
                     out[i] = vec1+((vec1-vec2)*ip_ratio)
                 end
             else

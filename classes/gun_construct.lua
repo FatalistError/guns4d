@@ -110,7 +110,6 @@ function gun_default:construct_instance()
         })
     end
     if self.custom_construct then self:custom_construct() end
-    self.properties = mtul.class.proxy_table:new(self.properties)
 end
 
 --[[
@@ -282,6 +281,7 @@ function gun_default:construct_base_class()
     for _, v in pairs(self.properties.ammo.accepted_magazines) do
         self.accepted_magazines[v] = true
     end
+    self.properties = mtul.class.proxy_table:new(self.properties)
 
     Guns4d.gun._registered[self.name] = self --add gun self to the registered table
     register_visual_entity(self, props)  --register the visual entity
