@@ -50,7 +50,7 @@ function controls:update(dt)
     local gun = self.gun
     if not (gun.rechamber_time > 0 and gun.ammo_handler.ammo.next_bullet == "empty") then --check if the gun is being charged.
         for i, control in pairs(self:get_actions()) do
-            if not (i=="on_use") and not (i=="on_secondary_use") then
+            if (i~="on_use") and (i~="on_secondary_use") then
                 local def = control
                 local data = control.data
                 local conditions_met = true
@@ -105,7 +105,7 @@ function controls:update(dt)
             end
         end
         for i, tbl in pairs(call_queue) do
-            tbl.control.func(tbl.active, tbl.interrupt, tbl.data, busy_list, gun, self.handler)
+            tbl.control.func(self, tbl.active, tbl.interrupt, tbl.data, busy_list, gun, self.handler)
         end
         self.busy_list = {}
     elseif self.busy_list then
@@ -116,42 +116,47 @@ function controls:update(dt)
         --if aiming, then increase ADS location
         self.ads_location = Guns4d.math.clamp(self.ads_location + (dt/gun.properties.ads.aim_time), 0, 1)
     elseif (not self.ads) and (self.ads_location>0) then
-        local divisor = gun.properties.ads.aim_time/gun.consts.AIM_OUT_AIM_IN_SPEED_RATIO
+        local divisor = gun.properties.ads.aim_time/Guns4d.config.aim_out_multiplier
         self.ads_location = Guns4d.math.clamp(self.ads_location - (dt/divisor), 0, 1)
     end
 end
+
+--builtin overrides for the item
 function controls:on_use(itemstack, pointed_thing)
     assert(self.instance, "attempt to call object method on a class")
     local actions = self:get_actions()
     if actions.on_use then
-        actions.on_use(itemstack, self.handler, pointed_thing)
+        actions.on_use(self, itemstack, self.handler, pointed_thing, self.busy_list)
     end
 end
 function controls:on_drop(itemstack, pointed_thing, pos)
     local actions = self:get_actions()
     if actions.on_drop then
-        return actions.on_use(itemstack, self.handler, pos)
+        return actions.on_use(self, itemstack, self.handler, pos, self.busy_list)
     end
 end
 function controls:on_secondary_use(itemstack, pointed_thing)
     assert(self.instance, "attempt to call object method on a class")
     local actions = self:get_actions()
     if actions.on_secondary_use then
-        actions.on_secondary_use(itemstack, self.handler, pointed_thing)
+        actions.on_secondary_use(self, itemstack, self.handler, pointed_thing, self.busy_list)
     end
 end
+
+--touchscreen mode, work in progress.
+
 ---@diagnostic disable-next-line: duplicate-set-field
 function controls:toggle_touchscreen_mode(active)
     if active~=nil then self.touchscreen=active else self.touchscreen = not self.touchscreen end
     self.handler.touchscreen = self.touchscreen
     for i, action in pairs((self.touchscreen and self.actions_pc) or self.actions_touch) do
-        if not (i=="on_use") and not (i=="on_secondary_use") then
+        if (i~="on_use") and (i~="on_secondary_use") then
             action.timer = action.timer or 0
             action.data = nil --no need to store excess data
         end
     end
     for i, action in pairs((self.touchscreen and self.actions_touch) or self.actions_pc) do
-        if not (i=="on_use") and not (i=="on_secondary_use") then
+        if(i~="on_use") and (i~="on_secondary_use") then
             action.timer = action.timer or 0
             action.data = {
                 timer = action.timer,

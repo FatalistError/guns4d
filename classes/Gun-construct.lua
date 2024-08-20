@@ -92,13 +92,18 @@ function gun_default:construct_instance()
 
     --unavoidable table instancing
     self.properties = Guns4d.table.fill(self.base_class.properties, self.properties)
-    self.particle_spawners = {} --mtul.class.new_class only shallow copies. So tables will not change, and thus some need to be initialized.
+    self.property_modifiers = {}
+    self.particle_spawners = {}
     self.property_modifiers = {}
 
     initialize_animation(self)
     initialize_physics(self)
 
-    --properties have been assigned, create necessary objects TODO: completely change this system for selfining them.
+    if self.properties.inventory.attachment_slots then
+        self.attachment_handler = self.properties.attachment_handler:new({
+            gun = self
+        })
+    end
     if self.properties.sprite_scope then
         self.sprite_scope = self.properties.sprite_scope:new({
             gun = self
@@ -152,7 +157,7 @@ local function validate_controls(props)
     end
 end
 local function initialize_b3d_animation_data(self, props)
-    self.b3d_model = mtul.b3d_reader.read_model(props.visuals.mesh, true)
+    self.b3d_model = mtul.b3d_reader.read_model(props.visuals.mesh)
     self.b3d_model.global_frames = {
         arm_right = {}, --the aim position of the right arm
         arm_left = {}, --the aim position of the left arm
@@ -167,18 +172,19 @@ local function initialize_b3d_animation_data(self, props)
     for target_frame = 0, self.b3d_model.node.animation.frames+1, self.consts.KEYFRAME_SAMPLE_PRECISION do
         --we need to check that the bone exists first.
         if left then
-            table.insert(self.b3d_model.global_frames.arm_left, vector.new(mtul.b3d_nodes.get_node_global_position(self.b3d_model, left, nil, target_frame))/10)
+            table.insert(self.b3d_model.global_frames.arm_left, vector.new(mtul.b3d_nodes.get_node_global_position(self.b3d_model, left, nil, target_frame))*props.visuals.scale)
         else
             self.b3d_model.global_frames.arm_left = nil
         end
 
         if right then
-            table.insert(self.b3d_model.global_frames.arm_right, vector.new(mtul.b3d_nodes.get_node_global_position(self.b3d_model, right, nil, target_frame))/10)
+            table.insert(self.b3d_model.global_frames.arm_right, vector.new(mtul.b3d_nodes.get_node_global_position(self.b3d_model, right, nil, target_frame))*props.visuals.scale)
         else
             self.b3d_model.global_frames.arm_right = nil
         end
 
         if main then
+            --ATTENTION: this is broken, roll is somehow translating to yaw. How? fuck if I know, but I will have to fix this eventually.
             --use -1 as it does not exist and thus will always go to the default resting pose
             --we compose it by the inverse because we need to get the global CHANGE in rotation for the animation rotation offset. I really need to comment more often
             local newvec = (mtul.b3d_nodes.get_node_rotation(self.b3d_model, main, nil, -1):inverse())*mtul.b3d_nodes.get_node_rotation(self.b3d_model, main, nil, target_frame)
@@ -187,14 +193,38 @@ local function initialize_b3d_animation_data(self, props)
         end
     end
 
-    --[[if main then
-        local quat = mtul.math.quat.new(main.keys[1].rotation)
-        print(dump(main.keys[1]), vector.new(quat:to_euler_angles_unpack(quat)))
+    local verts = {}
+    self.bones = {}
+    --iterate all nodes, check for meshes.
+    for i, v in pairs(self.b3d_model.node_paths) do
+        if v.mesh then
+            --if there's a mesh present transform it's verts into global coordinate system, add add them to them to a big list.
+            local transform, _ = mtul.b3d_nodes.get_node_global_transform(v, self.properties.visuals.animations.loaded.x, "transform")
+            for _, vert in ipairs(v.mesh.vertices) do
+                vert.pos[4]=1
+                table.insert(verts, transform*vert.pos)
+            end
+        end
     end
-    for i, v in pairs(self.b3d_model.global_frames.rotation) do
-        print(i, dump(vector.new(v:to_euler_angles_unpack())*180/math.pi))
-    end]]
-    --print()
+    local high_points = {0,0,0,0,0,0}
+    for _, v in pairs(verts) do
+        for i = 1,3 do
+            if high_points[i+3] > v[i] then
+                high_points[i+3]=v[i]
+            end
+            if high_points[i] < v[i] then
+                high_points[i]=v[i]
+            end
+        end
+    end
+    for i=1,6 do
+        high_points[i]=high_points[i]*self.properties.visuals.scale
+    end
+    self.model_bounding_box = high_points
+    self.properties.item = {
+        collisionbox = {.2, high_points[2], .2, -.2, high_points[5], -.2},
+        selectionbox = {high_points[1]*3, high_points[2], high_points[3], high_points[4]*3, high_points[5], high_points[6]}
+    }
 end
 local function reregister_item(self, props)
     assert(self.itemstring, "no itemstring provided. Cannot create a gun without an associated itemstring.")
@@ -224,7 +254,10 @@ local function reregister_item(self, props)
             end
         end,
         on_drop = function(itemstack, user, pos)
-            local cancel_drop = Guns4d.players[user:get_player_name()].control_handler:on_drop(itemstack)
+            local cancel_drop
+            if Guns4d.players[user:get_player_name()].control_handler then
+                cancel_drop = Guns4d.players[user:get_player_name()].control_handler:on_drop(itemstack)
+            end
             if (not cancel_drop) and old_on_drop then
                 return old_on_drop(itemstack, user, pos)
             end
@@ -233,25 +266,10 @@ local function reregister_item(self, props)
     Guns4d.register_item(self.itemstring, {
         collisionbox = self.properties.item.collisionbox,
         selectionbox = self.properties.item.selectionbox,
+        visual_size = 10*self.properties.visuals.scale,
         mesh = self.properties.visuals.mesh,
         textures = self.properties.visuals.textures,
         animation = self.properties.visuals.animations.loaded
-    })
-end
-local function register_visual_entity(def, props)
-    minetest.register_entity(def.name.."_visual", {
-        initial_properties = {
-            visual = "mesh",
-            mesh = props.visuals.mesh,
-            textures = props.visuals.textures,
-            glow = 0,
-            pointable = false,
-            static_save = false,
-            backface_culling = props.visuals.backface_culling
-        },
-        on_step = function(self)
-            if not self.object:get_attach() then self.object:remove() end
-        end
     })
 end
 --========================== MAIN CLASS CONSTRUCTOR ===============================
@@ -284,5 +302,4 @@ function gun_default:construct_base_class()
     self.properties = mtul.class.proxy_table:new(self.properties)
 
     Guns4d.gun._registered[self.name] = self --add gun self to the registered table
-    register_visual_entity(self, props)  --register the visual entity
 end

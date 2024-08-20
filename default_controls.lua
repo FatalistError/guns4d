@@ -7,7 +7,7 @@ Guns4d.default_controls.aim = {
     conditions = {"RMB"},
     loop = false,
     timer = 0,
-    func = function(active, interrupted, data, busy_list, gun, handler)
+    func = function(self, active, interrupted, data, busy_list, gun, handler)
         if active then
             handler.control_handler.ads = not handler.control_handler.ads
         end
@@ -17,7 +17,7 @@ Guns4d.default_controls.auto = {
     conditions = {"LMB"},
     loop = true,
     timer = 0,
-    func = function(active, interrupted, data, busy_list, gun, handler)
+    func = function(self, active, interrupted, data, busy_list, gun, handler)
         if gun.properties.firemodes[gun.current_firemode] == "auto" then
             gun:attempt_fire()
         end
@@ -27,7 +27,7 @@ Guns4d.default_controls.firemode = {
     conditions = {"sneak", "zoom"},
     loop = false,
     timer = 0,
-    func = function(active, interrupted, data, busy_list, gun, handler)
+    func = function(self, active, interrupted, data, busy_list, gun, handler)
         if active then
             if not (busy_list.on_use or busy_list.auto) then
                 gun:cycle_firemodes()
@@ -35,6 +35,7 @@ Guns4d.default_controls.firemode = {
         end
     end
 }
+
 --[[Guns4d.default_controls.toggle_safety = {
     conditions = {"sneak", "zoom"},
     loop = false,
@@ -49,7 +50,7 @@ Guns4d.default_controls.firemode = {
         end
     end
 }]]
-Guns4d.default_controls.on_use = function(itemstack, handler, pointed_thing, busy_list)
+Guns4d.default_controls.on_use = function(self, itemstack, handler, pointed_thing, busy_list)
     local gun = handler.gun
     local fmode = gun.properties.firemodes[gun.current_firemode]
     if fmode ~= "safe" and not (gun.burst_queue > 0) then
@@ -194,7 +195,7 @@ Guns4d.default_controls.reload = {
     mode = "hybrid",
     timer = 0, --1 so we have a call to initialize the timer. This will also mean that data.toggled and data.continue will need to be set manually
     --remember that the data table allows us to store arbitrary data
-    func = function(active, interrupted, data, busy_list, gun, handler)
+    func = function(self, active, interrupted, data, busy_list, gun, handler)
         local ammo_handler = gun.ammo_handler
         local props = gun.properties
         if active and not busy_list.firemode then

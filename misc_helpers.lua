@@ -8,6 +8,100 @@ Guns4d.table = {}
 Guns4d.unique_id = {
     generated = {},
 }
+
+--[[format of field modifiers
+{
+    int_field = { --the field is an integer
+        add = .1 --add .1 to the field (after multiplying)
+        mul = 2 --multipy before adding
+    },
+    int_field_2 = {
+        override = 4 --sets the field to 4
+        override_priority = 2 --if others set and have a higher priority, this will be it's priority
+        remove = false --true if you want to remove it
+    }
+    table_field = {
+        int_field = {. . .}
+    }
+}
+]]
+function Guns4d.apply_field_modifiers(props, mods)
+    local out_props = {}
+    for i, v in pairs(props) do
+        if type(v)=="number" then
+            local add = 0
+            local mul = 1
+            local override
+            local remove = false
+            local priority = math.huge
+            for _, modifier in ipairs(mods) do
+                local a = modifier[i]
+                if a then
+                    add = add + (a.add or 0)
+                    mul = mul * (a.mul or 1)
+                    if a.override and (priority > (a.priority or 10)) then
+                        override = a.override
+                        priority = a.priority or 10
+                    end
+                    remove = a.remove
+                end
+            end
+            out_props[i] = (((override or v) or 0)*mul)+add
+            if remove then
+                out_props[i] = nil
+            end
+        elseif type(v)=="table" then
+            for _, modifier in pairs(mods) do
+                local a = modifier[i]
+                Guns4d.apply_field_modifiers(v, a)
+            end
+        else
+            local override
+            local priority = math.huge
+            local remove
+            for _, modifier in ipairs(mods) do
+                local a = modifier[i]
+                if type(v)==type(a.override) then
+                    if a.override and (priority > (a.priority or 10)) then
+                        override = a.override
+                        priority = a.priority or 10
+                    end
+                    remove = a.remove
+                    if a.remove then
+                        out_props[i]=nil
+                    end
+                elseif a then
+                    minetest.log("error", "modifier name: "..(modifier._modifier_name or "???").."attempted to override a "..type(v).." with a "..type(v).." value")
+                end
+            end
+            out_props[i] = ((override~=nil) and override) or out_props[i]
+            if remove then
+                out_props[i] = nil
+            end
+        end
+    end
+    return out_props
+end
+print(dump(Guns4d.apply_field_modifiers({
+    a=0,
+    y=1,
+    z=10,
+    st="string"
+}, {
+    a={
+        add=1,
+        mul=2
+    },
+    z={
+        mul=2,
+        add=1
+    },
+    st={
+        override=10
+    }
+}
+)))
+
 function Guns4d.unique_id.generate()
     local genned_ids = Guns4d.unique_id.generated
     local id = string.sub(tostring(math.random()), 3)

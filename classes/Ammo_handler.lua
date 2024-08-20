@@ -1,4 +1,4 @@
-Ammo_handler = mtul.class.new_class:inherit({
+local Ammo_handler = mtul.class.new_class:inherit({
     name = "Ammo_handler",
     construct = function(def)
         if def.instance then
@@ -9,8 +9,9 @@ Ammo_handler = mtul.class.new_class:inherit({
             local gun = def.gun
             def.ammo = {}
             if gun.properties.ammo then
+                --this is pretty inefficient it's been built on. Refactor later maybe.
                 local spawn_with = meta:get_int("guns4d_spawn_with_ammo")
-                if (meta:get_string("guns4d_loaded_bullets") == "")  and  ((spawn_with > 0) or (Guns4d.config.interpret_initial_wear_as_ammo))then
+                if (meta:get_string("guns4d_loaded_bullets") == "")  and  ((spawn_with > 0) or (Guns4d.config.interpret_initial_wear_as_ammo)) then
                     local bullets = (spawn_with > 0 and spawn_with) or (1-(def.gun.itemstack:get_wear()/65535))
                     if gun.properties.ammo.magazine_only then
                         local magname = gun.properties.ammo.accepted_magazines[1]
@@ -47,6 +48,7 @@ Ammo_handler = mtul.class.new_class:inherit({
         end
     end
 })
+Guns4d.ammo_handler = Ammo_handler
 --spend the round, return false if impossible.
 --updates all properties based on the ammo table, bullets string can be passed directly to avoid duplication (when needed)
 function Ammo_handler:update_meta(bullets)
@@ -74,7 +76,7 @@ function Ammo_handler:get_magazine_bone_info()
     local pos1 = vector.new(mtul.b3d_nodes.get_node_global_position(nil, node, true, math.floor(gun.animation_data.current_frame)))
     local pos2 = vector.new(mtul.b3d_nodes.get_node_global_position(nil, node, true, gun.animation_data.current_frame))
     local vel = (pos2-pos1)*((gun.animation_data.current_frame-math.floor(gun.animation_data.current_frame))/gun.animation_data.fps)+self.gun.player:get_velocity()
-    local pos = self.gun:get_pos(pos2/10)+self.gun.handler:get_pos()
+    local pos = self.gun:get_pos(pos2*gun.properties.visual_scale)+self.gun.handler:get_pos()
     --[[so I tried to get the rotation before, and it actually turns out that was... insanely difficult? Why? I don't know, the rotation behavior was beyond unexpected, I tried implementing it with quats and
     matrices and neither worked. I'm done, I've spent countless hours on this, and its fuckin stupid to spend a SECOND more on this pointless shit. It wouldnt even look that much better!]]
     return pos, vel
@@ -313,19 +315,4 @@ function Ammo_handler:unload_all(to_ground)
     self.ammo.total_bullets = 0
     self.ammo.loaded_bullets = {}
     self:update_meta()
-end
-function Ammo_handler:load_magless()
-    assert(self.instance, "attempt to call object method on a class")
-end
-function Ammo_handler:unload_magless()
-    assert(self.instance, "attempt to call object method on a class")
-end
-function Ammo_handler:load_fractional()
-    assert(self.instance, "attempt to call object method on a class")
-end
-function Ammo_handler:unload_fractional()
-    assert(self.instance, "attempt to call object method on a class")
-end
-function Ammo_handler:unload_chamber()
-    assert(self.instance, "attempt to call object method on a class")
 end

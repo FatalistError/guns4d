@@ -46,7 +46,6 @@ def.set_item = function(self, item)
         return
     end
 
-    local item_def = Guns4d.registered_items[stack:get_name()]
     --[[local a = item_def.collisionbox_size
     local o = item_def.collisionbox_offset
     local b = item_def.selectionbox
@@ -57,6 +56,7 @@ def.set_item = function(self, item)
         cbox = {(-a-o.x)/20, (-a-o.y)/20, (-a-o.z)/20, (a-o.x)/20, (a-o.y)/20, (a-o.z)/20}
         sbox = {(-b.x-o.x)/20, (-b.y-o.y)/20, (-b.z-o.z)/20, (b.x-o.x)/20, (b.y-o.y)/20, (b.z-o.z)/20}
     end]]
+    local item_def = Guns4d.registered_items[stack:get_name()]
     local cbox = item_def.collisionbox
     local sbox = item_def.selectionbox
     self.object:set_properties({
@@ -105,7 +105,7 @@ def.on_step = function(self, dt, mr, ...)
                 self._4dguns_rotated = true
             else
                 self.object:set_properties({
-                    automatic_rotate = math.pi * 0.5 * 0.2 / item_def.visual_size,
+                    automatic_rotate = math.pi * 0.5 * 0.2,
                 })
                 local rot = self.object:get_rotation()
                 self.object:set_rotation({y=rot.y, x=0, z=0})
