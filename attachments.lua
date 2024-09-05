@@ -8,6 +8,6 @@ function attachment:construct()
     end
 end
 function attachment:update_entity()
-    self.entity =
+    self.entity = nil
 end
 Guns4d.gun_attachment = mtul.class.new_class:inherit(attachment)

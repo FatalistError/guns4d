@@ -55,7 +55,7 @@ Guns4d.player_model_handler = {
     output_path = minetest.get_modpath("guns4d").."/temp/",
     compatible_meshes = { --list of meshes and their corresponding partner meshes for this handler. Must have the same bones used by guns4d.
         --["character.b3d"] = "guns4d_character.b3d", this would tell the handler to use guns4d_character.b3d instead of generating a new one based on the override parameters.
-        ["character.b3d"] = true, --it is compatible but it has no predefined model, one will be therefore generated using the override_bone_aliases parameters.
+        ["character.b3d"] = (mtul.paths.media_paths["character.b3d"] and true) or nil, --it is compatible but it has no predefined model, one will be therefore generated using the override_bone_aliases parameters.
         __overfill = true
     },
     gun_bone_location = vector.new(),
@@ -179,8 +179,18 @@ function player_model:update_aiming(dt)
     pos.z = ((hip_pos.z*10*ip_inv) + (player_trans.z*10/vs.y))
 
     local dir = vector.rotate(gun.local_paxial_dir, {x=gun.player_rotation.x*math.pi/180,y=0,z=0})
-    local rot = vector.dir_to_rotation(dir)*180/math.pi
-    player:set_bone_position(self.bone_aliases.gun, {x=pos.x, y=pos.y, z=pos.z}, {x=-rot.x,y=-rot.y,z=0})
+    local rot = vector.dir_to_rotation(dir)
+    player:set_bone_override(self.bone_aliases.gun,
+    {
+        position = {
+            vec={x=pos.x, y=pos.y, z=pos.z},
+            absolute = true
+        },
+        rotation = {
+            vec={x=-rot.x,y=-rot.y,z=0},
+            absolute = true
+        }
+    })
     pos.x = (pos.x/10)*vs.x
     pos.y = (pos.y/10)*vs.y
     pos.z = (pos.z/10)*vs.z
@@ -198,20 +208,35 @@ function player_model:update_arm_bones(dt)
     --get the real position of the gun's bones relative to the player (2nd param true)
     left_trgt = gun:get_pos(left_trgt, true)
     right_trgt = gun:get_pos(right_trgt, true)
-    local left_rotation = vector.dir_to_rotation(vector.direction(left_bone, left_trgt))*180/math.pi
-    local right_rotation = vector.dir_to_rotation(vector.direction(right_bone, right_trgt))*180/math.pi
+    local left_rotation = vector.dir_to_rotation(vector.direction(left_bone, left_trgt))
+    local right_rotation = vector.dir_to_rotation(vector.direction(right_bone, right_trgt))
     --all of this is pure insanity. There's no logic, or rhyme or reason. Trial and error is the only way to write this garbo.
     left_rotation.x = -left_rotation.x
     right_rotation.x = -right_rotation.x
-    player:set_bone_position(self.bone_aliases.arm_left, self.offsets.relative.arm_left, {x=90, y=0, z=0}-left_rotation)
-    player:set_bone_position(self.bone_aliases.arm_right, self.offsets.relative.arm_right, {x=90, y=0, z=0}-right_rotation)
+    player:set_bone_override(self.bone_aliases.arm_right, {
+        rotation = {
+            vec={x=math.pi/2, y=0, z=0}-right_rotation,
+            absolute = true
+        }
+    })
+    player:set_bone_override(self.bone_aliases.arm_left, {
+        rotation = {
+            vec={x=math.pi/2, y=0, z=0}-left_rotation,
+            absolute = true
+        }
+    })
 end
 
 function player_model:update_head(dt)
     local player = self.player
     local handler = self.handler
-    local gun = handler.gun
-    player:set_bone_position(self.bone_aliases.head, self.offsets.relative.head, {x=handler.look_rotation.x,z=0,y=0})
+    --player:set_bone_position(self.bone_aliases.head, self.offsets.relative.head, {x=handler.look_rotation.x,z=0,y=0})
+    player:set_bone_override(self.bone_aliases.head, {
+        rotation = {
+            vec={x=handler.look_rotation.x*math.pi/180,z=0,y=0},
+            absolute = true
+        }
+    })
 end
 --should be renamed to "release" but, whatever.
 function player_model:prepare_deletion()
@@ -221,6 +246,10 @@ function player_model:prepare_deletion()
     --[[if minetest.get_modpath("player_api") then
         player_api.set_model(self.player, self.old)
     end]]
+    local player = self.player
+    player:set_bone_override(self.bone_aliases.arm_left, {})
+    player:set_bone_override(self.bone_aliases.arm_right, {})
+    player:set_bone_override(self.bone_aliases.head, {})
     properties.mesh = self.old
     handler:set_properties(properties)
 end
@@ -242,7 +271,8 @@ function player_model.construct(def)
         end
         def.handler:set_properties(properties)
         --no further aciton required, it e
-    else
+        -- character.b3d (from player_api) not present, ignore generation.
+    elseif (def~=player_model) or mtul.paths.media_paths["character.b3d"] then
         --none of these should consist across classes
         def.offsets = {
             global = {},
@@ -269,7 +299,7 @@ function player_model.construct(def)
                 read_model=def.compatible_meshes[i]
             end
         end
-        assert(read_model, "at least one compatible mesh required by default for autogeneration of offsets")
+        minetest.log(read_model, "at least one compatible mesh required by default for autogeneration of offsets")
         local b3d_table = mtul.b3d_reader.read_model(read_model, true)
         --[[all of the compatible_meshes should be identical in terms of guns4d specific bones and offsets (arms, head).
         Otherwise a new handler should be different. With new compatibilities]]
