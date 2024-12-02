@@ -1,5 +1,5 @@
 --will have to merge with ammo_handler eventually for coherency.
-local attachment_handler = mtul.class.new_class:inherit({})
+local attachment_handler = leef.class.new_class:inherit({})
 Guns4d.attachment_handler = attachment_handler
 function attachment_handler:construct()
     assert(self.gun, "no gun object provided")
@@ -68,11 +68,11 @@ function attachment_handler:can_add(itemstack, slot)
     assert(self.instance)
     local name = itemstack:get_name()
     local props = self.gun.properties
-    print(slot, dump(self.attachments))
+    --print(slot, dump(self.attachments))
     if Guns4d.registered_attachments[name] and (not self.attachments[slot][name]) and (props.inventory.attachment_slots[slot].allowed) then
         --check if it's allowed, group check required
         for i, v in pairs(props.inventory.attachment_slots[slot].allowed) do
-            print(v, name)
+            --print(v, name)
             if v==name then
                 return true
             end

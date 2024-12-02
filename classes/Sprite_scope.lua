@@ -1,4 +1,4 @@
-local Sprite_scope = mtul.class.new_class:inherit({
+local Sprite_scope = leef.class.new_class:inherit({
     images = {
         fore = {
             texture = "scope_fore.png",

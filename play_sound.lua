@@ -100,8 +100,8 @@ function Guns4d.play_sounds(soundspecs_list)
             sound = Guns4d.math.weighted_randoms(sound)
         end
         assert(sound, "no sound provided")
-        if not mtul.paths.media_paths[(sound or "[NIL]")..".ogg"] then
-            minetest.log("error", "no sound by the name `"..mtul.paths.media_paths[(sound or "[NIL]")..".ogg"].."`")
+        if not leef.paths.media_paths[(sound or "[NIL]")..".ogg"] then
+            minetest.log("error", "no sound by the name `"..leef.paths.media_paths[(sound or "[NIL]")..".ogg"].."`")
         end
         local exclude_player_ref = soundspec.exclude_player
         if type(soundspec.exclude_player)=="string" then

@@ -609,13 +609,13 @@ function gun_default:update_animation_rotation()
     if self.b3d_model.global_frames.rotation then
         if self.b3d_model.global_frames.rotation[frame1] then
             if (not self.b3d_model.global_frames.rotation[frame2]) or (current_frame==frame1) then
-                out = vector.new(self.b3d_model.global_frames.rotation[frame1]:to_euler_angles_unpack())*180/math.pi
+                out = vector.new(self.b3d_model.global_frames.rotation[frame1]:get_euler_irrlicht_bone())*180/math.pi
                 --print("rawsent")
             else --to stop nan
                 local ip_ratio = (current_frame-frame1)/(frame2-frame1)
                 local vec1 = self.b3d_model.global_frames.rotation[frame1]
                 local vec2 = self.b3d_model.global_frames.rotation[frame2]
-                out = vector.new(vec1:slerp(vec2, ip_ratio):to_euler_angles_unpack())*180/math.pi
+                out = vector.new(vec1:slerp(vec2, ip_ratio):get_euler_irrlicht_bone())*180/math.pi
             end
         else
             out = vector.copy(self.b3d_model.global_frames.rotation[1])
@@ -624,7 +624,8 @@ function gun_default:update_animation_rotation()
     else
         out = vector.new()
     end
-    self.animation_rotation = out
+    --we use a different rotation system
+    self.animation_rotation = -out
 end
 
 --relative to the gun's entity. Returns left, right vectors.

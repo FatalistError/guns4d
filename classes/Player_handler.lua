@@ -197,4 +197,4 @@ function player_handler.construct(def)
         def.infinite_ammo = minetest.check_player_privs(def.player, Guns4d.config.infinite_ammo_priv)
     end
 end
-Guns4d.player_handler = mtul.class.new_class:inherit(player_handler)
+Guns4d.player_handler = leef.class.new_class:inherit(player_handler)

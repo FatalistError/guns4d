@@ -148,7 +148,7 @@ minetest.register_on_joinplayer(function(player)
     Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname]
     --set the FOV to a predictable value
     player:set_fov(Guns4d.config.default_fov)
-    --ObjRef overrides will be integrated into MTUL (eventually TM)
+    --ObjRef overrides will be integrated into leef (eventually TM)
     if not objref_mtable then
         objref_mtable = getmetatable(player)
 

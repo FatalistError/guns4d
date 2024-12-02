@@ -185,4 +185,4 @@ function controls.construct(def)
         end)
     end
 end
-Guns4d.control_handler = mtul.class.new_class:inherit(Guns4d.control_handler)
+Guns4d.control_handler = leef.class.new_class:inherit(Guns4d.control_handler)

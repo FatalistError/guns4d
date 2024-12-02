@@ -157,7 +157,7 @@ local function validate_controls(props)
     end
 end
 local function initialize_b3d_animation_data(self, props)
-    self.b3d_model = mtul.b3d_reader.read_model(props.visuals.mesh)
+    self.b3d_model = leef.b3d_reader.read_model(props.visuals.mesh)
     self.b3d_model.global_frames = {
         arm_right = {}, --the aim position of the right arm
         arm_left = {}, --the aim position of the left arm
@@ -165,20 +165,20 @@ local function initialize_b3d_animation_data(self, props)
     }
     --print(table.tostring(self.b3d_model))
     --precalculate keyframe "samples" for intepolation.
-    local left = mtul.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_LEFT_BONE, true)
-    local right = mtul.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_RIGHT_BONE, true)
-    local main = mtul.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ROOT_BONE, true)
-    --we add 2 because we have to add 1 for the loop to make it there if it's a float val, and MTUL uses a system where frame 0 is 1
+    local left = leef.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_LEFT_BONE, true)
+    local right = leef.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_RIGHT_BONE, true)
+    local main = assert(leef.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ROOT_BONE, true), "gun root-bone for "..self.itemstring.." not present in model")
+    --we add 2 because we have to add 1 for the loop to make it there if it's a float val, and leef uses a system where frame 0 is 1
     for target_frame = 0, self.b3d_model.node.animation.frames+1, self.consts.KEYFRAME_SAMPLE_PRECISION do
         --we need to check that the bone exists first.
         if left then
-            table.insert(self.b3d_model.global_frames.arm_left, vector.new(mtul.b3d_nodes.get_node_global_position(self.b3d_model, left, nil, target_frame))*props.visuals.scale)
+            table.insert(self.b3d_model.global_frames.arm_left, vector.new(leef.b3d_nodes.get_node_global_position(self.b3d_model, left, nil, target_frame))*props.visuals.scale)
         else
             self.b3d_model.global_frames.arm_left = nil
         end
 
         if right then
-            table.insert(self.b3d_model.global_frames.arm_right, vector.new(mtul.b3d_nodes.get_node_global_position(self.b3d_model, right, nil, target_frame))*props.visuals.scale)
+            table.insert(self.b3d_model.global_frames.arm_right, vector.new(leef.b3d_nodes.get_node_global_position(self.b3d_model, right, nil, target_frame))*props.visuals.scale)
         else
             self.b3d_model.global_frames.arm_right = nil
         end
@@ -187,7 +187,8 @@ local function initialize_b3d_animation_data(self, props)
             --ATTENTION: this is broken, roll is somehow translating to yaw. How? fuck if I know, but I will have to fix this eventually.
             --use -1 as it does not exist and thus will always go to the default resting pose
             --we compose it by the inverse because we need to get the global CHANGE in rotation for the animation rotation offset. I really need to comment more often
-            local newvec = (mtul.b3d_nodes.get_node_rotation(self.b3d_model, main, nil, -1):inverse())*mtul.b3d_nodes.get_node_rotation(self.b3d_model, main, nil, target_frame)
+            --print(leef.b3d_nodes.get_node_rotation(nil, main, nil, -1))
+            local newvec = leef.b3d_nodes.get_node_rotation(nil, main, nil, target_frame)*leef.b3d_nodes.get_node_rotation(nil, main, nil, -1):inverse()
             --used to use euler
             table.insert(self.b3d_model.global_frames.rotation, newvec)
         end
@@ -199,7 +200,7 @@ local function initialize_b3d_animation_data(self, props)
     for i, v in pairs(self.b3d_model.node_paths) do
         if v.mesh then
             --if there's a mesh present transform it's verts into global coordinate system, add add them to them to a big list.
-            local transform, _ = mtul.b3d_nodes.get_node_global_transform(v, self.properties.visuals.animations.loaded.x, "transform")
+            local transform, _ = leef.b3d_nodes.get_node_global_transform(v, self.properties.visuals.animations.loaded.x, 1)
             for _, vert in ipairs(v.mesh.vertices) do
                 vert.pos[4]=1
                 table.insert(verts, transform*vert.pos)
@@ -299,7 +300,7 @@ function gun_default:construct_base_class()
     for _, v in pairs(self.properties.ammo.accepted_magazines) do
         self.accepted_magazines[v] = true
     end
-    self.properties = mtul.class.proxy_table:new(self.properties)
+    self.properties = leef.class.proxy_table:new(self.properties)
 
     Guns4d.gun._registered[self.name] = self --add gun self to the registered table
 end

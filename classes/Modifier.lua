@@ -19,7 +19,7 @@ local function split_into_adresses(object, path, out)
     end
     return out
 end
-Modifier = mtul.class.new_class:inherit({
+Modifier = leef.class.new_class:inherit({
     overwrites = {},
     construct = function(def)
         if def.instance then

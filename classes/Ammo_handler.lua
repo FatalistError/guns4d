@@ -1,4 +1,4 @@
-local Ammo_handler = mtul.class.new_class:inherit({
+local Ammo_handler = leef.class.new_class:inherit({
     name = "Ammo_handler",
     construct = function(def)
         if def.instance then
@@ -67,14 +67,14 @@ end
 function Ammo_handler:get_magazine_bone_info()
     local gun = self.gun
     local handler = self.gun.handler
-    local node = mtul.b3d_nodes.get_node_by_name(gun.b3d_model, gun.properties.visuals.magazine, true)
+    local node = leef.b3d_nodes.get_node_by_name(gun.b3d_model, gun.properties.visuals.magazine, true)
     --get trans of first frame
     if not node then
         minetest.log("error", "improperly set gun magazine bone name, could not properly calculate magazine transformation.")
         return self.gun.pos, vector.new(), vector.new()
     end
-    local pos1 = vector.new(mtul.b3d_nodes.get_node_global_position(nil, node, true, math.floor(gun.animation_data.current_frame)))
-    local pos2 = vector.new(mtul.b3d_nodes.get_node_global_position(nil, node, true, gun.animation_data.current_frame))
+    local pos1 = vector.new(leef.b3d_nodes.get_node_global_position(nil, node, true, math.floor(gun.animation_data.current_frame)))
+    local pos2 = vector.new(leef.b3d_nodes.get_node_global_position(nil, node, true, gun.animation_data.current_frame))
     local vel = (pos2-pos1)*((gun.animation_data.current_frame-math.floor(gun.animation_data.current_frame))/gun.animation_data.fps)+self.gun.player:get_velocity()
     local pos = self.gun:get_pos(pos2*gun.properties.visual_scale)+self.gun.handler:get_pos()
     --[[so I tried to get the rotation before, and it actually turns out that was... insanely difficult? Why? I don't know, the rotation behavior was beyond unexpected, I tried implementing it with quats and

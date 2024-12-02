@@ -10,4 +10,4 @@ end
 function attachment:update_entity()
     self.entity = nil
 end
-Guns4d.gun_attachment = mtul.class.new_class:inherit(attachment)
+Guns4d.gun_attachment = leef.class.new_class:inherit(attachment)

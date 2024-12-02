@@ -528,4 +528,4 @@ gun_default.construct = function(def)
         gun_default.construct_base_class(def)
     end
 end
-Guns4d.gun = mtul.class.new_class:inherit(gun_default)
+Guns4d.gun = leef.class.new_class:inherit(gun_default)

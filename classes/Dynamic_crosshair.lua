@@ -1,4 +1,4 @@
-local Dynamic_crosshair = mtul.class.new_class:inherit({
+local Dynamic_crosshair = leef.class.new_class:inherit({
     increments = 1, --the number of pixels the reticle moves per frame.
     frames = 32, --this defines the length of the sprite sheet. But it also helps us know how wide it is (since we have increments.)
     image = "dynamic_crosshair_circular.png",
