@@ -105,7 +105,7 @@ function controls:update(dt)
             end
         end
         for i, tbl in pairs(call_queue) do
-            tbl.control.func(self, tbl.active, tbl.interrupt, tbl.data, busy_list, gun, self.handler)
+            tbl.control.func(self, tbl.active, tbl.interrupt, tbl.data, busy_list, gun, self.handler, dt)
         end
         self.busy_list = {}
     elseif self.busy_list then

@@ -116,7 +116,6 @@ end
 -- in guns4d.math
 --@section math
 
---all of the following is disgusting and violates the namespace because I got used to love2d.
 function Guns4d.math.clamp(val, lower, upper)
     if lower > upper then lower, upper = upper, lower end
     return math.max(lower, math.min(upper, val))

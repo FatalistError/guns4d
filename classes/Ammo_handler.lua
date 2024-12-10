@@ -113,6 +113,13 @@ function Ammo_handler:spend_round()
         return bullet_spent
     end
 end
+function Ammo_handler:can_spend_round()
+    local bullet_spent = self.ammo.next_bullet
+    if (self.ammo.total_bullets > 0) and (bullet_spent ~= "empty") then
+        return true
+    end
+    return false
+end
 function Ammo_handler:chamber_round()
     self.ammo.next_bullet = Guns4d.math.weighted_randoms(self.ammo.loaded_bullets) or "empty"
 end

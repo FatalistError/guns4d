@@ -19,7 +19,12 @@ Guns4d.default_controls.auto = {
     timer = 0,
     func = function(self, active, interrupted, data, busy_list, gun, handler)
         if gun.properties.firemodes[gun.current_firemode] == "auto" then
-            gun:attempt_fire()
+            while true do
+                local success = gun:attempt_fire()
+                if not success then
+                    break
+                end
+            end
         end
     end
 }

@@ -158,6 +158,8 @@ function player_model:update(dt)
     self:update_arm_bones(dt)
 end
 
+local ip_time = Guns4d.config.player_axial_interpolation_time
+local ip_time2 = Guns4d.config.translation_interpolation_time
 function player_model:update_aiming(dt)
     --gun bones:
     local player = self.player
@@ -183,12 +185,12 @@ function player_model:update_aiming(dt)
     {
         position = {
             vec={x=pos.x, y=pos.y, z=pos.z},
-            absolute = true,
-            interpolation=.25
+            interpolation=ip_time2,
+            absolute = true
         },
         rotation = {
             vec={x=-rot.x,y=-rot.y,z=0},
-            interpolation=.1,
+            interpolation=ip_time,
             absolute = true
         }
     })
@@ -198,6 +200,10 @@ function player_model:update_aiming(dt)
    -- minetest.chat_send_all(dump(pos))
 end
 
+function player_model:update_look_offsets()
+    player:set_eye_offset(self.gun.total_offsets.look_trans*10)
+    self.last_eye_offset = self.gun.total_offsets.look_trans
+end
 --default arm code, compatible with MTG model.
 function player_model:update_arm_bones(dt)
     local player = self.player
@@ -218,13 +224,15 @@ function player_model:update_arm_bones(dt)
     player:set_bone_override(self.bone_aliases.arm_right, {
         rotation = {
             vec={x=math.pi/2, y=0, z=0}-right_rotation,
-            absolute = true
+            absolute = true,
+            interpolation = .1
         }
     })
     player:set_bone_override(self.bone_aliases.arm_left, {
         rotation = {
             vec={x=math.pi/2, y=0, z=0}-left_rotation,
-            absolute = true
+            absolute = true,
+            interpolation = .1
         }
     })
 end
@@ -236,7 +244,8 @@ function player_model:update_head(dt)
     player:set_bone_override(self.bone_aliases.head, {
         rotation = {
             vec={x=handler.look_rotation.x*math.pi/180,z=0,y=0},
-            absolute = true
+            absolute = true,
+            interpolation = .5
         }
     })
 end

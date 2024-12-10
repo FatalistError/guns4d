@@ -1,6 +1,7 @@
 
 
 local gun_default = Guns4d.gun
+local mat4 = leef.math.mat4
 
 --[[
 *
@@ -183,16 +184,19 @@ local function initialize_b3d_animation_data(self, props)
             self.b3d_model.global_frames.arm_right = nil
         end
 
-        if main then
-            --ATTENTION: this is broken, roll is somehow translating to yaw. How? fuck if I know, but I will have to fix this eventually.
-            --use -1 as it does not exist and thus will always go to the default resting pose
-            --we compose it by the inverse because we need to get the global CHANGE in rotation for the animation rotation offset. I really need to comment more often
-            --print(leef.b3d_nodes.get_node_rotation(nil, main, nil, -1))
-            local newvec = leef.b3d_nodes.get_node_rotation(nil, main, nil, target_frame)*leef.b3d_nodes.get_node_rotation(nil, main, nil, -1):inverse()
-            --used to use euler
-            table.insert(self.b3d_model.global_frames.rotation, newvec)
-        end
+        --we compose it by the inverse because we need to get the global offset in rotation for the animation rotation offset. I really need to comment more often
+        --print(leef.b3d_nodes.get_node_rotation(nil, main, nil, -1))
+        local newvec = leef.b3d_nodes.get_node_rotation(nil, main, nil, target_frame)*leef.b3d_nodes.get_node_rotation(nil, main, nil, -1):inverse()
+        --used to use euler
+        table.insert(self.b3d_model.global_frames.rotation, newvec)
     end
+    local t, r = leef.b3d_nodes.get_node_global_transform(main, props.visuals.animations.loaded.x,1)
+    self.b3d_model.root_orientation_rest = mat4.new(t)
+    self.b3d_model.root_orientation_rest_inverse = mat4.invert(mat4.new(), t)
+
+    --[[local t2 = mat4.from_quaternion(leef.math.quat.new(unpack(main.rotation)))
+    self.b3d_model.root_orientation = mat4.new(t2)
+    self.b3d_model.root_orientation_inverse = mat4.invert(mat4.new(), t2)]]
 
     local verts = {}
     self.bones = {}
@@ -200,7 +204,7 @@ local function initialize_b3d_animation_data(self, props)
     for i, v in pairs(self.b3d_model.node_paths) do
         if v.mesh then
             --if there's a mesh present transform it's verts into global coordinate system, add add them to them to a big list.
-            local transform, _ = leef.b3d_nodes.get_node_global_transform(v, self.properties.visuals.animations.loaded.x, 1)
+            local transform, _ = leef.b3d_nodes.get_node_global_transform(v, props.visuals.animations.loaded.x, 1)
             for _, vert in ipairs(v.mesh.vertices) do
                 vert.pos[4]=1
                 table.insert(verts, transform*vert.pos)

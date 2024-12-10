@@ -45,6 +45,11 @@ touch.auto = table.copy(pc.auto)
 touch.auto.conditions = {"LMB"}
 touch.auto.func = function(active, interrupted, data, busy_list, gun, handler)
     if (not handler.control_handler.player_pressed.sneak) and gun.properties.firemodes[gun.current_firemode] == "auto" then
-        gun:attempt_fire()
+        while true do
+            local success = gun:attempt_fire()
+            if not success then
+                break
+            end
+        end
     end
 end

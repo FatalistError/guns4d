@@ -24,12 +24,11 @@ function gun_default:update(dt)
 
     --player look rotation. I'm going to keep it real, I don't remember what this math does. Player handler just stores the player's rotation from MT in degrees, which is for some reason inverted
 
-    --timers
+    --it's set up like this so that if the gun is fired on auto and the RPM is very fast (faster then globalstep) we know how many rounds to let off.
     if self.rechamber_time > 0 then
         self.rechamber_time = self.rechamber_time - dt
-    else
-        self.rechamber_time = 0
     end
+
     self.time_since_creation = self.time_since_creation + dt
     self.time_since_last_fire = self.time_since_last_fire + dt
 
@@ -77,11 +76,16 @@ end
 --manage burstfire
 function gun_default:update_burstfire()
     if self.rechamber_time <= 0 then
-        local success = self:attempt_fire()
-        if not success then
-            self.burst_queue = 0
-        else
-            self.burst_queue = self.burst_queue - 1
+        while true do
+            local success = self:attempt_fire()
+            if success then
+                self.burst_queue = self.burst_queue - 1
+            else
+                if not self.ammo_handler:can_spend_round() then
+                    self.burst_queue = 0
+                end
+                break
+            end
         end
     end
 end
@@ -136,12 +140,13 @@ function gun_default:update_image_and_text_meta(meta)
 end
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
-    if self.rechamber_time <= 0 and not self.ammo_handler.ammo.magazine_psuedo_empty then
+    local props = self.properties
+    --check if there could have been another round fired between steps.
+    if ( (self.rechamber_time + (60/props.firerateRPM) < 0) or (self.rechamber_time <= 0) ) and (not self.ammo_handler.ammo.magazine_psuedo_empty) then
         local spent_bullet = self.ammo_handler:spend_round()
         if spent_bullet and spent_bullet ~= "empty" then
             local dir = self.dir
             local pos = self.pos
-            local props = self.properties
 
             if not Guns4d.ammo.registered_bullets[spent_bullet] then
                 minetest.log("error", "unregistered bullet itemstring"..tostring(spent_bullet)..", could not fire gun (player:"..self.player:get_player_name()..")");
@@ -170,10 +175,12 @@ function gun_default:attempt_fire()
             fire_sound.pos = self.pos
             self:play_sounds(fire_sound)
 
-            self.rechamber_time = 60/props.firerateRPM
+            --this should handle the firerate being faster than dt
+            self.rechamber_time = self.rechamber_time + (60/props.firerateRPM)
             return true
         end
     end
+    return false
 end
 --[[function gun_default:damage()
     assert(self.instance, "attempt to call object method on a class")
@@ -199,7 +206,7 @@ function gun_default:recoil()
         end
         local length = math.sqrt(recoil.x^2+recoil.y^2)
         if length > rprops.angular_velocity_max[axis] then
-            local co = rprops.angular_velocity_max[axis]*length
+            local co = rprops.angular_velocity_max[axis]/length
             recoil.x = recoil.x*co
             recoil.y = recoil.y*co
         end
@@ -332,7 +339,7 @@ function gun_default:get_pos(offset_pos, relative, ads, ignore_translations)
     else
         hud_pos = pos+handler:get_pos()
     end]]
-    if minetest.get_player_by_name("fatal2") then
+    --if minetest.get_player_by_name("fatal2") then
         --[[local hud = minetest.get_player_by_name("fatal2"):hud_add({
             hud_elem_type = "image_waypoint",
             text = "muzzle_flash2.png",
@@ -344,7 +351,7 @@ function gun_default:get_pos(offset_pos, relative, ads, ignore_translations)
         minetest.after(0, function(hud)
             minetest.get_player_by_name("fatal2"):hud_remove(hud)
         end, hud)]]
-    end
+    --end
 
     --world pos, position of bone, offset of gun from bone (with added_pos)
     return pos
@@ -368,6 +375,10 @@ function gun_default:add_entity()
     --obj:on_step()
     --self:update_entity()
 end
+local mat4 = leef.math.mat4
+local tmp_mat4_rot = mat4.identity()
+local ip_time = Guns4d.config.gun_axial_interpolation_time
+local ip_time2 = Guns4d.config.translation_interpolation_time
 function gun_default:update_entity()
     local obj = self.entity
     local player = self.player
@@ -380,17 +391,35 @@ function gun_default:update_entity()
         visibility = false
     end
     --Irrlicht uses counterclockwise but we use clockwise.
-    local pos = self.gun_translation
     local ads = props.ads.offset
     local hip = props.hip.offset
     local offset = self.total_offsets.gun_trans
     local ip = Guns4d.math.smooth_ratio(Guns4d.math.clamp(handler.control_handler.ads_location*2,0,1))
     local ip_inv = 1-ip
+
+    local pos = self.gun_translation --entity directly dictates the translation of the gun
     pos.x = (ads.x*ip)+(hip.x*ip_inv)+offset.x
     pos.y = (ads.y*ip)+(hip.y*ip_inv)+offset.y
     pos.z = (ads.z*ip)+(hip.z*ip_inv)+offset.z
-    self.gun_translation = pos
-    obj:set_attach(player, handler.player_model_handler.bone_aliases.gun, {x=pos.x*10, y=pos.y*10, z=pos.z*10}, -axial_rot, visibility)
+    local scale = self.properties.visuals.scale
+
+    --some complicated math to get client interpolation to work. It doesn't really account for the root bone having an (oriented) parent bone currently... hopefully that's not an issue.
+    local b3d = self.b3d_model
+    local rot = tmp_mat4_rot:set_rot_luanti_entity(axial_rot.x*math.pi/180,axial_rot.y*math.pi/180, 0)
+    tmp_mat4_rot = mat4.mul(tmp_mat4_rot, {b3d.root_orientation_rest_inverse, rot, b3d.root_orientation_rest})
+    local xr,yr,zr = tmp_mat4_rot:get_rot_irrlicht_bone()
+
+    obj:set_attach(player, handler.player_model_handler.bone_aliases.gun, nil, nil, visibility)
+    obj:set_bone_override(self.consts.ROOT_BONE, {
+        position = {
+            vec = {x=pos.x/scale, y=pos.y/scale, z=pos.z/scale},
+            interpolation = ip_time2,
+        },
+        rotation = {
+            vec = {x=-xr,y=-yr,z=-zr},
+            interpolation = ip_time,
+        }
+    })
 end
 function gun_default:has_entity()
     assert(self.instance, "attempt to call object method on a class")
@@ -453,16 +482,14 @@ local e = 2.7182818284590452353602874713527 --I don't know how to find it otherw
 function gun_default:update_recoil(dt)
     for axis, _ in pairs(self.offsets.recoil) do
         for _, i in pairs({"x","y"}) do
+            local recoil_vel = self.velocities.recoil[axis][i]
             local recoil = self.offsets.recoil[axis][i]
-            local recoil_vel = Guns4d.math.clamp(self.velocities.recoil[axis][i],-self.properties.recoil.angular_velocity_max[axis],self.properties.recoil.angular_velocity_max[axis])
-            local old_recoil_vel = recoil_vel
             recoil = recoil + recoil_vel
             --this is modelled off a geometric sequence where the Y incercept of the sequence is set to recoil_vel.
-            if math.abs(recoil_vel) > 0.001 then
-                local r = (10*self.properties.recoil.velocity_correction_factor[axis])^-1
-                local vel_co = e^-( (self.time_since_last_fire^2)/(2*r^2) )
-                recoil_vel = self.velocities.init_recoil[axis][i]*vel_co
-            else
+            local r = (10*self.properties.recoil.velocity_correction_factor[axis])^-1
+            local vel_co = e^-( (self.time_since_last_fire^2)/(2*r^2) )
+            recoil_vel = self.velocities.init_recoil[axis][i]*vel_co
+            if math.abs(recoil_vel) < 0.0001 then
                 recoil_vel = 0
             end
             self.velocities.recoil[axis][i] = recoil_vel
@@ -488,6 +515,7 @@ function gun_default:update_recoil(dt)
             self.offsets.recoil[axis][i] = abs*sign
         end
     end
+    --print(self.velocities.recoil.player_axial.x, self.velocities.recoil.player_axial.y)
 end
 function gun_default:update_animation(dt)
     local ent = self.entity
