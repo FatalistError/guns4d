@@ -1,3 +1,5 @@
+--@within Gun.gun
+
 local gun_default = Guns4d.gun
 --I dont remember why I made this, used it though lmao
 function gun_default.multiplier_coefficient(multiplier, ratio)
@@ -16,7 +18,12 @@ function gun_default:draw()
     self.ammo_handler:chamber_round()
     self.rechamber_time = props.charging.draw_time
 end
---update gun, the main function.
+
+--- The entry method for the update of the gun
+--
+-- calls virtually all functions that begin with `update` once. Also updates subclass
+--
+-- @tparam float dt
 function gun_default:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     if not self:has_entity() then self:add_entity(); self:clear_animation() end
@@ -71,9 +78,8 @@ function gun_default:update(dt)
         end
     end
 end
---update modifiers
 
---manage burstfire
+--- Update and fire the queued weapon burst
 function gun_default:update_burstfire()
     if self.rechamber_time <= 0 then
         while true do
@@ -89,7 +95,8 @@ function gun_default:update_burstfire()
         end
     end
 end
---cycle firemodes, typically activated by default_controls.lua.
+
+--- cycles to the next firemode of the weapon
 function gun_default:cycle_firemodes()
     --cannot get length using length operator because it's a proxy table
     local length = 0
@@ -102,7 +109,8 @@ function gun_default:cycle_firemodes()
     self:update_image_and_text_meta()
     self.player:set_wielded_item(self.itemstack)
 end
---remember to set_wielded_item to self.itemstack! otherwise these changes will not apply!
+
+--- update the inventory information of the gun
 function gun_default:update_image_and_text_meta(meta)
     meta = meta or self.meta
     local ammo = self.ammo_handler.ammo
@@ -138,6 +146,8 @@ function gun_default:update_image_and_text_meta(meta)
     end
     meta:set_string("inventory_image", image)
 end
+
+--- attempt to fire the gun
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
     local props = self.properties
@@ -176,6 +186,7 @@ function gun_default:attempt_fire()
             self:play_sounds(fire_sound)
 
             --this should handle the firerate being faster than dt
+            self.time_since_last_fire = 0
             self.rechamber_time = self.rechamber_time + (60/props.firerateRPM)
             return true
         end
@@ -193,6 +204,8 @@ local function rand_sign(b)
     if math.random() > b then int=-1 end
     return int
 end
+
+--- simulate recoil by adding to the recoil velocity (called by attempt_fire)
 function gun_default:recoil()
     assert(self.instance, "attempt to call object method on a class")
     local rprops = self.properties.recoil
@@ -211,8 +224,9 @@ function gun_default:recoil()
             recoil.y = recoil.y*co
         end
     end
-    self.time_since_last_fire = 0
 end
+
+--- update the offsets of the player's look created by the gun
 function gun_default:update_look_offsets(dt)
     assert(self.instance, "attempt to call object method on a class")
     local handler = self.handler
@@ -254,7 +268,8 @@ function gun_default:update_look_offsets(dt)
     self.offsets.look.look_trans.z = fwd_offset
 end
 --============================================== positional info =====================================
---all of this dir shit needs to be optimized HARD
+--not going to touch any of this in this because the definitions will change in the next push from the main repo
+
 function gun_default:get_gun_axial_dir()
     assert(self.instance, "attempt to call object method on a class")
     local rotation = self.total_offsets
@@ -315,6 +330,11 @@ function gun_default:get_dir(rltv, offset_x, offset_y)
 end
 --Should probably optimize this at some point.
 local zero = vector.zero()
+
+--- get the global position of the gun. This is customized to rely on the assumption that there are 3-4 main rotations and 2-3 translations. If the behavior of the bones are changed this method may not work
+-- @tparam vec3 offset_pos
+-- @tparam bool whether it is relative to the player entity's rotation
+-- @treturn vec3 position of gun (in global or local orientation) relative to the player's position
 function gun_default:get_pos(offset_pos, relative, ads, ignore_translations)
     assert(self.instance, "attempt to call object method on a class")
     local player = self.player
@@ -360,7 +380,7 @@ end
 
 --=============================================== ENTITY ======================================================
 
-
+--- adds the gun entity
 function gun_default:add_entity()
     assert(self.instance, "attempt to call object method on a class")
     self.entity = minetest.add_entity(self.player:get_pos(), "guns4d:gun_entity")
@@ -375,10 +395,12 @@ function gun_default:add_entity()
     --obj:on_step()
     --self:update_entity()
 end
+
 local mat4 = leef.math.mat4
 local tmp_mat4_rot = mat4.identity()
 local ip_time = Guns4d.config.gun_axial_interpolation_time
 local ip_time2 = Guns4d.config.translation_interpolation_time
+--- updates the gun's entity
 function gun_default:update_entity()
     local obj = self.entity
     local player = self.player
@@ -421,6 +443,9 @@ function gun_default:update_entity()
         }
     })
 end
+
+--- checks if the gun entity exists...
+-- @treturn bool
 function gun_default:has_entity()
     assert(self.instance, "attempt to call object method on a class")
     if not self.entity then return false end
@@ -530,6 +555,11 @@ function gun_default:update_animation(dt)
 end
 --IMPORTANT!!! this does not directly modify the animation_data table anymore, it's all hooked through ObjRef:set_animation() (init.lua) so if animation is set elsewhere it doesnt break.
 --this may be deprecated in the future- as it is no longer really needed now that I hook ObjRef functions.
+--- sets the gun's animation in the same format as ObjRef:set_animation() (future deprecation?)
+-- @tparam table frames `{x=int, y=int}`
+-- @tparam float|nil length length of the animation in seconds
+-- @tparam int fps frames per second of the animation
+-- @tparam bool loop wether to loop
 function gun_default:set_animation(frames, length, fps, loop)
     loop = loop or false --why the fuck default is true? I DONT FUCKIN KNOW (this undoes this)
     assert(type(frames)=="table" and frames.x and frames.y, "frames invalid or nil in set_animation()!")
@@ -542,6 +572,8 @@ function gun_default:set_animation(frames, length, fps, loop)
     end
     self.entity:set_animation(frames, fps, 0, loop) --see init.lua for modified ObjRef stuff.
 end
+
+--- clears the animation to the rest state
 function gun_default:clear_animation()
     local loaded = false
     if self.properties.ammo.magazine_only then
@@ -571,6 +603,11 @@ local function adjust_gain(tbl, v)
         end
     end
 end
+
+--- plays a list of sounds for the gun's user and thirdpersons
+-- @tparam soundspec_list sound parameters following the format of @{Guns4d.play_sounds}
+-- @treturn integer thirdperson sound's guns4d sound handle
+-- @treturn integer firstperson sound's guns4d sound handle
 function gun_default:play_sounds(sound)
     local thpson_sound = Guns4d.table.deep_copy(sound)
     local fsprsn_sound = Guns4d.table.deep_copy(sound)

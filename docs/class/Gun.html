@@ -71,6 +71,7 @@
 <li><a href="../module/play_sound.html">play_sound</a></li>
 <li><a href="../module/Bullet_hole.html">Bullet_hole</a></li>
 <li><a href="../module/Control_handler.html">Control_handler</a></li>
+<li><a href="../module/Gun-methods.html">Gun-methods</a></li>
 </ul>
 </div>
 </div>
@@ -91,6 +92,44 @@ wether the gun is allowed to have certain attributes at all. The rest is mainly 
 where def is the definition of your new gun- or rather the changed parts of it. So to make a new gun you can run Guns4d.gun:inherit()
 or you can do the same thing with a seperate class of weapons. Set name to &quot;__template&quot; for template classes of guns.</p>
 
+<div class="synopsis">
+<table class="fields compact">
+<tr>
+<td class="name"><var id="Gun.reload">reload</var><a class="permalink" href="#Gun.reload" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>and ordered list of reloading states used by default_controls.</p>
+<p>the default reload states for a magazine operated weapon, copied from the m4.</p>
+<h5>Example</h5>
+<pre><code class="language-lua">{action=&quot;charge&quot;, time=.5, anim=&quot;charge&quot;, sounds={sound=&quot;ar_charge&quot;, delay = .2}},
+{action=&quot;unload_mag&quot;, time=.25, anim=&quot;unload&quot;, sounds = {sound=&quot;ar_mag_unload&quot;}},
+{action=&quot;store&quot;, time=.5, anim=&quot;store&quot;, sounds = {sound=&quot;ar_mag_store&quot;}},
+{action=&quot;load&quot;, time=.5, anim=&quot;load&quot;, sounds = {sound=&quot;ar_mag_load&quot;, delay = .25}},
+{action=&quot;charge&quot;, time=.5, anim=&quot;charge&quot;, sounds={sound=&quot;ar_charge&quot;, delay = .2}}
+</code></pre>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="Gun.model_bounding_box">model_bounding_box</var><a class="permalink" href="#Gun.model_bounding_box" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>a table {x1,y1,z1,x2,y2,z2} specifying the bounding box of the model. The first 3 (x1,y1,z1) are the lower of their counterparts</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="Gun.sounds">sounds</var><a class="permalink" href="#Gun.sounds" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>a table of <a href="../module/play_sound.html#guns4d_soundspec">soundspecs</a> to be referenced by other functions</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="Gun.animation_rotation">animation_rotation</var><a class="permalink" href="#Gun.animation_rotation" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>vector</code> containing the offset from animations, this will be generated if {@consts.ANIMATIONS_OFFSET_AIM}=true</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="Gun.gun_axial">gun_axial</var><a class="permalink" href="#Gun.gun_axial" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>total offsets of the gun in the same format as a an offset
+[[total_offsets = {</p>
+</td>
+</tr>
+</table>
+</div>
 </div>
 </div>
 <div class="section">
@@ -123,12 +162,32 @@ or you can do the same thing with a seperate class of weapons. Set name to &quot
 </tr>
 <tr>
 <td class="name"><var id="gun.itemstack">itemstack</var><a class="permalink" href="#gun.itemstack" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>ItemStack</code> itemstack held by the player</p>
+<td class="doc"><p><code>ItemStack</code> the gun itemstack. Remember to player:set_wielded_item(self.itemstack) when making meta or itemstack changes.</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.meta">meta</var><a class="permalink" href="#gun.meta" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>MetaDataRef</code> itemstack meta</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.id">id</var><a class="permalink" href="#gun.id" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>string</code> the ID of the gun used for tracking of it's inventory</p>
 </td>
 </tr>
 <tr>
 <td class="name"><var id="gun.gun_entity">gun_entity</var><a class="permalink" href="#gun.gun_entity" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p><code>ObjRef</code> the gun entity</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.inventory_image_magless">inventory_image_magless</var><a class="permalink" href="#gun.inventory_image_magless" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>string</code> inventory image for when the gun has no magazine</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.inventory_image">inventory_image</var><a class="permalink" href="#gun.inventory_image" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>string</code> inventory image for when the gun is loaded. This is added automatically during construction.</p>
 </td>
 </tr>
 <tr>
@@ -192,14 +251,28 @@ or you can do the same thing with a seperate class of weapons. Set name to &quot
 </td>
 </tr>
 <tr>
-<td class="name"><var id="gun.animation_rotation">animation_rotation</var><a class="permalink" href="#gun.animation_rotation" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>vector</code> containing the offset from animations, this will be generated if {@consts.ANIMATIONS_OFFSET_AIM}=true</p>
+<td class="name"><var id="gun.property_modifiers">property_modifiers</var><a class="permalink" href="#gun.property_modifiers" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> indexed list of modifiers not set by the gun but to be applied to the gun. After changing, gun:update_modifiers() must be called to update it. Also may contain lists of modifiers.</p>
 </td>
 </tr>
 <tr>
-<td class="name"><var id="gun.gun_axial">gun_axial</var><a class="permalink" href="#gun.gun_axial" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>total offsets of the gun in the same format as a <a href="../class/Gun.html#gun.offsets">an offset</a>
-[[total_offsets = {</p>
+<td class="name"><var id="gun.burst">burst</var><a class="permalink" href="#gun.burst" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>int</code>=3 how many rounds in burst using when firemode is at &quot;burst&quot;</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.infinite_inventory_overlay">infinite_inventory_overlay</var><a class="permalink" href="#gun.infinite_inventory_overlay" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>string</code> overlay on the item to use when infinite ammo is on</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.pc_control_actions">pc_control_actions</var><a class="permalink" href="#gun.pc_control_actions" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> containing a list of actions for PC users passed to <a href="../module/Control_handler.html">Control_handler</a></p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.touch_control_actions">touch_control_actions</var><a class="permalink" href="#gun.touch_control_actions" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> containing a list of actions for touch screen users passed to <a href="../module/Control_handler.html">Control_handler</a></p>
 </td>
 </tr>
 </table>
@@ -282,46 +355,9 @@ or you can do the same thing with a seperate class of weapons. Set name to &quot
 </td>
 </tr>
 <tr>
-<td class="name"><var id="lvl1_fields.properties.item">item</var><a class="permalink" href="#lvl1_fields.properties.item" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>the item entity's attributes. This will later include held item definition...</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.burst">burst</var><a class="permalink" href="#lvl1_fields.properties.burst" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>int</code>=3 how many rounds in burst using when firemode is at &quot;burst&quot;</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.infinite_inventory_overlay">infinite_inventory_overlay</var><a class="permalink" href="#lvl1_fields.properties.infinite_inventory_overlay" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>string</code> overlay on the item to use when infinite ammo is on</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.pc_control_actions">pc_control_actions</var><a class="permalink" href="#lvl1_fields.properties.pc_control_actions" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> containing a list of actions for PC users passed to <a href="../module/Control_handler.html">Control_handler</a></p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.touch_control_actions">touch_control_actions</var><a class="permalink" href="#lvl1_fields.properties.touch_control_actions" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> containing a list of actions for touch screen users passed to <a href="../module/Control_handler.html">Control_handler</a></p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.reload">reload</var><a class="permalink" href="#lvl1_fields.properties.reload" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>and ordered list of reloading states used by default_controls.</p>
-<p>the default reload states for a magazine operated weapon, copied from the m4.</p>
-<h5>Example</h5>
-<pre><code class="language-lua">{action=&quot;charge&quot;, time=.5, anim=&quot;charge&quot;, sounds={sound=&quot;ar_charge&quot;, delay = .2}},
-{action=&quot;unload_mag&quot;, time=.25, anim=&quot;unload&quot;, sounds = {sound=&quot;ar_mag_unload&quot;}},
-{action=&quot;store&quot;, time=.5, anim=&quot;store&quot;, sounds = {sound=&quot;ar_mag_store&quot;}},
-{action=&quot;load&quot;, time=.5, anim=&quot;load&quot;, sounds = {sound=&quot;ar_mag_load&quot;, delay = .25}},
-{action=&quot;charge&quot;, time=.5, anim=&quot;charge&quot;, sounds={sound=&quot;ar_charge&quot;, delay = .2}}
-</code></pre>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.sounds">sounds</var><a class="permalink" href="#lvl1_fields.properties.sounds" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>a table of <a href="../module/play_sound.html#guns4d_soundspec">soundspecs</a> to be referenced by other functions</p>
+<td class="name"><var id="lvl1_fields.properties.collisionbox">collisionbox</var><a class="permalink" href="#lvl1_fields.properties.collisionbox" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>the item entity's attributes. [DOCUMENTATION NEEDED]
+[[item = {</p>
 </td>
 </tr>
 </table>
@@ -639,6 +675,21 @@ this means that increasing it decreases the time it takes for the angular veloci
 <div class="synopsis">
 <table class="fields compact">
 <tr>
+<td class="name"><var id="gun.properties.visuals.mesh">mesh</var><a class="permalink" href="#gun.properties.visuals.mesh" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>name of mesh to display</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.visuals.textures">textures</var><a class="permalink" href="#gun.properties.visuals.textures" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>list of textures to use</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.visuals.scale">scale</var><a class="permalink" href="#gun.properties.visuals.scale" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>scale multiplier</p>
+</td>
+</tr>
+<tr>
 <td class="name"><var id="gun.properties.visuals.backface_culling">backface_culling</var><a class="permalink" href="#gun.properties.visuals.backface_culling" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p>toggles backface culling</p>
 </td>
@@ -701,9 +752,6 @@ this means that increasing it decreases the time it takes for the angular veloci
 
 <div class="synopsis">
 <table class="fields compact">
-<tr>
-<td class="name"><var id="lvl1_fields.consts.AIM_OUT_AIM_IN_SPEED_RATIO">AIM_OUT_AIM_IN_SPEED_RATIO</var><a class="permalink" href="#lvl1_fields.consts.AIM_OUT_AIM_IN_SPEED_RATIO" title="Permalink to this definition">¶</a></td>
-</tr>
 <tr>
 <td class="name"><var id="lvl1_fields.consts.KEYFRAME_SAMPLE_PRECISION">KEYFRAME_SAMPLE_PRECISION</var><a class="permalink" href="#lvl1_fields.consts.KEYFRAME_SAMPLE_PRECISION" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p>frequency of keyframe samples for animation offsets and</p>

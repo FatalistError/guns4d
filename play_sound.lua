@@ -64,7 +64,7 @@ end
 --          soundspec_to_play1, --a sound parameter table
 --          soundspec_to_play2
 --      }
--- @tparam table soundspecs_list a list a list of soundspecs optionally accompanied with fields to be used in all of them.
+-- @tparam table soundspecs_list a list a list of @{guns4d_soundspec|soundspecs} optionally accompanied with fields to be used in all of them.
 -- @treturn integer guns4d sound handle, used by stop_sounds & get_sounds
 function Guns4d.play_sounds(soundspecs_list)
     --print(dump(soundspecs_list))
