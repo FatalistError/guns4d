@@ -9,16 +9,19 @@ local Vec = vector
 -- **method documentation coming soon** (or never...)
 --
 -- The appearance and handling of guns by default are defined by two table fields: their @{lvl1_fields.consts|consts} and their @{lvl1_fields.properties|properties}.
--- @{lvl1_fields.properties|properties} define nearly everything, from how a gun handles to how it looks, what model it uses,
+-- @{lvl1_fields.properties|properties} define nearly everything, from how a gun handles to how it looks, what model it uses, etc.
 -- while @{lvl1_fields.consts|consts} define attributes that should never change, like bones within the gun, framerates,
--- hwether the gun is allowed to have certain attributes at all. The other fields of the class define tracking variables or other important things for the internal workings.
+-- wether the gun is allowed to have certain attributes at all. The other fields of the class define tracking variables or other important things for the internal workings.
 --
--- There are essentially only 2 fields you must define to register a gun: @{gun.itemstring|itemstring}, @{gun.name|name}, and @{lvl1_fields.properties|properties}
--- To hold the gun, the item defined in itemstring must exist. To have a functional gun however, more will need to be changed in terms of properties.
+-- There are essentially only 3 fields you must define to register a gun: @{gun.itemstring|itemstring}, @{gun.name|name}, and @{lvl1_fields.properties|properties}.
+-- To hold the gun, the item defined in itemstring must actually exist, it will not automatically register. To have a functional gun however, more will need to be changed in terms of properties.
+-- it's reccomended that you take a look at existing mods (like guns4d_pack_1) for guidance
 --
 -- Guns4d uses a class system for most moving parts- including the gun. New guns therefore are created with the :inherit(def) method,
 -- where def is the definition of your new gun- or rather the changed parts of it. So to make a new gun you can run Guns4d.gun:inherit()
 -- or you can do the same thing with a seperate class of weapons. Set name to "__template" for template classes of guns.
+--
+-- *Please note:* there are likey undocumented fields that are used in internal functions. If you find one, please make an issue on Github.
 --
 --
 -- @class gun
@@ -29,20 +32,18 @@ local Vec = vector
 local gun_default = {
     --- `string` the name of the gun. Set to __template for guns which have no instances and serve as a template. It is safe to set name to the same as @{gun.itemstring}
     name = "__guns4d:default__",
+    --- `string` the itemstring of the gun- i.e. `"guns4d_pack_1:m4"`. Set to `""` for `__template` guns.
+    itemstring = "",
     --- `ItemStack` the gun itemstack. Remember to player:set_wielded_item(self.itemstack) when making meta or itemstack changes.
     itemstack = nil,
+    --- `ObjRef` the operator of the weapon. This may at some point be deprecated when I start to implement AI/mob usage
+    player = nil,
     --- `MetaDataRef` itemstack meta
     meta = nil,
     --- `string` the ID of the gun used for tracking of it's inventory
     id = nil,
     --- `ObjRef` the gun entity
     gun_entity = nil,
-    --- `string` inventory image for when the gun has no magazine
-    inventory_image_magless = nil,
-    --- `string` inventory image for when the gun is loaded. This is added automatically during construction.
-    inventory_image = nil,
-    --- `string` the itemstring of the gun- i.e. `"guns4d_pack_1:m4"`. Set to `""` for `__template` guns.
-    itemstring = "",
     --- list of registered guns, **DO NOT MODIFY** I really need a metatable for this class...
     _registered = {},
     --- `bool` is the bolt charged
@@ -80,32 +81,86 @@ local gun_default = {
     -- @field sway `table` @{gun.properties.sway|defines the guns idle sway}
     -- @field wag `table` @{gun.properties.wag|defines the movement of the gun while walking}
     -- @field charging `table` @{gun.properties.charging|defines how rounds are chambered into the gun}
-    -- @field ammo @{gun.properties.ammo|defines what ammo the gun uses}
-    -- @field visuals @{gun.properties.visuals|defines visual attributes of the gun}
+    -- @field ammo `table` @{gun.properties.ammo|defines what ammo the gun uses}
+    -- @field visuals `table` @{gun.properties.visuals|defines visual attributes of the gun}
     -- @compact
     properties = {
-
+        --- `Ammo_handler` the class (based on) ammo_handler to create an instance of and use. Default is `Guns4d.ammo_handler`
+        ammo_handler = Guns4d.ammo_handler,
+        --- `Attachment_handler` attachment_handler class to use. Default is `Guns4d.attachment_handler`
+        attachment_handler = Guns4d.attachment_handler,
+        --- `Sprite_scope` sprite scope class to use
+        sprite_scope = nil,
+        --- `Dynamic_crosshair` crosshair class to use
+        crosshair = nil,
+        --- starting vertical rotation of the gun
+        initial_vertical_rotation = -60,
         --- `float`=.5 max angular deviation (vertical) from breathing
         breathing_scale = .5,
         --- `vector` the offset from the center of the muzzle flash. Used by fire()
         flash_offset = Vec.new(),
         --- `int`=600 The number of rounds (cartidges) this gun can throw per minute. Used by update(), fire() and default controls
         firerateRPM = 600,
-        --- properties.hip
-        -- @table gun.properties.hip
-        -- @compact
-        hip = {--#1
-            --- `vector` the offset of the gun (relative to the right arm's default position) at hip.
-            offset = Vec.new(),
-            --- the ratio that the look rotation is expressed through player_axial (rotated around the viewport) rotation as opposed to gun_axial (rotating the entity).
-            axis_rotation_ratio = .75,
-            --- sway speed multiplier while at hip
-            sway_vel_mul = 5,
-            --- sway angle multiplier while at hip+
-            sway_angle_mul = 1,
+        --- `string` inventory image for when the gun has no magazine
+        inventory_image_magless = nil,
+        --- `string` inventory image for when the gun is loaded. This is added automatically during construction.
+        inventory_image = nil,
+        --- an ordered list of reloading states used by @{default_controls}.
+        --
+        -- the default reload states for a magazine operated weapon, copied from the m4.
+        -- @example
+        --      {action="charge", time=.5, anim="charge", sounds={sound="ar_charge", delay = .2}},
+        --      {action="unload_mag", time=.25, anim="unload", sounds = {sound="ar_mag_unload"}},
+        --      {action="store", time=.5, anim="store", sounds = {sound="ar_mag_store"}},
+        --      {action="load", time=.5, anim="load", sounds = {sound="ar_mag_load", delay = .25}},
+        --      {action="charge", time=.5, anim="charge", sounds={sound="ar_charge", delay = .2}}
+        reload = {},
+        --- a table {x1,y1,z1,x2,y2,z2} specifying the bounding box of the model. The first 3 (x1,y1,z1) are the lower of their counterparts. This is autogenerated if not present.
+        model_bounding_box = nil,
+        --- `string` overlay on the item to use when infinite ammo is on
+        infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
+        --- `int`=3 how many rounds in burst using when firemode is at "burst"
+        burst = 3,
+        --- `table` containing a list of actions for PC users passed to @{Control_handler}
+        pc_control_actions = { --used by control_handler
+            __overfill=true, --this table will not be filled in.
+            aim = Guns4d.default_controls.aim,
+            auto = Guns4d.default_controls.auto,
+            reload = Guns4d.default_controls.reload,
+            on_use = Guns4d.default_controls.on_use,
+            firemode = Guns4d.default_controls.firemode,
+            jump_cancel_ads = Guns4d.default_controls.jump_cancel_ads
+        },
+        --- `table` containing a list of actions for touch screen users passed to @{Control_handler}
+        touch_control_actions = {
+            __overfill=true,
+            aim = Guns4d.default_touch_controls.aim,
+            auto = Guns4d.default_touch_controls.auto,
+            reload = Guns4d.default_touch_controls.reload,
+            on_secondary_use = Guns4d.default_touch_controls.on_secondary_use,
+            firemode = Guns4d.default_touch_controls.firemode,
+            jump_cancel_ads = Guns4d.default_touch_controls.jump_cancel_ads
+        },
+        inventory = {
+            --[[attachment_slots = {
+                underbarrel = {
+                    formspec_inventory_location = {x=0, y=1}
+                    slots = 2,
+                    rail = "picatinny" --only attachments fit for this type will be usable.
+                    allowed = {
+                        "group:guns4d_underbarrel"
+                    },
+                    bone = "" --the bone both to attach to and to display at on the menu.
+                }
+            },]]
+            render_size = 2, --length (in meters) which is visible accross the z/forward axis at y/up=0, x=0. For orthographic this will be the scale of the orthographic camera. Default 2
+            render_image = "m4_ortho.png", --expects an image of the right side of the gun, where the gun is facing the right. Default "m4_ortho.png"
+            --rendered_from_model = true --if true the rendering is automatically moved to the center of the screen
         },
         --- properties.ads
+        --
         -- @table gun.properties.ads
+        -- @see lvl1_fields.properties|properties
         -- @compact
         ads = { --#2
             --- `vector` the offset of the gun relative to the eye's position at hip.
@@ -115,12 +170,26 @@ local gun_default = {
             --- the time it takes to go into full aim
             aim_time = 1,
         },
-        --- `int`=3 how many rounds in burst using when firemode is at "burst"
-        burst = 3,
+        --- properties.hip
+        --
+        -- @table gun.properties.hip
+        -- @see lvl1_fields.properties|properties
+        -- @compact
+        hip = {--#1
+            --- `vector` the offset of the gun (relative to the right arm's default position) at hip.
+            offset = Vec.new(),
+            --- the ratio that the look rotation is expressed through player_axial (rotated around the viewport) rotation as opposed to gun_axial (rotating the entity).
+            axis_rotation_ratio = .75,
+            --- sway speed multiplier while at hip
+            sway_vel_mul = 5,
+            --- sway angle multiplier while at hip
+            sway_angle_mul = 1,
+        },
         --- properties.firemodes
         --
         -- list containing the firemodes of the gun. Default only contains "single". Strings allowed by default:
         -- @table gun.properties.firemodes
+        -- @see lvl1_fields.properties|properties
         -- @compact
         -- @field "single"
         -- @field "burst"
@@ -128,26 +197,26 @@ local gun_default = {
         firemodes = { --#3
             "single", --not limited to semi-automatic.
         },
-        --- `string` overlay on the item to use when infinite ammo is on
-        infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
         --- properties.firemode_inventory_overlays
         --
-        -- defines the overlay on the gun item for each firemode. These are selected automatically by firemode string. Defaults are as follows:
+        -- Defines the overlay on the gun item for each firemode. These are selected automatically by firemode string. Defaults are as follows:
         -- @table gun.properties.firemode_inventory_overlays
+        -- @see lvl1_fields.properties|properties
         -- @compact
         firemode_inventory_overlays = { --#4
-            --- "inventory_overlay_single.png"
+            --- singlefire default: "inventory_overlay_single.png"
             single = "inventory_overlay_single.png",
-            --- "inventory_overlay_auto.png"
+            --- automatic default: "inventory_overlay_auto.png"
             auto =  "inventory_overlay_auto.png",
-            --- "inventory_overlay_burst.png"
+            --- burstfire default: "inventory_overlay_burst.png"
             burst =  "inventory_overlay_burst.png",
-            --- "inventory_overlay_safe.png" (unimplemented firemode)
+            --- safe default: "inventory_overlay_safe.png" (unimplemented firemode)
             safe = "inventory_overlay_safe.png"
         },
         --- properties.recoil
         --
         -- **IMPORTANT**: expects fields to be tables containing a "gun_axial" and "player_axial" field.
+        -- @see lvl1_fields.properties|properties
         -- @example
         --      property = {
         --          gun_axial = type
@@ -202,6 +271,7 @@ local gun_default = {
         --
         -- **IMPORTANT**: expects fields to be tables containing a "gun_axial" and "player_axial" field. In the same format as @{gun.properties.recoil}
         -- @table gun.properties.sway
+        -- @see lvl1_fields.properties|properties
         -- @compact
         sway = { --#6
             --- `float` maximum angle of the sway
@@ -228,6 +298,7 @@ local gun_default = {
         --- properties.wag
         --
         -- @table gun.properties.wag
+        -- @see lvl1_fields.properties|properties
         -- @compact
         wag = {
             --- `float`=1.6 the cycle speed multiplier
@@ -240,81 +311,28 @@ local gun_default = {
                 player_axial = {x=1,y=1},
             },
         },
-        --- `table` containing a list of actions for PC users passed to @{Control_handler}
-        pc_control_actions = { --used by control_handler
-            __overfill=true, --this table will not be filled in.
-            aim = Guns4d.default_controls.aim,
-            auto = Guns4d.default_controls.auto,
-            reload = Guns4d.default_controls.reload,
-            on_use = Guns4d.default_controls.on_use,
-            firemode = Guns4d.default_controls.firemode,
-            jump_cancel_ads = Guns4d.default_controls.jump_cancel_ads
-        },
-        --- `table` containing a list of actions for touch screen users passed to @{Control_handler}
-        touch_control_actions = {
-            __overfill=true,
-            aim = Guns4d.default_touch_controls.aim,
-            auto = Guns4d.default_touch_controls.auto,
-            reload = Guns4d.default_touch_controls.reload,
-            on_secondary_use = Guns4d.default_touch_controls.on_secondary_use,
-            firemode = Guns4d.default_touch_controls.firemode,
-            jump_cancel_ads = Guns4d.default_touch_controls.jump_cancel_ads
-        },
-        --[[ parts framework coming soon. example for m4
-        parts = {
-            barrel = {
-                operable_without = false,
-                group = "guns4d_m4_barrel"
-                default = "guns4d:m4_15in"
-            }
-        }
-        ]]
-        inventory = {
-            --[[attachment_slots = {
-                underbarrel = {
-                    formspec_inventory_location = {x=0, y=1}
-                    slots = 2,
-                    rail = "picatinny" --only attachments fit for this type will be usable.
-                    allowed = {
-                        "group:guns4d_underbarrel"
-                    },
-                    bone = "" --the bone both to attach to and to display at on the menu.
-                }
-            },]]
-            render_size = 2, --length (in meters) which is visible accross the z/forward axis at y/up=0, x=0. For orthographic this will be the scale of the orthographic camera.
-            render_image = "m4_ortho.png", --expects an image of the right side of the gun, where the gun is facing the right.
-            --rendered_from_model = true --if true the rendering is automatically moved to the center of the screen
-        },
         --- properties.charging
         --
         -- @table gun.properties.charging
+        -- @see lvl1_fields.properties|properties
         -- @compact
         charging = { --#7
-            --- `bool` defines wether the draw animation is played on swap (when loaded). Used in the instance construction method
+            --- `bool` defines wether the draw animation is played on swap (when loaded). Default true.
             require_draw_on_swap = true,
             --- `string` "none" bolt will never need to be charged after reload, "catch" when fired to empty bolt will not need to be charged after reload, "no_catch" bolt will always need to be charged after reload.
-            bolt_charge_mode = "none", --"none"-chamber is always full, "catch"-when fired to dry bolt will not need to be charged after reload, "no_catch" bolt will always need to be charged after reload.
+            bolt_charge_mode = "none", --"none"-chamber is always full, "catch"-when fired to dry bolt will not need to be charged after reload, "no_catch" bolt will always need to be charged after reload. Default "none"
             --- `float` the time it takes to swap to the gun
             draw_time = 1,
-            --- `string` name of the animation to play from @{gun.properties.visuals.animations|visuals.animations}
+            --- `string` name of the animation to play from @{gun.properties.visuals.animations|visuals.animations}. Default "draw"
             draw_animation = "draw",
-            --- `string` name of the sound to play from @{gun.properties.sounds|sounds}
+            --- `string` name of the sound to play from @{gun.properties.sounds|sounds}. Default "draw"
             draw_sound = "draw"
             --sound = soundspec
         },
-        --- and ordered list of reloading states used by @{default_controls}.
-        --
-        -- the default reload states for a magazine operated weapon, copied from the m4.
-        -- @example
-        --      {action="charge", time=.5, anim="charge", sounds={sound="ar_charge", delay = .2}},
-        --      {action="unload_mag", time=.25, anim="unload", sounds = {sound="ar_mag_unload"}},
-        --      {action="store", time=.5, anim="store", sounds = {sound="ar_mag_store"}},
-        --      {action="load", time=.5, anim="load", sounds = {sound="ar_mag_load", delay = .25}},
-        --      {action="charge", time=.5, anim="charge", sounds={sound="ar_charge", delay = .2}}
-        reload = {},
         --- properties.ammo
         --
         -- @table gun.properties.ammo
+        -- @see lvl1_fields.properties|properties
         -- @compact
         ammo = { --#8
             --- `bool` wether the gun only uses a magazine or accepts raw ammunition too.
@@ -330,24 +348,35 @@ local gun_default = {
         --- properties.visuals
         --
         -- @table gun.properties.visuals
+        -- @see lvl1_fields.properties|properties
         -- @compact
         visuals = {
             --- name of mesh to display. Currently only supports b3d
             mesh = nil,
-            --- list of textures to use
+            --- list of textures to use.
             textures = {},
-            --- scale multiplier
+            --- scale multiplier. Default 1
             scale = 1,
-            --- toggles backface culling
+            --- toggles backface culling. Default true
             backface_culling = true,
-            --- a table of animations in the format {x=int, y=float}. Indexes define the name of the animation to be refrenced by other functions of the gun.
+            --- a table of animations. Indexes define the name of the animation to be refrenced by other functions of the gun.
+            -- should be in the format `{x=integer,y=integer}`
+            -- @example
+            --      animations = {
+            --          empty = {x=0,y=0}
+            --          loaded = {x=1,y=1}
+            --          fire = {x=10,y=20}
+            --          draw = {x=24,y=30} --DEFAULT of charging.draw_animation.
+            --      }
+            --
+            -- There are other animations which are variable which are not listed here, these are usually defined by properties such as:
+            -- @{reload}, @{gun.properties.charging.draw_animation|draw_animation}
             animations = { --used by animations handler for idle, and default controls
                 empty = {x=0,y=0},
                 loaded = {x=1,y=1},
+                fire = {x=0,y=0},
             },
         },
-        --- a table {x1,y1,z1,x2,y2,z2} specifying the bounding box of the model. The first 3 (x1,y1,z1) are the lower of their counterparts
-        model_bounding_box = nil,
         --- a table of @{guns4d_soundspec|soundspecs} to be referenced by other functions
         sounds = { --this does not contain reload sound effects.
             fire = {
@@ -380,18 +409,40 @@ local gun_default = {
                 }
             },
         },
-        ammo_handler = Guns4d.ammo_handler,
-        attachment_handler = Guns4d.attachment_handler,
-        sprite_scope = nil,
-        crosshair = nil,
-        initial_vertical_rotation = -60,
+    },
+    --- `vector` containing the offset from animations, this will be generated if {@consts.ANIMATIONS_OFFSET_AIM}=true
+    animation_rotation = vector.new(),
+    --- all offsets from @{offsets|gun.offset} of a type added together gun in the same format as a @{offsets|an offset} (that is, five vectors, `gun_axial`, `player_axial`, etc.). Note that if
+    -- offsets are changed after update, this will not be updated automatically until the next update. update_rotations() must be called to do so.
+    total_offsets = {
+        gun_axial = vector.new(),       --rotation of the gun entity (around entity's own axis)
+        player_axial = vector.new(),    --rotation around the eye (the player's axis)
+        gun_trans = vector.new(),       --translation of the gun relative to attached bone's rotation
+        player_trans = vector.new(),    --translation of the gun relative to the player's eye
+        look_trans =  vector.new()      --translation/offset of the player's eye
+    },
+    --- velocities in the format of @{offsets|offsets}, but only containing angular (`gun_axial` and `player_axial`) offsets.
+    velocities = {
+        recoil = {
+            gun_axial = Vec.new(),
+            player_axial = Vec.new(),
+        },
+        init_recoil = {
+            gun_axial = Vec.new(),
+            player_axial = Vec.new(),
+        },
+        sway = {
+            gun_axial = Vec.new(),
+            player_axial = Vec.new(),
+        },
     },
     --- offsets
     --
     -- a list of tables each containing offset vectors These are required for automatic initialization of offsets.
+    -- note rotations are in degrees, and translations are in meters.
     -- @example
     --      recoil = {
-    --          gun_axial = {x=0, y=0}, --rotation of the gun around it's origin
+    --          gun_axial = {x=0, y=0}, --rotation of the gun around it's origin.
     --          player_axial = {x=0, y=0}, --rotation of the gun around the bone it's attached to
     --          --translations of gun
     --          player_trans = {x=0, y=0, z=0}, --translation of the bone the gun is attached to
@@ -431,31 +482,6 @@ local gun_default = {
             look_trans = Vec.new(),
             player_trans = Vec.new(),
             gun_trans = Vec.new()
-        },
-    },
-    --- `vector` containing the offset from animations, this will be generated if {@consts.ANIMATIONS_OFFSET_AIM}=true
-    animation_rotation = vector.new(),
-    --- total offsets of the gun in the same format as a @{offsets|an offset}
-    --[[total_offsets = {
-        gun_axial = vector.new(),       rotation of the gun entity (around entity's own axis)
-        player_axial = vector.new(),    rotation around the eye (the player's axis)
-        gun_trans = vector.new(),       translation of the gun relative to attached bone's rotation
-        player_trans = vector.new(),    translation of the gun relative to the player's eye
-        look_trans =  vector.new()      translation/offset of the player's eye
-    }, ]]
-    --player_rotation = Vec.new(),
-    velocities = {
-        recoil = {
-            gun_axial = Vec.new(),
-            player_axial = Vec.new(),
-        },
-        init_recoil = {
-            gun_axial = Vec.new(),
-            player_axial = Vec.new(),
-        },
-        sway = {
-            gun_axial = Vec.new(),
-            player_axial = Vec.new(),
         },
     },
     --- consts

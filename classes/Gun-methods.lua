@@ -1,10 +1,18 @@
+-- @within Gun.gun
+-- @compact
+
 local gun_default = Guns4d.gun
 local mat4 = leef.math.mat4
 --I dont remember why I made this, used it though lmao
 function gun_default.multiplier_coefficient(multiplier, ratio)
     return 1+((multiplier*ratio)-ratio)
 end
---update gun, the main function.
+
+--- The entry method for the update of the gun
+--
+-- calls virtually all functions that begin with `update` once. Also updates subclass
+--
+-- @tparam float dt
 function gun_default:update(dt)
     assert(self.instance, "attempt to call object method on a class")
     if not self:has_entity() then self:add_entity(); self:clear_animation() end
@@ -41,10 +49,11 @@ function gun_default:update(dt)
         self.crosshair:update()
     end
     --finalize transforms
-    self:update_rotations()
+    self:update_transforms()
 end
 
-function gun_default:update_rotations()
+--- updates self.total_offsets which stores offsets for bones
+function gun_default:update_transforms()
     local total_offset = self.total_offsets
     --axis rotations
     total_offset.player_axial.x = 0; total_offset.player_axial.y = 0
@@ -64,7 +73,7 @@ function gun_default:update_rotations()
     --total_offset.gun_axial.x = 0; total_offset.gun_axial.y = 0
 end
 
---manage burstfire
+--- Update and fire the queued weapon burst
 function gun_default:update_burstfire()
     if self.rechamber_time <= 0 then
         while true do
@@ -80,7 +89,8 @@ function gun_default:update_burstfire()
         end
     end
 end
---cycle firemodes, typically activated by default_controls.lua.
+
+--- cycles to the next firemode of the weapon
 function gun_default:cycle_firemodes()
     --cannot get length using length operator because it's a proxy table
     local length = 0
@@ -93,7 +103,8 @@ function gun_default:cycle_firemodes()
     self:update_image_and_text_meta()
     self.player:set_wielded_item(self.itemstack)
 end
---remember to set_wielded_item to self.itemstack! otherwise these changes will not apply!
+
+--- update the inventory information of the gun
 function gun_default:update_image_and_text_meta(meta)
     meta = meta or self.meta
     local ammo = self.ammo_handler.ammo
@@ -129,7 +140,8 @@ function gun_default:update_image_and_text_meta(meta)
     end
     meta:set_string("inventory_image", image)
 end
---draw the gun from holster
+
+--- plays the draw animation and sound for the gun, delays usage.
 function gun_default:draw()
     assert(self.instance, "attempt to call object method on a class")
     local props = self.properties
@@ -143,7 +155,8 @@ function gun_default:draw()
     self.ammo_handler:chamber_round()
     self.rechamber_time = props.charging.draw_time
 end
---attempt to fire the weapon
+
+--- attempt to fire the gun
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
     local props = self.properties
@@ -196,6 +209,8 @@ local function rand_sign(b)
     if math.random() > b then int=-1 end
     return int
 end
+
+--- simulate recoil by adding to the recoil velocity (called by attempt_fire)
 function gun_default:recoil()
     assert(self.instance, "attempt to call object method on a class")
     local rprops = self.properties.recoil
@@ -216,6 +231,8 @@ function gun_default:recoil()
     end
     self.time_since_last_fire = 0
 end
+
+--- update the offsets of the player's look created by the gun
 function gun_default:update_look_offsets(dt)
     assert(self.instance, "attempt to call object method on a class")
     local handler = self.handler
@@ -328,6 +345,12 @@ local ttransform = mat4.identity()
 local out = vector.new() --reserve the memory, we still want to create new vectors each time though.
 --gets the gun's position relative to the player. Relative indicates wether it's relative to the player's horizontal look
 --offset is relative to the's rotation
+
+--- get the global position of the gun. This is customized to rely on the assumption that there are 3-4 main rotations and 2-3 translations. If the behavior of the bones are changed this method may not work
+-- @tparam vec3 offset_pos
+-- @tparam bool relative_y wether the y axis is relative to the player's look
+-- @tparam bool relative_x wether the x axis is relative to the player's look
+-- @treturn vec3 position of gun (in global or local orientation) relative to the player's position
 function gun_default:get_pos(offset, relative_y, relative_x, with_animation)
     assert(self.instance, "attempt to call object method on a class")
     --local player = self.player
@@ -415,7 +438,7 @@ end
 
 --=============================================== ENTITY ======================================================
 
-
+--- adds the gun entity
 function gun_default:add_entity()
     assert(self.instance, "attempt to call object method on a class")
     self.entity = minetest.add_entity(self.player:get_pos(), "guns4d:gun_entity")
@@ -433,6 +456,8 @@ end
 local tmp_mat4_rot = mat4.identity()
 local ip_time = Guns4d.config.gun_axial_interpolation_time
 local ip_time2 = Guns4d.config.translation_interpolation_time
+
+--- updates the gun's entity
 function gun_default:update_entity()
     local obj = self.entity
     local player = self.player
@@ -475,6 +500,9 @@ function gun_default:update_entity()
         }
     })
 end
+
+--- checks if the gun entity exists...
+-- @treturn bool
 function gun_default:has_entity()
     assert(self.instance, "attempt to call object method on a class")
     if not self.entity then return false end
@@ -482,7 +510,8 @@ function gun_default:has_entity()
     return true
 end
 
-
+--- updates the gun's wag offset for walking
+-- @tparam float dt
 function gun_default:update_wag(dt)
     local handler = self.handler
     local wag = self.offsets.walking
@@ -533,6 +562,9 @@ function gun_default:update_wag(dt)
     end
 end
 local e = 2.7182818284590452353602874713527 --I don't know how to find it otherwise...
+
+--- updates the gun's recoil simulation
+-- @tparam float dt
 function gun_default:update_recoil(dt)
     for axis, _ in pairs(self.offsets.recoil) do
         for _, i in pairs({"x","y"}) do
@@ -571,6 +603,9 @@ function gun_default:update_recoil(dt)
     end
     --print(self.velocities.recoil.player_axial.x, self.velocities.recoil.player_axial.y)
 end
+
+--- updates the gun's animation data
+-- @tparam dt
 function gun_default:update_animation(dt)
     local ent = self.entity
     local data = self.animation_data
@@ -584,6 +619,11 @@ function gun_default:update_animation(dt)
 end
 --IMPORTANT!!! this does not directly modify the animation_data table anymore, it's all hooked through ObjRef:set_animation() (init.lua) so if animation is set elsewhere it doesnt break.
 --this may be deprecated in the future- as it is no longer really needed now that I hook ObjRef functions.
+--- sets the gun's animation in the same format as ObjRef:set_animation() (future deprecation?)
+-- @tparam table frames `{x=int, y=int}`
+-- @tparam float|nil length length of the animation in seconds
+-- @tparam int fps frames per second of the animation
+-- @tparam bool loop wether to loop
 function gun_default:set_animation(frames, length, fps, loop)
     loop = loop or false --why the fuck default is true? I DONT FUCKIN KNOW (this undoes this)
     assert(type(frames)=="table" and frames.x and frames.y, "frames invalid or nil in set_animation()!")
@@ -596,6 +636,8 @@ function gun_default:set_animation(frames, length, fps, loop)
     end
     self.entity:set_animation(frames, fps, 0, loop) --see init.lua for modified ObjRef stuff.
 end
+
+--- clears the animation to the rest state
 function gun_default:clear_animation()
     local loaded = false
     if self.properties.ammo.magazine_only then
@@ -625,6 +667,11 @@ local function adjust_gain(tbl, v)
         end
     end
 end
+
+--- plays a list of sounds for the gun's user and thirdpersons
+-- @tparam soundspec_list sound parameters following the format of @{Guns4d.play_sounds}
+-- @treturn integer thirdperson sound's guns4d sound handle
+-- @treturn integer firstperson sound's guns4d sound handle
 function gun_default:play_sounds(sound)
     local thpson_sound = Guns4d.table.deep_copy(sound)
     local fsprsn_sound = Guns4d.table.deep_copy(sound)
