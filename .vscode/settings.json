@@ -6,5 +6,8 @@
         "player_api",
         "ItemStack",
         "leef"
+    ],
+    "Lua.diagnostics.disable": [
+        "undefined-field"
     ]
 }

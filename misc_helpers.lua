@@ -82,7 +82,7 @@ function Guns4d.apply_field_modifiers(props, mods)
     end
     return out_props
 end
-print(dump(Guns4d.apply_field_modifiers({
+--[[print(dump(Guns4d.apply_field_modifiers({
     a=0,
     y=1,
     z=10,
@@ -100,7 +100,7 @@ print(dump(Guns4d.apply_field_modifiers({
         override=10
     }
 }
-)))
+)))]]
 
 function Guns4d.unique_id.generate()
     local genned_ids = Guns4d.unique_id.generated

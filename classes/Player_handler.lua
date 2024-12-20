@@ -54,8 +54,8 @@ function player_handler:update(dt)
         self.gun:update(dt) --gun should be updated first so self.dir is available.
         self.control_handler:update(dt)
         self.player_model_handler:update(dt)
-        player:set_eye_offset(self.gun.total_offsets.look_trans*10)
-        self.last_eye_offset = self.gun.total_offsets.look_trans
+        --player:set_eye_offset(self.gun.total_offsets.look_trans*10)
+        --self.last_eye_offset = self.gun.total_offsets.look_trans
 
         --this has to be checked after control handler
         if TICK % 4 == 0 then

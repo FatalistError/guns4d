@@ -186,7 +186,7 @@ local function initialize_b3d_animation_data(self, props)
 
         --we compose it by the inverse because we need to get the global offset in rotation for the animation rotation offset. I really need to comment more often
         --print(leef.b3d_nodes.get_node_rotation(nil, main, nil, -1))
-        local newvec = leef.b3d_nodes.get_node_rotation(nil, main, nil, target_frame)*leef.b3d_nodes.get_node_rotation(nil, main, nil, -1):inverse()
+        local newvec = leef.b3d_nodes.get_node_rotation(nil, main, nil, target_frame)*leef.b3d_nodes.get_node_rotation(nil, main, nil, props.visuals.animations.loaded.x):inverse()
         --used to use euler
         table.insert(self.b3d_model.global_frames.rotation, newvec)
     end

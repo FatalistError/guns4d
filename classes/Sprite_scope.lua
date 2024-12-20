@@ -1,18 +1,16 @@
 local Sprite_scope = leef.class.new_class:inherit({
     images = {
-        fore = {
+        --[[fore = {
             texture = "scope_fore.png",
             scale = {x=13,y=13},
-            movement_multiplier = 1,
             paxial = false,
         },
         back = {
             texture = "scope_back.png",
             scale = {x=10,y=10},
-            movement_multiplier = -1,
             opacity_delay = 2,
             paxial = true,
-        },
+        },]]
         --[[reticle = {
             texture = "gun_mrkr.png",
             scale = {x=.5,y=.5},
@@ -49,6 +47,11 @@ local Sprite_scope = leef.class.new_class:inherit({
 
 Guns4d.sprite_scope = Sprite_scope
 --rename to draw?
+local vec3_in = vector.new()
+local mat4 = leef.math.mat4
+local vec4_forward = {0,0,1,0}
+local vec4_dir = {0,0,0,0}
+local transform = mat4.new()
 function Sprite_scope:update()
     local handler = self.handler
     local gun = self.gun
@@ -58,28 +61,38 @@ function Sprite_scope:update()
             self.fov_set = true
             handler:set_fov(80/self.magnification)
         end
-        local dir = gun.local_dir
         local ratio = handler.wininfo.size.x/handler.wininfo.size.y
-
-        if control_handler.ads_location ~= 1 then
-            dir = dir + (self.gun.properties.ads.offset+vector.new(gun.properties.ads.horizontal_offset,0,0))*0
-        end
-        local fov = self.player:get_fov()
-        local real_aim = Guns4d.math.rltv_point_to_hud(dir, fov, ratio)
-        local anim_aim = Guns4d.math.rltv_point_to_hud(vector.rotate({x=0,y=0,z=1}, gun.animation_rotation*math.pi/180), fov, ratio)
-        real_aim.x = real_aim.x+anim_aim.x; real_aim.y = real_aim.y+anim_aim.y
-
-        --print(dump(self.gun.animation_rotation))
-        local paxial_aim = Guns4d.math.rltv_point_to_hud(gun.local_paxial_dir, fov, ratio)
-        --so custom scopes can do their thing without doing more calcs
-        self.hud_projection_real = real_aim
-        self.hud_projection_paxial = paxial_aim
+        local pprops = handler:get_properties()
+        local hip_trans = gun.properties.ads.offset
+        local player_trans = gun.total_offsets.player_trans
         for i, v in pairs(self.elements) do
-            if self.images[i].paxial then
-                self.player:hud_change(v, "position", {x=(paxial_aim.x*self.images[i].movement_multiplier)+.5, y=(paxial_aim.y*self.images[i].movement_multiplier)+.5})
+            local image = self.images[i]
+            local projection_pos=image.projection_pos
+            local relative_pos
+            if projection_pos then
+                vec3_in.x = projection_pos.x/10
+                vec3_in.y = projection_pos.y/10
+                vec3_in.z = projection_pos.z/10
+                relative_pos = gun:get_pos(vec3_in, true, true, true)
+
+                relative_pos.x = relative_pos.x - (player_trans.x + (gun and gun.properties.ads.horizontal_offset or 0))
+                relative_pos.y = relative_pos.y - hip_trans.y - (player_trans.y + pprops.eye_height)
+                relative_pos.z = relative_pos.z - (player_trans.z)
             else
-                self.player:hud_change(v, "position", {x=(real_aim.x*self.images[i].movement_multiplier)+.5, y=(real_aim.y*self.images[i].movement_multiplier)+.5})
+                local r = gun.total_offsets.gun_axial
+                local a = gun.animation_rotation
+                vec4_dir = mat4.mul_vec4(vec4_dir, gun:get_rotation_transform(transform,nil,nil,nil, nil,nil, 0,0), vec4_forward)
+                relative_pos = vec3_in
+                relative_pos.x = vec4_dir[1]
+                relative_pos.y = vec4_dir[2]
+                relative_pos.z = vec4_dir[3]
+
+                --relative_pos = gun:get_dir(true)
             end
+
+            local hud_pos = Guns4d.math.rltv_point_to_hud(relative_pos, 80/self.magnification, ratio)
+            --print(i, hud_pos.x, hud_pos.y)
+            self.player:hud_change(v, "position", {x=hud_pos.x+.5, y=hud_pos.y+.5})
         end
     elseif self.fov_set then
         self.fov_set = false

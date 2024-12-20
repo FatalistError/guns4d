@@ -156,10 +156,12 @@ function player_model:update(dt)
     self:update_aiming(dt)
     self:update_head(dt)
     self:update_arm_bones(dt)
+    self:update_look_offset(dt)
 end
 
 local ip_time = Guns4d.config.player_axial_interpolation_time
 local ip_time2 = Guns4d.config.translation_interpolation_time
+local ttransform = leef.math.mat4.identity()
 function player_model:update_aiming(dt)
     --gun bones:
     local player = self.player
@@ -168,19 +170,18 @@ function player_model:update_aiming(dt)
     local pprops = handler:get_properties()
     local vs = pprops.visual_size
 
-    local player_trans = gun.total_offsets.player_trans --player translation.
+    local player_trans = gun.total_offsets.player_trans
     local hip_pos = self.offsets.global.arm_right
 
     local ip = Guns4d.math.smooth_ratio(handler.control_handler.ads_location or 0)
     local ip_inv = 1-ip
     local pos = self.gun_bone_location --reuse allocated table
-    --interpolate between the eye and arm pos
-    pos.x = ((hip_pos.x*10*ip_inv) + (player_trans.x*10/vs.y)) + ((gun and gun.properties.ads.horizontal_offset*10*ip/vs.y) or 0 )
-    pos.y = ((hip_pos.y*10*ip_inv) + (player_trans.y*10/vs.y)) + (pprops.eye_height*10*ip/vs.y)
-    pos.z = ((hip_pos.z*10*ip_inv) + (player_trans.z*10/vs.y))
+    --hip pos is already relative to local scale
+    pos.x = (hip_pos.x*10*ip_inv)+( (player_trans.x*10) + ((gun and gun.properties.ads.horizontal_offset*10*ip) or 0 ))/vs.x
+    pos.y = (hip_pos.y*10*ip_inv)+( (player_trans.y*10) + (pprops.eye_height*10*ip)                                   )/vs.y
+    pos.z = (hip_pos.z*10*ip_inv)+( (player_trans.z*10)                                                               )/vs.z
 
-    local dir = vector.rotate(gun.local_paxial_dir, {x=gun.player_rotation.x*math.pi/180,y=0,z=0})
-    local rot = vector.dir_to_rotation(dir)
+    local xr,yr,zr = gun:get_rotation_transform(ttransform, 0,0,0,  nil,nil,  nil,0,  0,0,0):get_rot_irrlicht_bone()
     player:set_bone_override(self.bone_aliases.gun,
     {
         position = {
@@ -189,7 +190,7 @@ function player_model:update_aiming(dt)
             absolute = true
         },
         rotation = {
-            vec={x=-rot.x,y=-rot.y,z=0},
+            vec={x=xr,y=yr,z=zr},
             interpolation=ip_time,
             absolute = true
         }
@@ -200,9 +201,12 @@ function player_model:update_aiming(dt)
    -- minetest.chat_send_all(dump(pos))
 end
 
-function player_model:update_look_offsets()
-    player:set_eye_offset(self.gun.total_offsets.look_trans*10)
-    self.last_eye_offset = self.gun.total_offsets.look_trans
+function player_model:update_look_offset(dt)
+    local gun = self.handler.gun
+    self.player:set_eye_offset(gun.total_offsets.look_trans*10)
+end
+function player_model:unset_look_offset()
+    self.player:set_eye_offset()
 end
 --default arm code, compatible with MTG model.
 function player_model:update_arm_bones(dt)
@@ -257,6 +261,7 @@ function player_model:prepare_deletion()
     --[[if minetest.get_modpath("player_api") then
         player_api.set_model(self.player, self.old)
     end]]
+    self:unset_look_offset()
     local player = self.player
     player:set_bone_override(self.bone_aliases.arm_left, {})
     player:set_bone_override(self.bone_aliases.arm_right, {})

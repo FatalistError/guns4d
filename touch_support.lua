@@ -39,7 +39,7 @@ touch.on_secondary_use = function(itemstack, handler, pointed_thing)
         pc.on_use(itemstack, handler, pointed_thing)
     end
 end
-
+Guns4d.default_controls.jump_cancel_ads = table.copy(pc.jump_cancel_ads)
 --full auto
 touch.auto = table.copy(pc.auto)
 touch.auto.conditions = {"LMB"}

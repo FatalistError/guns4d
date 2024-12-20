@@ -28,6 +28,16 @@ Guns4d.default_controls.auto = {
         end
     end
 }
+Guns4d.default_controls.jump_cancel_ads = {
+    conditions = {"jump"},
+    loop = false,
+    timer = 0,
+    func = function(self, active, interrupted, data, busy_list, gun, handler)
+        if active then
+            handler.control_handler.ads = false
+        end
+    end
+}
 Guns4d.default_controls.firemode = {
     conditions = {"sneak", "zoom"},
     loop = false,
