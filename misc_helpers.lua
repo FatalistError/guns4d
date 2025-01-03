@@ -295,40 +295,57 @@ end
     return "{"..str..string.sub(initial_string, 1, -5).."}"
 end]]
 
---replace fields (and fill sub-tables) in `tbl` with elements in `replacement`. Recursively iterates all sub-tables. use property __overfill=true for subtables that don't want to be overfilled.
-function Guns4d.table.fill(tbl, replacement, preserve_reference, indexed_tables)
+--these need to be documented flags:
+--__no_copy                       --the replacing (table) will not be copied, and the field containing it will be a reference to the orginal table found in replacement
+--__replace_old_table = true      --the replacing table declares that the old table should be replaced with the new one
+--__replace_only = true           --the original table declares that it should be replaced with the new one
+--[field] = "__redact_field"      --the field will be nil even if it existed in the old table
+
+--replace fields (and fill sub-tables) in `tbl` with elements in `replacement`. Recursively iterates all sub-tables. use property __replace_old_table=true for subtables that don't want to be overfilled.
+function Guns4d.table.fill(to_fill, replacement, overwrite_original, indexed_tables)
     if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
-    local new_table = tbl
-    if not preserve_reference then
-        new_table = Guns4d.table.deep_copy(tbl)
+    local fill_table = to_fill
+    if not overwrite_original then
+        fill_table = Guns4d.table.deep_copy(to_fill)
     end
     for i, v in pairs(replacement) do
-        if new_table[i] then
+        if fill_table[i] then --check if it actually exists in the table we're filling
+
             local replacement_type = type(v)
             if replacement_type == "table" then
-                if type(new_table[i]) == "table" then
-                    if not indexed_tables[v] then
-                        if not new_table[i].__overfill then
-                            indexed_tables[v] = true
-                            new_table[i] = Guns4d.table.fill(tbl[i], replacement[i], false, indexed_tables)
-                        else --if overfill is present, we don't want to preserve the old table.
-                            new_table[i] = Guns4d.table.deep_copy(replacement[i])
-                        end
+
+                if (type(fill_table[i]) == "table") then
+                    --only need to check if it's been indexed if we're iterating downward into it where it could loop.
+                    if (not indexed_tables[v]) and (not replacement[i].__replace_old_table) and (not fill_table[i].__replace_only) then
+                        indexed_tables[v] = true
+                        --get the original table and not the copy otherwise
+                        fill_table[i] = Guns4d.table.fill(fill_table[i], replacement[i], true, indexed_tables)
+                    elseif not replacement[i].__no_copy then
+                        fill_table[i] = Guns4d.table.deep_copy(replacement[i])
                     end
-                elseif not replacement[i].__no_copy then
-                    new_table[i] = Guns4d.table.deep_copy(replacement[i])
+
+                elseif not replacement[i].__no_copy then --if it's allowed to be copyed, since there's no table to fill in, we just copy it.
+                    fill_table[i] = Guns4d.table.deep_copy(replacement[i])
                 else
-                    new_table[i] = replacement[i]
+                    fill_table[i] = replacement[i]
                 end
-                new_table[i].__overfill = nil
-            else
-                new_table[i] = replacement[i]
+
+                --cant modify the original table
+                if not replacement[i].__no_copy then
+                    fill_table[i].__no_copy = nil
+                    fill_table[i].__replace_old_table = nil
+                    fill_table[i].__replace_only = nil
+                end
+
+            elseif replacement[i] ~= "__redact_field" then
+                fill_table[i] = replacement[i]
             end
+
         else
-            new_table[i] = replacement[i]
+            fill_table[i] = replacement[i]
         end
     end
-    return new_table
+    return fill_table
 end
 --for class based OOP, ensure values containing a table in btbl are tables in a_tbl- instantiate, but do not fill.
 --[[function table.instantiate_struct(tbl, btbl, indexed_tables)

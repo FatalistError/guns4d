@@ -69,6 +69,8 @@ function Sprite_scope:update()
             local image = self.images[i]
             local projection_pos=image.projection_pos
             local relative_pos
+            vec4_dir = mat4.mul_vec4(vec4_dir, gun:get_rotation_transform(transform,nil,nil,nil, nil,nil, 0,0), vec4_forward)
+
             if projection_pos then
                 vec3_in.x = projection_pos.x/10
                 vec3_in.y = projection_pos.y/10
@@ -78,21 +80,19 @@ function Sprite_scope:update()
                 relative_pos.x = relative_pos.x - (player_trans.x + (gun and gun.properties.ads.horizontal_offset or 0))
                 relative_pos.y = relative_pos.y - hip_trans.y - (player_trans.y + pprops.eye_height)
                 relative_pos.z = relative_pos.z - (player_trans.z)
+                gun:get_rotation_transform(transform,nil,nil,nil, nil,nil, 0,0)
             else
-                local r = gun.total_offsets.gun_axial
-                local a = gun.animation_rotation
-                vec4_dir = mat4.mul_vec4(vec4_dir, gun:get_rotation_transform(transform,nil,nil,nil, nil,nil, 0,0), vec4_forward)
                 relative_pos = vec3_in
                 relative_pos.x = vec4_dir[1]
                 relative_pos.y = vec4_dir[2]
                 relative_pos.z = vec4_dir[3]
-
                 --relative_pos = gun:get_dir(true)
             end
-
             local hud_pos = Guns4d.math.rltv_point_to_hud(relative_pos, 80/self.magnification, ratio)
             --print(i, hud_pos.x, hud_pos.y)
             self.player:hud_change(v, "position", {x=hud_pos.x+.5, y=hud_pos.y+.5})
+            local z = relative_pos.z
+            self.player:hud_change(v, "scale", {x=(image.scale.x/z)*1-vec4_dir[2], y=(image.scale.y/z)*1-vec4_dir[1]})
         end
     elseif self.fov_set then
         self.fov_set = false

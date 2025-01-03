@@ -15,9 +15,7 @@ end
 -- @tparam float dt
 function gun_default:update(dt)
     assert(self.instance, "attempt to call object method on a class")
-    if not self:has_entity() then self:add_entity(); self:clear_animation() end
-    local handler = self.handler
-
+    if not self:has_entity() then self:add_entity() self:clear_animation() end
     --player look rotation. I'm going to keep it real, I don't remember what this math does. Player handler just stores the player's rotation from MT in degrees, which is for some reason inverted
 
     --it's set up like this so that if the gun is fired on auto and the RPM is very fast (faster then globalstep) we know how many rounds to let off.
@@ -31,26 +29,101 @@ function gun_default:update(dt)
     if self.burst_queue > 0 then self:update_burstfire() end
     --update some vectors
     self:update_look_offsets(dt)
+    --I should make this into a list
     if self.consts.HAS_SWAY then self:update_sway(dt) end
     if self.consts.HAS_RECOIL then self:update_recoil(dt) end
     if self.consts.HAS_BREATHING then self:update_breathing(dt) end
     if self.consts.HAS_WAG then self:update_wag(dt) end
 
     self:update_animation(dt)
-    self.dir = self:get_dir()
+    self.dir = self:get_dir(nil,nil,nil,self.consts.ANIMATIONS_OFFSET_AIM)
     self.pos = self:get_pos()+self.handler:get_pos()
 
     --update subclasses
     self:update_entity()
-    if self.properties.sprite_scope then
-        self.sprite_scope:update()
+    --this should really be a list of subclasses so its more easily expansible
+    for i, instance in pairs(self.subclass_instances) do
+        if instance.update then instance:update(dt) end
+        if not self.properties.subclasses[i] then
+            instance:prepare_deletion()
+            self.subclass_instances[i] = nil
+        end
     end
-    if self.properties.crosshair then
-        self.crosshair:update()
-    end
+
     --finalize transforms
     self:update_transforms()
 end
+
+function gun_default:regenerate_properties()
+    self._properties_unsafe = Guns4d.table.deep_copy(self.base_class.properties)
+    self.properties = self._properties_unsafe
+    for i, func in pairs(self.property_modifiers) do
+        func(self)
+    end
+    self.properties = leef.class.proxy_table.new(self.properties)
+    self:update_visuals()
+end
+
+--- not typically called every step, updates the gun object's visuals
+function gun_default:update_visuals()
+    local props = self.properties
+    self.entity:set_properties({
+        mesh = props.visuals.mesh,
+        textures = table.copy(props.visuals.textures),
+        backface_culling = props.visuals.backface_culling,
+        visual_size = {x=10*props.visuals.scale,y=10*props.visuals.scale,z=10*props.visuals.scale}
+    })
+    for i, ent in pairs(self.attached_objects) do
+        if not self.properties.visuals.attached_objects[i] then
+            ent:remove()
+        end
+    end
+    for i, attached in pairs(self.properties.visuals.attached_objects) do
+        if attached.mesh then
+            assert(type(attached)=="table", self.name..": `attached.objects` expects a list of tables, incorrect type given.")
+            local obj
+            if (not self.attached_objects[i]) or (not self.attached_objects[i]:is_valid()) then
+                obj = minetest.add_entity(self.handler:get_pos(), "guns4d:gun_entity")
+                self.attached_objects[i] = obj
+            else
+                obj = self.attached_objects[i]
+            end
+            obj:set_properties({
+                mesh = attached.mesh,
+                textures = table.copy(attached.textures or self.properties.visuals.textures),
+                backface_culling = attached.backface_culling,
+                visual_size = {x=attached.scale or 1,  y=attached.scale or 1,  z=attached.scale or 1}
+            })
+            local offset
+            if attached.offset then
+                offset = attached.offset
+                offset = mat4.mul_vec4({}, self.b3d_model.root_orientation_rest_inverse, {offset.x, offset.y, offset.z, 0})
+                offset = {x=offset[1], y=offset[2], z=offset[3]}
+            end
+            local rotation
+            if attached.rotation then
+                rotation = attached.rotation
+                local rotm4 = mat4.set_rot_luanti_entity(mat4.identity(), rotation.x*math.pi/180, rotation.y*math.pi/180, rotation.z*math.pi/180)
+                rotm4 = self.b3d_model.root_orientation_rest_inverse*rotm4
+                rotation = {rotm4:get_rot_luanti_entity()}
+                rotation = {x=rotation[1]*180/math.pi, y=rotation[2]*180/math.pi, z=rotation[3]*180/math.pi}
+            else
+                rotation = {(self.b3d_model.root_orientation_rest_inverse):get_rot_luanti_entity()}
+                rotation = {x=rotation[1]*180/math.pi, y=rotation[2]*180/math.pi, z=rotation[3]*180/math.pi}
+            end
+            obj:set_attach(
+                self.entity,
+                self.consts.ROOT_BONE,
+                offset,
+                rotation
+                --true
+            )
+        else
+            minetest.log("error", "Guns4d: attached object had no mesh")
+        end
+    end
+end
+
 
 --- updates self.total_offsets which stores offsets for bones
 function gun_default:update_transforms()
@@ -76,6 +149,7 @@ end
 --- Update and fire the queued weapon burst
 function gun_default:update_burstfire()
     if self.rechamber_time <= 0 then
+        local iter = 1
         while true do
             local success = self:attempt_fire()
             if success then
@@ -86,6 +160,7 @@ function gun_default:update_burstfire()
                 end
                 break
             end
+            iter = iter + 1
         end
     end
 end
@@ -132,8 +207,8 @@ function gun_default:update_image_and_text_meta(meta)
     for i, v in pairs(self.properties.firemodes) do
         firemodes = firemodes+1
     end
-    if firemodes > 1 and self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]] then
-        image = image.."^"..self.properties.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]]
+    if firemodes > 1 and self.properties.inventory.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]] then
+        image = image.."^"..self.properties.inventory.firemode_inventory_overlays[self.properties.firemodes[self.current_firemode]]
     end
     if self.handler.infinite_ammo then
         image = image.."^"..self.properties.infinite_inventory_overlay
@@ -193,6 +268,12 @@ function gun_default:attempt_fire()
             self:play_sounds(fire_sound)
 
             self.rechamber_time = self.rechamber_time + (60/props.firerateRPM)
+
+            --acount for animation rotation in same update firing
+            if (self.rechamber_time<(60/props.firerateRPM)) and props.firemodes[self.current_firemode]~="single" then
+                self.animation_data.runtime = self.animation_data.runtime + (60/props.firerateRPM)
+                self:update_animation_transforms()
+            end
             return true
         end
     end
@@ -231,6 +312,77 @@ function gun_default:recoil()
     end
     self.time_since_last_fire = 0
 end
+function gun_default:open_inventory_menu()
+    local props = self.properties
+    local player = self.player
+    local pname = player:get_player_name()
+    local inv = minetest.get_inventory({type="player", name=pname})
+    local window = minetest.get_player_window_information(pname)
+    local listname = Guns4d.config.inventory_listname
+    local form_dimensions = {x=20,y=15}
+
+    local inv_height=4+((4-1)*.125)
+    local hotbar_length = player:hud_get_hotbar_itemcount()
+    local form = "\
+    formspec_version[7]\
+     size[".. form_dimensions.x ..",".. form_dimensions.y .."]"
+
+    local hotbar_height = math.ceil(hotbar_length/8)
+    form = form.."\
+    scroll_container[.25,"..(form_dimensions.y)-inv_height-1.25 ..";10,5;player_inventory;vertical;.05]\
+        list[current_player;"..listname..";0,0;"..hotbar_length..","..hotbar_height..";]\
+        list[current_player;"..listname..";0,1.5;8,3;"..hotbar_length.."]\
+    scroll_container_end[]\
+    "
+    if math.ceil(inv:get_size("main")/8) > 4 then
+        local h = math.ceil(inv:get_size("main")/8)
+        form=form.."\
+        scrollbaroptions[max="..h+((h-1)*.125).."]\
+        scrollbar[10.25,"..(form_dimensions.y)-inv_height-1.25 ..";.5,5;vertical;player_inventory;0]\
+        "
+    end
+    --display gun preview
+    local len = math.abs(self.model_bounding_box[3]-self.model_bounding_box[6])/props.visuals.scale
+    local hei = math.abs(self.model_bounding_box[2]-self.model_bounding_box[5])/props.visuals.scale
+    local offsets = {x=(-self.model_bounding_box[6]/props.visuals.scale)-(len/2), y=(self.model_bounding_box[5]/props.visuals.scale)+(hei/2)}
+
+    local meter_scale = 15
+    local image_scale = meter_scale*(props.inventory.render_size or 1)
+    local gun_gui_offset = {x=0,y=-2.5}
+    form = form.."container["..((form_dimensions.x-image_scale)/2)+gun_gui_offset.x.. ","..((form_dimensions.y-image_scale)/2)+gun_gui_offset.y.."]"
+    if props.inventory.render_image then
+        form = form.."image["
+        ..(offsets.x*meter_scale) ..","
+        ..(offsets.y*meter_scale) ..";"
+        ..image_scale..","
+        ..image_scale..";"
+        ..props.inventory.render_image.."]"
+    end
+    if self.part_handler then
+        --local attachment_inv = self.part_handler.virtual_inventory
+        if props.inventory.part_slots and self.part_handler then
+            for i, attachment in pairs(props.inventory.part_slots) do
+                form = form.."label["..(image_scale/2)+(attachment.formspec_offset.x or 0)-.75 ..","..(image_scale/2)+(-attachment.formspec_offset.y or 0)-.2 ..";"..(attachment.description or i).."]"
+                --list[<inventory location>;<list name>;<X>,<Y>;<W>,<H>;<starting item index>]
+                local width = attachment.slots or 1
+                width = width+((width-1)*.125)
+                form = form.."list[detached:guns4d_attachment_inv_"..pname..";"..i..";"..(image_scale/2)+(attachment.formspec_offset.x or 0)-(width/2)..","..(image_scale/2)+(-attachment.formspec_offset.y or 0)..";3,5;]"
+            end
+        end
+    end
+    form = form.."container_end[]"
+    minetest.show_formspec(self.handler.player:get_player_name(), "guns4d:inventory", form)
+end
+core.register_on_player_receive_fields(function(player, formname, fields)
+    if formname=="guns4d:inventory" and fields.quit then
+        local gun = Guns4d.players[player:get_player_name()].gun
+        gun:regenerate_properties()
+    end
+end)
+
+
+
+
 
 --- update the offsets of the player's look created by the gun
 function gun_default:update_look_offsets(dt)
@@ -275,21 +427,21 @@ function gun_default:update_look_offsets(dt)
 end
 --============================================== positional info =====================================
 --all of this dir shit needs to be optimized HARD
-function gun_default:get_gun_axial_dir()
+--[[function gun_default:get_gun_axial_dir()
     assert(self.instance, "attempt to call object method on a class")
     local rotation = self.total_offsets
     local dir = vector.new(vector.rotate({x=0, y=0, z=1}, {y=0, x=rotation.gun_axial.x*math.pi/180, z=0}))
     dir = vector.rotate(dir, {y=rotation.gun_axial.y*math.pi/180, x=0, z=0})
     return dir
-end
-function gun_default:get_player_axial_dir(rltv)
+end]]
+--[[function gun_default:get_player_axial_dir(rltv)
     assert(self.instance, "attempt to call object method on a class")
     local handler = self.handler
     local rotation = self.total_offsets
     local dir = vector.new(vector.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.player_axial.x)*math.pi/180), z=0}))
     dir = vector.rotate(dir, {y=((rotation.player_axial.y)*math.pi/180), x=0, z=0})
     if not rltv then
-        if (self.properties.sprite_scope and handler.control_handler.ads) or (self.properties.crosshair and not handler.control_handler.ads) then
+        if (self.properties.subclasses.sprite_scope and handler.control_handler.ads) or (self.properties.subclasses.crosshair and not handler.control_handler.ads) then
             --we need the head rotation in either of these cases, as that's what they're showing.
             dir = vector.rotate(dir, {x=handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
         else
@@ -297,44 +449,8 @@ function gun_default:get_player_axial_dir(rltv)
         end
     end
     return dir
-end
---This should be replaced with
---[[function gun_default:get_dir(rltv, offset_x, offset_y)
-    assert(self.instance, "attempt to call object method on a class")
-    local rotation = self.total_offsets
-    local handler = self.handler
-    --rotate x and then y.
-    --used symbolab.com to precalculate the rotation matrices to save on performance since spread for pellets has to run this.
-    local p = -(rotation.gun_axial.x+rotation.player_axial.x+(offset_x or 0))*math.pi/180
-    local y = -(rotation.gun_axial.y+rotation.player_axial.y+(offset_y or 0))*math.pi/180
-    local Cy = math.cos(y)
-    local Sy = math.sin(y)
-    local Cp = math.cos(p)
-    local Sp = math.sin(p)
-    local dir = {
-        x=Sy*Cy,
-        y=-Sp,
-        z=Cy*Cp
-    }
-    if not rltv then
-        p = -self.player_rotation.x*math.pi/180
-        y = -self.player_rotation.y*math.pi/180
-        Cy = math.cos(y)
-        Sy = math.sin(y)
-        Cp = math.cos(p)
-        Sp = math.sin(p)
-        dir = vector.new(
-            (Cy*dir.x)+(Sy*Sp*dir.y)+(Sy*Cp*dir.z),
-            (dir.y*Cp)-(dir.z*Sp),
-            (-dir.x*Sy)+(dir.y*Sp*Cy)+(dir.z*Cy*Cp)
-        )
-    else
-        dir = vector.new(dir)
-    end
-    return dir
 end]]
---probably doesnt get much more optimized then this.
-local bone_location = vector.new()
+
 local tmv3_rot = vector.new()
 local tmv4_in = {0,0,0,1}
 local tmv4_pivot_inv = {0,0,0,0}
@@ -346,50 +462,58 @@ local out = vector.new() --reserve the memory, we still want to create new vecto
 --gets the gun's position relative to the player. Relative indicates wether it's relative to the player's horizontal look
 --offset is relative to the's rotation
 
---- get the global position of the gun. This is customized to rely on the assumption that there are 3-4 main rotations and 2-3 translations. If the behavior of the bones are changed this method may not work
+--- get the global position of the gun. This is customized to rely on the assumption that there are 3-4 main rotations and 2-3 translations. If the behavior of the bones are changed this method may not work.
+-- the point of this is to allow the user to find the gun's object origin as well as calculate where a given point should be offset given the parameters.
 -- @tparam vec3 offset_pos
 -- @tparam bool relative_y wether the y axis is relative to the player's look
 -- @tparam bool relative_x wether the x axis is relative to the player's look
+-- @tparam bool with_animation wether rotational and translational offsets from the animation are applied
 -- @treturn vec3 position of gun (in global or local orientation) relative to the player's position
 function gun_default:get_pos(offset, relative_y, relative_x, with_animation)
     assert(self.instance, "attempt to call object method on a class")
     --local player = self.player
-    local handler = self.handler
-    local raw_bone_location = handler.player_model_handler.gun_bone_location
-    local vs = handler:get_properties().visual_size
-    bone_location.x, bone_location.y, bone_location.z = raw_bone_location.x, raw_bone_location.y, raw_bone_location.z
-    local gun_translation = self.gun_translation --needs a refactor
-    local root_transform = self.b3d_model.root_orientation_rest
-    offset = offset or empty_vec
-    --dir needs to be rotated twice seperately to avoid weirdness
-    local gun_scale = self.properties.visuals.scale
-    --player look. If its relative on a given axis we eliminate it by setting it to 0.
     local px = (relative_x and 0) or nil
     local py = (relative_y and 0) or nil
     local ax = ((not with_animation) and 0) or nil
     local ay = ((not with_animation) and 0) or nil
     local az = ((not with_animation) and 0) or nil
-    --offset is relative to the gun, which is rotated about the origin of the root bone, so we need to make the vector relative to the root's vector, rotate, and then bring it back to global space.
+    offset = offset or empty_vec
+
+    local gun_translation = self.gun_translation --needs a refactor
+    local root_transform = self.b3d_model.root_orientation_rest
+    --dir needs to be rotated twice seperately to avoid weirdness
+    local gun_scale = self.properties.visuals.scale
+    --generate rotation values based on our output
+
     ttransform=self:get_rotation_transform(ttransform,nil,nil,nil,nil,nil,px,py,ax,ay,az)
+
+    --change the pivot of `offset` to the root bone by making our vector relative to it (basically setting it to origin)
     tmv4_in[1], tmv4_in[2], tmv4_in[3] = offset.x-root_transform[13]*gun_scale, offset.y-root_transform[14]*gun_scale, offset.z-root_transform[15]*gun_scale
-    tmv4_offset = ttransform.mul_vec4(tmv4_offset, ttransform, tmv4_in)
+    tmv4_offset = ttransform.mul_vec4(tmv4_offset, ttransform, tmv4_in) --rotate by our rotation transform
+    --to bring it back to global space we need to find what we offset it by in `ttransform`'s local space, so we apply the transform to it
     tmv4_in[1], tmv4_in[2], tmv4_in[3] = root_transform[13]*gun_scale, root_transform[14]*gun_scale, root_transform[15]*gun_scale
-    tmv4_pivot_inv = ttransform.mul_vec4(tmv4_pivot_inv, ttransform, tmv4_in) --bring it back to global space by adding what we subtracted earlier (which has now been transformed.)
+    tmv4_pivot_inv = ttransform.mul_vec4(tmv4_pivot_inv, ttransform, tmv4_in)
+
+    --quickly add together tmv4_offset+tmv4_pivot_inv to get the global position of the offset relative to the entity
     tmv4_offset[1],tmv4_offset[2],tmv4_offset[3] = tmv4_offset[1]+tmv4_pivot_inv[1], tmv4_offset[2]+tmv4_pivot_inv[2], tmv4_offset[3]+tmv4_pivot_inv[3]
 
-    --the translation of the gun is translation of the root bone's coordinate system, so the gun_axial rotation would not affect it, therefore we set local rotations to 0.
+    --get the position of the gun entity in global space relative to the bone which it is attached to.
     ttransform=self:get_rotation_transform(ttransform, 0,0,0,nil,nil,px,py,ax,ay,az)
     tmv4_in[1], tmv4_in[2], tmv4_in[3] = gun_translation.x, gun_translation.y, gun_translation.z
     tmv4_gun = ttransform.mul_vec4(tmv4_gun, ttransform, tmv4_in)
 
-    --the bone location is determined by the rotation of the player alone. This currently only supports player look but will probably support the actual rotation in the future
+    --get the position of the bone globally
+    local bone_location = self.handler.player_model_handler.gun_bone_location
     if relative_y then
         out = vector.new(bone_location)
     else
-        tmv3_rot.y = -handler.look_rotation.y*math.pi/180
+        tmv3_rot.y = -self.handler.look_rotation.y*math.pi/180
         out = vector.rotate(bone_location, tmv3_rot)
     end
-    out.x, out.y, out.z = out.x+tmv4_gun[1]+tmv4_offset[1], out.y+tmv4_gun[2]+tmv4_offset[2], out.z+tmv4_gun[3]+tmv4_offset[3]
+    --add our global translations together
+    --bonepos + gunentity + gunoffset + animation offset
+    local anim = (with_animation and self.animation_translation) or empty_vec
+    out.x, out.y, out.z = out.x+anim.x+tmv4_gun[1]+tmv4_offset[1], out.y+anim.y+tmv4_gun[2]+tmv4_offset[2], out.z+anim.z+tmv4_gun[3]+tmv4_offset[3]
     return out
 end
 
@@ -423,12 +547,20 @@ function gun_default:get_rotation_transform(out, lx,ly,lz,gx,gy,px,py,ax,ay,az)
 end
 local forward = {0,0,1,0}
 local tmv4_out = {0,0,0,0}
-function gun_default:get_dir(rltv, offx, offy)
+-- get the direction for firing
+function gun_default:get_dir(rltv, offx, offy, suppress_anim)
     local rotations = self.total_offsets
+    local anim_x = (suppress_anim and 0) or nil
+    local anim_y = (suppress_anim and 0) or nil
+    local anim_z = (suppress_anim and 0) or nil
     if rltv then
-        ttransform = self:get_rotation_transform(ttransform, (-rotations.gun_axial.x-(offx or 0) )*trad, (-rotations.gun_axial.y-(offy or 0))*trad, nil,   nil, nil,   0, 0,      nil,nil,nil)
+        ttransform = self:get_rotation_transform(ttransform, (-rotations.gun_axial.x-(offx or 0) )*trad, (-rotations.gun_axial.y-(offy or 0))*trad, nil,   nil, nil,   0, 0,      anim_x,anim_y,anim_z)
     else
-        ttransform = self:get_rotation_transform(ttransform, (-rotations.gun_axial.x-(offx or 0))*trad, (-rotations.gun_axial.y-(offy or 0))*trad, nil,   nil, nil,   nil, nil,   nil,nil,nil)
+        local player_aim
+        if (self.properties.subclasses.sprite_scope and self.handler.control_handler.ads) or (self.properties.subclasses.crosshair and not self.handler.control_handler.ads)  then
+            player_aim=self.player:get_look_vertical()
+        end
+        ttransform = self:get_rotation_transform(ttransform, (-rotations.gun_axial.x-(offx or 0))*trad, (-rotations.gun_axial.y-(offy or 0))*trad, nil,   nil, nil,   player_aim, nil,   anim_x,anim_y,anim_z)
     end
     local tmv4 = ttransform.mul_vec4(tmv4_out, ttransform, forward)
     local pos = vector.new(tmv4[1], tmv4[2], tmv4[3])
@@ -443,15 +575,8 @@ function gun_default:add_entity()
     assert(self.instance, "attempt to call object method on a class")
     self.entity = minetest.add_entity(self.player:get_pos(), "guns4d:gun_entity")
     local props = self.properties
-    self.entity:set_properties({
-        mesh = props.visuals.mesh,
-        textures = props.visuals.textures,
-        backface_culling = props.visuals.backface_culling,
-        visual_size = {x=10*props.visuals.scale,y=10*props.visuals.scale,z=10*props.visuals.scale}
-    })
     Guns4d.gun_by_ObjRef[self.entity] = self
-    --obj:on_step()
-    --self:update_entity()
+    self:update_visuals()
 end
 local tmp_mat4_rot = mat4.identity()
 local ip_time = Guns4d.config.gun_axial_interpolation_time
@@ -461,12 +586,11 @@ local ip_time2 = Guns4d.config.translation_interpolation_time
 function gun_default:update_entity()
     local obj = self.entity
     local player = self.player
-    local axial_rot = self.total_offsets.gun_axial
     local handler = self.handler
     local props = self.properties
     --attach to the correct bone, and rotate
     local visibility = true
-    if self.sprite_scope and self.sprite_scope.hide_gun and (not (self.control_handler.ads_location == 0)) then
+    if self.subclass_instances.sprite_scope and self.subclass_instances.sprite_scope.hide_gun and (not (self.control_handler.ads_location == 0)) then
         visibility = false
     end
     --Irrlicht uses counterclockwise but we use clockwise.
@@ -601,21 +725,19 @@ function gun_default:update_recoil(dt)
             self.offsets.recoil[axis][i] = abs*sign
         end
     end
-    --print(self.velocities.recoil.player_axial.x, self.velocities.recoil.player_axial.y)
 end
 
 --- updates the gun's animation data
 -- @tparam dt
 function gun_default:update_animation(dt)
-    local ent = self.entity
+    --local ent = self.entity
     local data = self.animation_data
     data.runtime = data.runtime + dt
     data.current_frame = Guns4d.math.clamp(data.current_frame+(dt*data.fps), data.frames.x, data.frames.y)
     if data.loop and (data.current_frame > data.frames.y) then
         data.current_frame = data.frames.x
     end
-    --track rotations and applies to aim.
-    if self.consts.ANIMATIONS_OFFSET_AIM then self:update_animation_rotation() end
+    self:update_animation_transforms()
 end
 --IMPORTANT!!! this does not directly modify the animation_data table anymore, it's all hooked through ObjRef:set_animation() (init.lua) so if animation is set elsewhere it doesnt break.
 --this may be deprecated in the future- as it is no longer really needed now that I hook ObjRef functions.
@@ -729,40 +851,40 @@ end
 
 
 --should merge these functions eventually...
-function gun_default:update_animation_rotation()
+function gun_default:update_animation_transforms()
     local current_frame = self.animation_data.current_frame+self.consts.KEYFRAME_SAMPLE_PRECISION
     local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
     local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
     current_frame = current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION
-    local rotations = self.b3d_model.global_frames.rotation
-    local out
-    if rotations then
-        if rotations[frame1] then
-            if (not rotations[frame2]) or (current_frame==frame1) then
-                out = vector.new(rotations[frame1]:get_euler_irrlicht_bone())*180/math.pi
-                --print("rawsent")
-            else --to stop nan
-                local ip_ratio = (current_frame-frame1)/(frame2-frame1)
-                local vec1 = rotations[frame1]
-                local vec2 = rotations[frame2]
-                out = vector.new(vec1:slerp(vec2, ip_ratio):get_euler_irrlicht_bone())*180/math.pi
-            end
-        else
-            out = vector.copy(rotations[1])
-        end
-        --print(frame1, frame2, current_frame, dump(out))
+    local rotations = self.b3d_model.global_frames.root_rotation
+    local positions = self.b3d_model.global_frames.root_translation
+    local euler_rot
+    local trans
+    if not rotations[frame1] then --note that we are inverting the rotations, this is because b3d turns the wrong way or something? It might be an issue with LEEF idk.
+        euler_rot = vector.new(rotations[1]:get_euler_irrlicht_bone())*-1
     else
-        out = vector.new()
+        local ip_ratio = (frame2 and (current_frame-frame1)/(frame2-frame1)) or 1
+        local vec1 = rotations[frame1]
+        local vec2 = rotations[frame2] or rotations[frame1]
+        euler_rot = vector.new(vec1:slerp(vec2, ip_ratio):get_euler_irrlicht_bone())*-180/math.pi
     end
-    --we use a different rotation system
-    self.animation_rotation = -out
+
+    if not positions[frame1] then --note that we are inverting the rotations, this is because b3d turns the wrong way or something? It might be an issue with LEEF idk.
+        trans = positions[1]*-1
+    else
+        local ip_ratio = (frame2 and (current_frame-frame1)/(frame2-frame1)) or 1
+        local vec1 = positions[frame1]
+        local vec2 = positions[frame2] or positions[frame1]
+        trans = (vec1*(1-ip_ratio))+(vec2*ip_ratio)
+    end
+    self.animation_rotation = euler_rot
+    self.animation_translation = trans
 end
 
 --relative to the gun's entity. Returns left, right vectors.
 local out = {arm_left=vector.new(), arm_right=vector.new()}
 function gun_default:get_arm_aim_pos()
     local current_frame = self.animation_data.current_frame
-    print(current_frame)
     local frame1 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)
     local frame2 = math.floor(current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION)+1
     current_frame = current_frame/self.consts.KEYFRAME_SAMPLE_PRECISION
@@ -776,7 +898,6 @@ function gun_default:get_arm_aim_pos()
                     local ip_ratio = (current_frame-frame1)/(frame2-frame1)
                     local vec1 = self.b3d_model.global_frames[i][frame1]
                     local vec2 = self.b3d_model.global_frames[i][frame2]
-                    --print(current_frame, frame1, frame2, ip_ratio)
                     out[i] = vec1+((vec1-vec2)*ip_ratio)
                 end
             else
@@ -790,10 +911,13 @@ function gun_default:get_arm_aim_pos()
     --return vector.copy(self.b3d_model.global_frames.arm_left[1]), vector.copy(self.b3d_model.global_frames.arm_right[1])
 end
 
+--- ready the gun to be deleted
 function gun_default:prepare_deletion()
     self.released = true
     assert(self.instance, "attempt to call object method on a class")
     if self:has_entity() then self.entity:remove() end
-    if self.sprite_scope then self.sprite_scope:prepare_deletion() end
-    if self.crosshair then self.crosshair:prepare_deletion() end
+
+    for i, instance in pairs(self.subclass_instances) do
+        if instance.prepare_deletion then instance:prepare_deletion() end
+    end
 end

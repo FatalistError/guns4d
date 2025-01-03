@@ -22,28 +22,27 @@ local physics_system = leef.class.new_class:inherit({
 --calculate delta-velocity of a given forcefield
 --@tparam int index of the forcefield
 --@treturn deltaV of
-local rpos = vector.new()
 --not going to optimize this because AHHHHHHHHHH its a lot of vector math
 function physics_system:update(dt)
+    for i, v in pairs() do
+
+    end
 end
 function physics_system:calculate_dv(dt, i)
-    local pos =
-
-
-
     local field = self.forcefields[i]
     local borderR = field.border_radius
     local deadzoneR = field.deadzone_radius
     local midlineR = field.midline_radius
-    local fpos = field.pos
+    local field_pos = field.pos
+    local pos = field.target_pos
 
-    --rpos.x, rpos.y, rpos.z = pos.x-fpos.x,pos.y-fpos.y,pos.z-fpos.x
-    rpos = pos-fpos                                     --relative pos
-    local midline_intersect = rpos:normalize()*midlineR --dir*r is the intersect with midline
-    local d=(midline_intersect-pos):length()            --distance from midline
-    local e=  field.elastic_constant
-    local f = e*d^(math.abs(e)/e)                 --force
-
-    --local a = f/self.object_weight                      --acceleration
-    return a*dt                                         --change in velocity
+    local dir = (pos-field_pos):normalize()                  --direction of pos from field
+    local midline_intersect = dir*midlineR                   --dir*r is the intersect with midline
+    local dist = (midline_intersect-pos):length()-deadzoneR  --distance from midline's deadzone
+    if dist < 0 then return vector.new() end
+    -- if dist > 0 then we pull it to the radius
+    local e = field.elastic_constant
+    local ft = e*dist^(math.abs(e)/e) * vector.dot(dir, pos) --force applied to translation
+    local a = ft/self.object_weight                          --acceleration
+    return dir*(a*dt)
 end

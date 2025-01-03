@@ -48,7 +48,7 @@ var docs = [
 {path:"class/gun.html#lvl1_fields.properties.ammo", type:"field", title:"lvl1_fields.properties.ammo", text:"table defines what ammo the gun uses"},
 {path:"class/gun.html#lvl1_fields.properties.visuals", type:"field", title:"lvl1_fields.properties.visuals", text:"table defines visual attributes of the gun"},
 {path:"class/gun.html#lvl1_fields.properties.ammo_handler", type:"field", title:"lvl1_fields.properties.ammo_handler", text:"Ammo_handler the class (based on) ammo_handler to create an instance of and use. Default is Guns4d.ammo_handler"},
-{path:"class/gun.html#lvl1_fields.properties.attachment_handler", type:"field", title:"lvl1_fields.properties.attachment_handler", text:"Attachment_handler attachment_handler class to use. Default is Guns4d.attachment_handler"},
+{path:"class/gun.html#lvl1_fields.properties.part_handler", type:"field", title:"lvl1_fields.properties.part_handler", text:"Part_handler Part_handler class to use. Default is Guns4d.part_handler"},
 {path:"class/gun.html#lvl1_fields.properties.sprite_scope", type:"field", title:"lvl1_fields.properties.sprite_scope", text:"Sprite_scope sprite scope class to use"},
 {path:"class/gun.html#lvl1_fields.properties.crosshair", type:"field", title:"lvl1_fields.properties.crosshair", text:"Dynamic_crosshair crosshair class to use"},
 {path:"class/gun.html#lvl1_fields.properties.initial_vertical_rotation", type:"field", title:"lvl1_fields.properties.initial_vertical_rotation", text:"starting vertical rotation of the gun"},

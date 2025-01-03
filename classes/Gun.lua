@@ -21,8 +21,10 @@ local Vec = vector
 -- where def is the definition of your new gun- or rather the changed parts of it. So to make a new gun you can run Guns4d.gun:inherit()
 -- or you can do the same thing with a seperate class of weapons. Set name to "__template" for template classes of guns.
 --
--- *Please note:* there are likey undocumented fields that are used in internal functions. If you find one, please make an issue on Github.
+-- for properties: for tables where you wish to delete the parent class's fields altogether (since inheritence prevents this) you can set the field "__replace_old_table=true"
+-- additionally
 --
+-- *Please note:* there are likey undocumented fields that are used in internal functions. If you find one, please make an issue on Github.
 --
 -- @class gun
 -- @field properties @{lvl1_fields.properties|properties} which define the vast majority of gun attributes and may change accross instances
@@ -66,8 +68,12 @@ local gun_default = {
     muzzle_flash = Guns4d.effects.muzzle_flash,
     --- `vec3` translation of the gun relative to the "gun" bone or the player axial rotation.
     gun_translation = vector.new(),
-    --- `table` indexed list of modifiers not set by the gun but to be applied to the gun. After changing, gun:update_modifiers() must be called to update it. Also may contain lists of modifiers.
+    --- `table` indexed list of functions which are called when the gun's properties need to be built. This is used for things like attachments, etc.
     property_modifiers = nil,
+    --- `table` a list of ObjRefs that are attached to the gun as a result of attached_objects
+    attached_objects = {},
+    --- `table` list of subclass instances (i.e. Sprite_scope)
+    subclass_instances = {},
 
     --- properties
     --
@@ -85,14 +91,6 @@ local gun_default = {
     -- @field visuals `table` @{gun.properties.visuals|defines visual attributes of the gun}
     -- @compact
     properties = {
-        --- `Ammo_handler` the class (based on) ammo_handler to create an instance of and use. Default is `Guns4d.ammo_handler`
-        ammo_handler = Guns4d.ammo_handler,
-        --- `Attachment_handler` attachment_handler class to use. Default is `Guns4d.attachment_handler`
-        attachment_handler = Guns4d.attachment_handler,
-        --- `Sprite_scope` sprite scope class to use
-        sprite_scope = nil,
-        --- `Dynamic_crosshair` crosshair class to use
-        crosshair = nil,
         --- starting vertical rotation of the gun
         initial_vertical_rotation = -60,
         --- `float`=.5 max angular deviation (vertical) from breathing
@@ -123,7 +121,6 @@ local gun_default = {
         burst = 3,
         --- `table` containing a list of actions for PC users passed to @{Control_handler}
         pc_control_actions = { --used by control_handler
-            __overfill=true, --this table will not be filled in.
             aim = Guns4d.default_controls.aim,
             auto = Guns4d.default_controls.auto,
             reload = Guns4d.default_controls.reload,
@@ -133,7 +130,6 @@ local gun_default = {
         },
         --- `table` containing a list of actions for touch screen users passed to @{Control_handler}
         touch_control_actions = {
-            __overfill=true,
             aim = Guns4d.default_touch_controls.aim,
             auto = Guns4d.default_touch_controls.auto,
             reload = Guns4d.default_touch_controls.reload,
@@ -142,7 +138,7 @@ local gun_default = {
             jump_cancel_ads = Guns4d.default_touch_controls.jump_cancel_ads
         },
         inventory = {
-            --[[attachment_slots = {
+            --[[part_slots = {
                 underbarrel = {
                     formspec_inventory_location = {x=0, y=1}
                     slots = 2,
@@ -155,7 +151,32 @@ local gun_default = {
             },]]
             render_size = 2, --length (in meters) which is visible accross the z/forward axis at y/up=0, x=0. For orthographic this will be the scale of the orthographic camera. Default 2
             render_image = "m4_ortho.png", --expects an image of the right side of the gun, where the gun is facing the right. Default "m4_ortho.png"
-            --rendered_from_model = true --if true the rendering is automatically moved to the center of the screen
+            --- table of firemodes and their overlays in the player's inventory when the gun is on that firemode
+            firemode_inventory_overlays = { --#4
+                --singlefire default: "inventory_overlay_single.png"
+                single = "inventory_overlay_single.png",
+                --automatic default: "inventory_overlay_auto.png"
+                auto =  "inventory_overlay_auto.png",
+                --burstfire default: "inventory_overlay_burst.png"
+                burst =  "inventory_overlay_burst.png",
+                --safe default: "inventory_overlay_safe.png" (unimplemented firemode)
+                safe = "inventory_overlay_safe.png"
+            },
+        },
+        --- `table` a list of subclasses to create on construct and update. Note special fields `ammo_handler` and `part_handler`.
+        --
+        -- @table gun.properties.subclsses
+        -- @see lvl1_fields.properties|properties
+        -- @compact
+        subclasses = {
+            --- `Ammo_handler` the class (based on) ammo_handler to create an instance of and use. Default is `Guns4d.ammo_handler`
+            ammo_handler = Guns4d.ammo_handler,
+            --- `part_handler` Part_handler class to use. Default is `Guns4d.part_handler`
+            part_handler = Guns4d.part_handler,
+            --- `Sprite_scope` sprite scope class to use. Nil by default, inherit Sprite_scope for class (**documentation needed, reccomended contact for help if working with it**)
+            sprite_scope = nil,
+            --- `Dynamic_crosshair` crosshair class to use. Nil by default, set to `Guns4d.Dynamic_crosshair` for a generic circular expanding reticle.
+            crosshair = nil,
         },
         --- properties.ads
         --
@@ -196,22 +217,6 @@ local gun_default = {
         -- @field "auto"
         firemodes = { --#3
             "single", --not limited to semi-automatic.
-        },
-        --- properties.firemode_inventory_overlays
-        --
-        -- Defines the overlay on the gun item for each firemode. These are selected automatically by firemode string. Defaults are as follows:
-        -- @table gun.properties.firemode_inventory_overlays
-        -- @see lvl1_fields.properties|properties
-        -- @compact
-        firemode_inventory_overlays = { --#4
-            --- singlefire default: "inventory_overlay_single.png"
-            single = "inventory_overlay_single.png",
-            --- automatic default: "inventory_overlay_auto.png"
-            auto =  "inventory_overlay_auto.png",
-            --- burstfire default: "inventory_overlay_burst.png"
-            burst =  "inventory_overlay_burst.png",
-            --- safe default: "inventory_overlay_safe.png" (unimplemented firemode)
-            safe = "inventory_overlay_safe.png"
         },
         --- properties.recoil
         --
@@ -357,6 +362,18 @@ local gun_default = {
             textures = {},
             --- scale multiplier. Default 1
             scale = 1,
+            --- objects that are attached to the gun. This is especially useful for attachments
+            --
+            -- @example
+            --      my_object = {
+            --          textures = {"blank.png"},
+            --          visual_size = {x=1,y=1,z=1},
+            --          offset = {x=0,y=0,z=0},
+            --          bone = "main",
+            --          backface_culling = false,
+            --          glow = 0
+            --      }
+            attached_objects = {},
             --- toggles backface culling. Default true
             backface_culling = true,
             --- a table of animations. Indexes define the name of the animation to be refrenced by other functions of the gun.
@@ -381,7 +398,7 @@ local gun_default = {
         sounds = { --this does not contain reload sound effects.
             fire = {
                 {
-                    __overfill=true,
+                    __replace_old_table=true,
                     sound = "ar_firing",
                     max_hear_distance = 40, --far min_hear_distance is also this.
                     pitch = {
@@ -394,7 +411,7 @@ local gun_default = {
                     }
                 },
                 {
-                    __overfill=true,
+                    __replace_old_table=true,
                     sound = "ar_firing_far",
                     min_hear_distance = 40,
                     max_hear_distance = 600,
@@ -410,8 +427,10 @@ local gun_default = {
             },
         },
     },
-    --- `vector` containing the offset from animations, this will be generated if {@consts.ANIMATIONS_OFFSET_AIM}=true
+    --- `vector` containing the rotation offset from the current frame, this will be factored into the gun's direction if {@consts.ANIMATIONS_OFFSET_AIM}=true
     animation_rotation = vector.new(),
+    --- `vector` containing the translational/positional offset from the current frame
+    animation_translation = vector.new(),
     --- all offsets from @{offsets|gun.offset} of a type added together gun in the same format as a @{offsets|an offset} (that is, five vectors, `gun_axial`, `player_axial`, etc.). Note that if
     -- offsets are changed after update, this will not be updated automatically until the next update. update_rotations() must be called to do so.
     total_offsets = {
@@ -507,7 +526,7 @@ local gun_default = {
         --- `bool` wether the gun rotates on it's own axis instead of the player's view (i.e. ironsight misalignments)
         HAS_GUN_AXIAL_OFFSETS = true,
         --- wether animations create an offset
-        ANIMATIONS_OFFSET_AIM = false,
+        ANIMATIONS_OFFSET_AIM = true,
         --- whether the idle animation changes or not
         LOOP_IDLE_ANIM = false,
         --- general gain multiplier for third persons when hearing sounds
@@ -520,8 +539,14 @@ local gun_default = {
         ARM_RIGHT_BONE = "right_aimpoint",
         --- `string`="left_aimpoint", the bone which the left arm aims at to
         ARM_LEFT_BONE = "left_aimpoint",
+        --- `table` version of 4dguns this gun is made for. If left empty it will be assumed it is before 1.3.
+        VERSION = {1, 2, 0}
     },
 }
+gun_default._properties_unsafe = gun_default.properties
+gun_default.properties = leef.class.proxy_table.new(gun_default.properties)
+gun_default._consts_unsafe = gun_default.consts
+gun_default.consts = leef.class.proxy_table.new(gun_default.consts)
 
 minetest.register_entity("guns4d:gun_entity", {
     initial_properties = {

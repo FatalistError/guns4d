@@ -2,7 +2,8 @@ local Vec = vector
 Guns4d = {
     players = {},
     handler_by_ObjRef = {},
-    gun_by_ObjRef = {} --used for getting the gun object by the ObjRef of the gun
+    gun_by_ObjRef = {}, --used for getting the gun object by the ObjRef of the gun
+    version = {1, 3, 0}
 }
 --default config values, config will be added soon:tm:
 Guns4d.config = {
@@ -70,8 +71,9 @@ dofile(path.."/Bullet_hole.lua")
 dofile(path.."/Bullet_ray.lua")
 dofile(path.."/Control_handler.lua")
 dofile(path.."/Ammo_handler.lua")
-dofile(path.."/Attachment_handler.lua")
+dofile(path.."/Part_handler.lua")
 dofile(path.."/Sprite_scope.lua")
+dofile(path.."/Reflector_sight.lua")
 dofile(path.."/Dynamic_crosshair.lua")
 dofile(path.."/Gun.lua") --> loads /classes/gun_construct.lua
 dofile(path.."/Player_model_handler.lua")
@@ -143,6 +145,12 @@ minetest.register_chatcommand("ammoinf", {
 })
 
 --player handling
+setmetatable(Guns4d.handler_by_ObjRef, {
+    __mode = "kv"
+})
+setmetatable(Guns4d.gun_by_ObjRef, {
+    __mode = "kv"
+})
 local player_handler = Guns4d.player_handler
 local objref_mtable
 minetest.register_on_joinplayer(function(player)
@@ -199,21 +207,9 @@ minetest.register_on_joinplayer(function(player)
                 local data = gun.animation_data
                 data.runtime = 0
                 data.fps = frame_speed or 15
-                data.loop = frame_loop
-                --[[if frame_loop == nil then --still have no idea what nutjob made the default true >:(
-                    frame_loop = false
-                end
-                --so... minetest is stupid, and so it won't let me set something to the same animation twice (utterly fucking brilliant).
-                --This means I literally need to flip flop between +1 frames
-                --minetest.chat_send_all(dump(frame_range))
-                if (data.frames.x == frame_range.x and data.frames.y == frame_range.y) and not (frame_range.x==frame_range.y) then
-                     --oh yeah, and it only accepts whole frames... because of course.
-                    frame_range.x = frame_range.x
-                    --minetest.chat_send_all("+1")
-                end]]
-                --frame_blend = 25
-                --minetest.chat_send_all(dump(frame_range))
-                data.frames = frame_range
+                --dont use the frame_range table because it's parent could get GCed if it's a metatable (proxy table issue.)
+                data.frames.x = frame_range.x
+                data.frames.y = frame_range.y
                 data.current_frame = data.frames.x
             end
             return old_set_animation(self, frame_range, frame_speed, frame_blend, frame_loop, ...)

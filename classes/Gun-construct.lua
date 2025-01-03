@@ -13,7 +13,7 @@ local mat4 = leef.math.mat4
 *
 ]]
 
-local function initialize_data(self)
+local function initialize_tracking_meta(self)
     --create ID so we can track switches between weapons, also get some other data.
     local meta = self.itemstack:get_meta()
     self.meta = meta
@@ -30,15 +30,18 @@ local function initialize_data(self)
     end
 end
 local function initialize_ammo(self)
-    self.ammo_handler = self.properties.ammo_handler:new({ --initialize ammo handler from gun and gun metadata.
+    --initialize the ammo handler
+    self.ammo_handler = self.properties.subclasses.ammo_handler:new({ --initialize ammo handler from gun and gun metadata.
         gun = self
     })
-    local ammo = self.ammo_handler.ammo
+    self.subclass_instances.ammo_handler = self.ammo_handler
+    --draw the gun if properties specify it
     if self.properties.require_draw_on_swap then
-        ammo.next_bullet = "empty"
+        self.ammo_handler.ammo.next_bullet = "empty"
     end
-    minetest.after(0, function() if ammo.total_bullets > 0 then self:draw() end end)
-    self:update_image_and_text_meta() --has to be called manually in post as ammo_handler would not exist yet.
+    minetest.after(0, function() if self.ammo_handler.ammo.total_bullets > 0 then self:draw() end end) --call this as soon as the gun is loaded in
+    --update metadata
+    self:update_image_and_text_meta()
     self.player:set_wielded_item(self.itemstack)
 end
 
@@ -71,51 +74,59 @@ local function initialize_physics(self)
     end
 end
 
-local function initialize_animation(self)
+local function initialize_animation_tracking_data(self)
     self.animation_data = { --where animations data is stored.
-        anim_runtime = 0,
+        runtime = 0,
         length = 0,
         fps = 0,
-        frames = {0,0},
+        frames = {x=0,y=0},
         current_frame = 0,
     }
     self.player_rotation = vector.new(self.properties.initial_vertical_rotation,0,0)
     self.animation_rotation = vector.new()
+    self.animation_translation = vector.new()
 end
 
 function gun_default:construct_instance()
     assert(self.handler, "no player handler object provided")
-
-    --initialize important data.
-    self.player = self.handler.player
-    initialize_data(self)
-    initialize_ammo(self)
-
-    --unavoidable table instancing
-    self.properties = Guns4d.table.fill(self.base_class.properties, self.properties)
+    --instantiate some tables for runtime data
     self.property_modifiers = {}
+    self.subclass_instances = {}
     self.particle_spawners = {}
-    self.property_modifiers = {}
-
-    initialize_animation(self)
     initialize_physics(self)
 
-    if self.properties.inventory.attachment_slots then
-        self.attachment_handler = self.properties.attachment_handler:new({
+    --initialize important stuff
+    self.player = self.handler.player
+    self:add_entity()
+    initialize_tracking_meta(self)
+
+    --initialize properties now that any attachments or ammo modifiers have been applied
+    self._properties_unsafe = Guns4d.table.deep_copy(self.base_class.properties) --we need this copy because proxy tables dont prevent garbage collection
+    self.properties = leef.class.proxy_table.new(self._properties_unsafe)
+
+    --initialize built in subclasses
+    if self.properties.inventory and self.properties.inventory.part_slots then
+        self.subclass_instances.part_handler = self.properties.subclasses.part_handler:new({
             gun = self
         })
     end
-    if self.properties.sprite_scope then
-        self.sprite_scope = self.properties.sprite_scope:new({
-            gun = self
-        })
+
+    --initialize special subclasses
+    initialize_ammo(self)
+    initialize_animation_tracking_data(self)
+
+    --initialize any remaining subclasses
+    for i, class in pairs(self.properties.subclasses) do
+        if (not self.subclass_instances[i]) and (i~="part_handler") then
+            self.subclass_instances[i] = class:new({
+                gun = self
+            })
+        end
     end
-    if self.properties.crosshair then
-        self.crosshair = self.properties.crosshair:new({
-            gun = self
-        })
-    end
+    self.part_handler = self.subclass_instances.part_handler
+
     if self.custom_construct then self:custom_construct() end
+    self:regenerate_properties()
 end
 
 --[[
@@ -146,7 +157,7 @@ local function validate_controls(props)
     --validate controls, done before properties are filled to avoid duplication.
     if props.control_actions then
         for i, control in pairs(props.control_actions) do
-            if (i~="on_use") and (i~="on_secondary_use") and (i~="__overfill") then
+            if (i~="on_use") and (i~="on_secondary_use") and (i~="__replace_old_table") then
                 assert(control.conditions, "no conditions provided for control")
                 for _, condition in pairs(control.conditions) do
                     if not valid_ctrls[condition] then
@@ -162,7 +173,8 @@ local function initialize_b3d_animation_data(self, props)
     self.b3d_model.global_frames = {
         arm_right = {}, --the aim position of the right arm
         arm_left = {}, --the aim position of the left arm
-        rotation = {} --rotation of the gun (this is assumed as gun_axial, but that's probably fucked for holo sight alignments)
+        root_rotation = {},
+        root_translation = {}
     }
     --print(table.tostring(self.b3d_model))
     --precalculate keyframe "samples" for intepolation.
@@ -186,11 +198,16 @@ local function initialize_b3d_animation_data(self, props)
 
         --we compose it by the inverse because we need to get the global offset in rotation for the animation rotation offset. I really need to comment more often
         --print(leef.b3d_nodes.get_node_rotation(nil, main, nil, -1))
-        local newvec = leef.b3d_nodes.get_node_rotation(nil, main, nil, target_frame)*leef.b3d_nodes.get_node_rotation(nil, main, nil, props.visuals.animations.loaded.x):inverse()
+        --delta rotation
+        local this_transform, this_rotation = leef.b3d_nodes.get_node_global_transform(main, target_frame)
+        local rest_transform, rest_rotation = leef.b3d_nodes.get_node_global_transform(main, props.visuals.animations.loaded.x)
+        local quat = this_rotation*rest_rotation:inverse()
+        local vec3 = vector.new(this_transform[13], this_transform[14], this_transform[15])-vector.new(rest_transform[13], rest_transform[14], rest_transform[15]) --extract translation
         --used to use euler
-        table.insert(self.b3d_model.global_frames.rotation, newvec)
+        table.insert(self.b3d_model.global_frames.root_rotation, quat)
+        table.insert(self.b3d_model.global_frames.root_translation, vec3)
     end
-    local t, r = leef.b3d_nodes.get_node_global_transform(main, props.visuals.animations.loaded.x,1)
+    local t, _ = leef.b3d_nodes.get_node_global_transform(main, props.visuals.animations.loaded.x,1)
     self.b3d_model.root_orientation_rest = mat4.new(t)
     self.b3d_model.root_orientation_rest_inverse = mat4.invert(mat4.new(), t)
 
@@ -277,15 +294,38 @@ local function reregister_item(self, props)
         animation = self.properties.visuals.animations.loaded
     })
 end
+--accept a chain of indices where the value from old_index overrides new_index
+local function warn_deprecation(gun, field, new_field)
+    minetest.log("warning", "Guns4d: `"..gun.."` deprecated use of field `"..field.."` use `"..new_field.."` instead.")
+end
+local function patch_old_gun(self, minor_version)
+    local props = self.properties
+    --minor version 2 changes...
+    if minor_version==2 then
+        if props.firemode_inventory_overlays then
+            warn_deprecation(self.name, "firemode_inventory_overlays", "inventory.firemode_inventory_overlays")
+            for i, _ in pairs(props.firemode_inventory_overlays) do
+                props.inventory.firemode_inventory_overlays[i] = props.firemode_inventory_overlays[i]
+            end
+        end
+        for _, i in pairs {"ammo_handler", "part_handler", "crosshair", "sprite_scope"} do
+            if props[i] then
+                warn_deprecation(self.name, i, "subclasses."..i)
+                props.subclasses[i] = props[i]
+            end
+        end
+    end
+end
 --========================== MAIN CLASS CONSTRUCTOR ===============================
 
 function gun_default:construct_base_class()
-    local props = self.properties
 
-    --copy the properties
-    self.properties = Guns4d.table.fill(self.parent_class.properties, props or {})
-    self.consts = Guns4d.table.fill(self.parent_class.consts, self.consts or {})
-    props = self.properties
+    self._properties_unsafe = Guns4d.table.fill(self.parent_class.properties, self.properties or {})
+    self.properties = self._properties_unsafe
+    self._consts_unsafe = Guns4d.table.fill(self.parent_class.consts, self.consts or {})
+    self.consts = self._consts_unsafe
+
+    local props = self.properties
     validate_controls(props)
     assert((self.properties.recoil.velocity_correction_factor.gun_axial>=1) and (self.properties.recoil.velocity_correction_factor.player_axial>=1), "velocity correction must not be less than one.")
 
@@ -304,7 +344,18 @@ function gun_default:construct_base_class()
     for _, v in pairs(self.properties.ammo.accepted_magazines) do
         self.accepted_magazines[v] = true
     end
-    self.properties = leef.class.proxy_table:new(self.properties)
 
+    --versioning and backwards compatibility stuff
+    assert(self.consts.VERSION[1]==Guns4d.version[1], "Guns4d gun `"..self.name.." has major version mismatch")
+    if self.consts.VERSION[1] ~= Guns4d.version[1] then
+        minetest.log("error", "Guns4d gun `"..self.name.."` minor version mismatch")
+    end
+    if self.consts.VERSION[2] < 3 then
+        minetest.log("error", "Guns4d: `"..self.name.."` had minor version before `1.3.0` indicating that this gun likely has no versioning. Attempting patches for `1.2.0`...")
+        patch_old_gun(self, 2)
+    end
+
+    self.properties = leef.class.proxy_table.new(self.properties)
+    self.consts = leef.class.proxy_table.new(self.consts)
     Guns4d.gun._registered[self.name] = self --add gun self to the registered table
 end

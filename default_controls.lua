@@ -300,7 +300,8 @@ Guns4d.default_controls.reload = {
                 if type(next_state.sounds) == "table" then
                     sounds = Guns4d.table.deep_copy(props.reload[next_state_index].sounds)
                 elseif type(next_state.sounds) == "string" then
-                    sounds = Guns4d.table.deep_copy(assert(props.sounds[next_state.sounds], "no sound by the name of "..next_state.sounds))
+                    assert(props.sounds[next_state.sounds], "no sound by the name of "..next_state.sounds)
+                    sounds = Guns4d.table.deep_copy(props.sounds[next_state.sounds])
                 end
                 sounds.pos = gun.pos
                 data.played_sounds = {gun:play_sounds(sounds)}
