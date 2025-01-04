@@ -76,11 +76,9 @@ function Sprite_scope:update()
                 vec3_in.y = projection_pos.y/10
                 vec3_in.z = projection_pos.z/10
                 relative_pos = gun:get_pos(vec3_in, true, true, true)
-
                 relative_pos.x = relative_pos.x - (player_trans.x + (gun and gun.properties.ads.horizontal_offset or 0))
                 relative_pos.y = relative_pos.y - hip_trans.y - (player_trans.y + pprops.eye_height)
                 relative_pos.z = relative_pos.z - (player_trans.z)
-                gun:get_rotation_transform(transform,nil,nil,nil, nil,nil, 0,0)
             else
                 relative_pos = vec3_in
                 relative_pos.x = vec4_dir[1]

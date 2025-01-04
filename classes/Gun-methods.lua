@@ -465,9 +465,9 @@ local out = vector.new() --reserve the memory, we still want to create new vecto
 --- get the global position of the gun. This is customized to rely on the assumption that there are 3-4 main rotations and 2-3 translations. If the behavior of the bones are changed this method may not work.
 -- the point of this is to allow the user to find the gun's object origin as well as calculate where a given point should be offset given the parameters.
 -- @tparam vec3 offset_pos
--- @tparam bool relative_y wether the y axis is relative to the player's look
--- @tparam bool relative_x wether the x axis is relative to the player's look
--- @tparam bool with_animation wether rotational and translational offsets from the animation are applied
+-- @tparam bool relative_y wether the y axis player look rotation is set to 0
+-- @tparam bool relative_x wether the x axis player look rotation is set to 0
+-- @tparam bool with_animation wether rotational and translational offsets from the animation are applied or 0
 -- @treturn vec3 position of gun (in global or local orientation) relative to the player's position
 function gun_default:get_pos(offset, relative_y, relative_x, with_animation)
     assert(self.instance, "attempt to call object method on a class")
@@ -515,6 +515,8 @@ function gun_default:get_pos(offset, relative_y, relative_x, with_animation)
     local anim = (with_animation and self.animation_translation) or empty_vec
     out.x, out.y, out.z = out.x+anim.x+tmv4_gun[1]+tmv4_offset[1], out.y+anim.y+tmv4_gun[2]+tmv4_offset[2], out.z+anim.z+tmv4_gun[3]+tmv4_offset[3]
     return out
+end
+function gun_default:get_pos_relative_to_look()
 end
 
 local roll = mat4.identity() --roll offset (future implementation )
