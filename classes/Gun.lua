@@ -1,4 +1,4 @@
--- @module Gun
+-- @module gun
 
 local Vec = vector
 
