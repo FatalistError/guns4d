@@ -82,6 +82,7 @@ local function initialize_animation_tracking_data(self)
         frames = {x=0,y=0},
         current_frame = 0,
     }
+    self:clear_animation()
     self.player_rotation = vector.new(self.properties.initial_vertical_rotation,0,0)
     self.animation_rotation = vector.new()
     self.animation_translation = vector.new()
@@ -260,7 +261,7 @@ local function reregister_item(self, props)
     local old_on_use = item_def.on_use
     local old_on_s_use = item_def.on_secondary_use
     local old_on_drop = item_def.on_drop
-    self.properties.inventory_image = item_def.inventory_image
+    self.properties.inventory.inventory_image = item_def.inventory_image
     --override the item to hook in controls. (on_drop needed)
     minetest.override_item(self.itemstring, {
         on_use = function(itemstack, user, pointed_thing)

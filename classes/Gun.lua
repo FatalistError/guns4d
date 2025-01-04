@@ -155,7 +155,7 @@ local gun_default = {
             },
             --- `string` (optional) inventory image for when the gun has no magazine
             inventory_image_magless = nil,
-            --- `string` inventory image for when the gun is loaded. This is added automatically during construction.
+            --- `string` inventory image for when the gun is loaded. This is added automatically during construction as the item's wield image.
             inventory_image = nil,
             --[[part_slots = {
                 underbarrel = {
