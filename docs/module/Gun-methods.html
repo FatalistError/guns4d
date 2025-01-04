@@ -30,6 +30,12 @@
 <li><a href="#Gun-methods">Module <code>Gun-methods</code></a></li>
 </ul>
 </div>
+<div class="manual">
+<div class="heading">Manual</div>
+<ul>
+<li><a href="../manual/changelog.html">changelog 1.3.0</a></li>
+</ul>
+</div>
 <div class="classes">
 <div class="heading">Classes</div>
 <ul>
@@ -61,6 +67,11 @@
 <tr>
 <td class="name"><a href="#gun_default.update"><var>gun_default:update</var></a>()</td>
 <td class="doc"><p>The entry method for the update of the gun</p>
+</td>
+</tr>
+<tr>
+<td class="name"><a href="#gun_default.update_visuals"><var>gun_default:update_visuals</var></a>()</td>
+<td class="doc"><p>not typically called every step, updates the gun object's visuals</p>
 </td>
 </tr>
 <tr>
@@ -153,6 +164,11 @@
 <td class="doc"><p>plays a list of sounds for the gun's user and thirdpersons</p>
 </td>
 </tr>
+<tr>
+<td class="name"><a href="#gun_default.prepare_deletion"><var>gun_default:prepare_deletion</var></a>()</td>
+<td class="doc"><p>ready the gun to be deleted</p>
+</td>
+</tr>
 </table>
 </div>
 <dl class="functions">
@@ -172,6 +188,14 @@
 <td class="doc"></td>
 </tr>
 </table>
+</dd>
+<dt id="gun_default.update_visuals">
+<span class="icon"></span><var>gun_default:update_visuals</var>()
+<a class="permalink" href="#gun_default.update_visuals" title="Permalink to this definition">¶</a>
+</dt>
+<dd>
+<p>not typically called every step, updates the gun object's visuals</p>
+
 </dd>
 <dt id="gun_default.update_transforms">
 <span class="icon"></span><var>gun_default:update_transforms</var>()
@@ -242,7 +266,8 @@
 <a class="permalink" href="#gun_default.get_pos" title="Permalink to this definition">¶</a>
 </dt>
 <dd>
-<p>get the global position of the gun. This is customized to rely on the assumption that there are 3-4 main rotations and 2-3 translations. If the behavior of the bones are changed this method may not work</p>
+<p>get the global position of the gun. This is customized to rely on the assumption that there are 3-4 main rotations and 2-3 translations. If the behavior of the bones are changed this method may not work.
+the point of this is to allow the user to find the gun's object origin as well as calculate where a given point should be offset given the parameters.</p>
 
 <div class="heading">Parameters</div>
 <table class="parameters">
@@ -265,8 +290,9 @@
 </tr>
 <tr>
 <td class="name"><var>with_animation</var></td>
-<td class="types">()</td>
-<td class="doc"></td>
+<td class="types">(<em>bool</em>)</td>
+<td class="doc"><p>wether rotational and translational offsets from the animation are applied</p>
+</td>
 </tr>
 </table>
 <div class="heading">Return Values</div>
@@ -423,6 +449,14 @@
 </td>
 </tr>
 </table>
+</dd>
+<dt id="gun_default.prepare_deletion">
+<span class="icon"></span><var>gun_default:prepare_deletion</var>()
+<a class="permalink" href="#gun_default.prepare_deletion" title="Permalink to this definition">¶</a>
+</dt>
+<dd>
+<p>ready the gun to be deleted</p>
+
 </dd>
 </dl>
 </div>

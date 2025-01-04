@@ -194,13 +194,13 @@ function gun_default:update_image_and_text_meta(meta)
         end
     end
     --pick the image
-    local image = self.properties.inventory_image
+    local image = self.properties.inventory.inventory_image
     if (ammo.total_bullets > 0) and not ammo.magazine_psuedo_empty then
-        image = self.properties.inventory_image
-    elseif self.properties.inventory_image_magless and ( (ammo.loaded_mag == "empty") or (ammo.loaded_mag == "") or ammo.magazine_psuedo_empty) then
-        image = self.properties.inventory_image_magless
-    elseif self.properties.inventory_image_empty then
-        image = self.properties.inventory_image_empty
+        image = self.properties.inventory.inventory_image
+    elseif self.properties.inventory.inventory_image_magless and ( (ammo.loaded_mag == "empty") or (ammo.loaded_mag == "") or ammo.magazine_psuedo_empty) then
+        image = self.properties.inventory.inventory_image_magless
+    elseif self.properties.inventory.inventory_image_empty then
+        image = self.properties.inventory.inventory_image_empty
     end
     --add the firemode overlay to the image
     local firemodes = 0

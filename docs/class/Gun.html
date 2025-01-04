@@ -6,7 +6,7 @@
     <title>gun - Guns4d</title>
 	<link href="../prism.css?7653a2d" rel="stylesheet" />
     <link rel="stylesheet" href="../luadox.css?7653a2d" type="text/css">
-
+    
 </head>
 <body class="class-gun">
 <div class="topbar">
@@ -16,6 +16,7 @@
 <div class="group two">
 </div>
 <div class="group three">
+<div class="button iconleft"><a href="../manual/changelog.html" title="changelog"><img src="../img/i-left.svg?7653a2d" alt=""/><span>Previous</span></a></div>
 <div class="button iconright"><a href="../class/player_model_handler.html" title="player_model_handler"><span>Next</span><img src="../img/i-right.svg?7653a2d" alt=""/></a></div>
 </div>
 </div>
@@ -29,13 +30,15 @@
 <li><a href="#gun">Class <code>gun</code></a></li>
 <li><a href="#lvl1_fields.properties"><p>properties</p>
 </a></li>
+<li><a href="#gun.properties.inventory"><p>properties.inventory</p>
+</a></li>
+<li><a href="#gun.properties.subclsses"><p>properties.subclasses</p>
+</a></li>
 <li><a href="#gun.properties.ads"><p>properties.ads</p>
 </a></li>
 <li><a href="#gun.properties.hip"><p>properties.hip</p>
 </a></li>
 <li><a href="#gun.properties.firemodes"><p>properties.firemodes</p>
-</a></li>
-<li><a href="#gun.properties.firemode_inventory_overlays"><p>properties.firemode_inventory_overlays</p>
 </a></li>
 <li><a href="#gun.properties.recoil"><p>properties.recoil</p>
 </a></li>
@@ -49,10 +52,18 @@
 </a></li>
 <li><a href="#gun.properties.visuals"><p>properties.visuals</p>
 </a></li>
+<li><a href="#gun.properties.sounds"><p>properties.sounds</p>
+</a></li>
 <li><a href="#lvl1_fields.offsets"><p>offsets</p>
 </a></li>
 <li><a href="#lvl1_fields.consts"><p>consts</p>
 </a></li>
+</ul>
+</div>
+<div class="manual">
+<div class="heading">Manual</div>
+<ul>
+<li><a href="../manual/changelog.html">changelog 1.3.0</a></li>
 </ul>
 </div>
 <div class="classes">
@@ -79,7 +90,7 @@
 <a class="permalink" href="#gun" title="Permalink to this definition">¶</a>
 </h2>
 <div class="inner">
-<p>Gun class fields</p>
+<p>class fields</p>
 <h2>Defining a gun:</h2>
 <p><strong>method documentation coming soon</strong> (or never...)</p>
 <p>The appearance and handling of guns by default are defined by two table fields: their <a href="../class/gun.html#lvl1_fields.consts">consts</a> and their <a href="../class/gun.html#lvl1_fields.properties">properties</a>.
@@ -92,6 +103,8 @@ it's reccomended that you take a look at existing mods (like guns4d_pack_1) for 
 <p>Guns4d uses a class system for most moving parts- including the gun. New guns therefore are created with the :inherit(def) method,
 where def is the definition of your new gun- or rather the changed parts of it. So to make a new gun you can run Guns4d.gun:inherit()
 or you can do the same thing with a seperate class of weapons. Set name to &quot;__template&quot; for template classes of guns.</p>
+<p>for properties: for tables where you wish to delete the parent class's fields altogether (since inheritence prevents this) you can set the field &quot;__replace_old_table=true&quot;
+additionally</p>
 <p><em>Please note:</em> there are likey undocumented fields that are used in internal functions. If you find one, please make an issue on Github.</p>
 
 <div class="synopsis">
@@ -203,17 +216,27 @@ or you can do the same thing with a seperate class of weapons. Set name to &quot
 </tr>
 <tr>
 <td class="name"><var id="gun.property_modifiers">property_modifiers</var><a class="permalink" href="#gun.property_modifiers" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> indexed list of modifiers not set by the gun but to be applied to the gun. After changing, gun:update_modifiers() must be called to update it. Also may contain lists of modifiers.</p>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> indexed list of functions which are called when the gun's properties need to be built. This is used for things like attachments, etc.</p>
 </td>
 </tr>
 <tr>
-<td class="name"><var id="gun.sounds">sounds</var><a class="permalink" href="#gun.sounds" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>a table of <a href="../module/play_sound.html#guns4d_soundspec">soundspecs</a> to be referenced by other functions</p>
+<td class="name"><var id="gun.attached_objects">attached_objects</var><a class="permalink" href="#gun.attached_objects" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> a list of ObjRefs that are attached to the gun as a result of attached_objects</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.subclass_instances">subclass_instances</var><a class="permalink" href="#gun.subclass_instances" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> list of subclass instances (i.e. Sprite_scope)</p>
 </td>
 </tr>
 <tr>
 <td class="name"><var id="gun.animation_rotation">animation_rotation</var><a class="permalink" href="#gun.animation_rotation" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>vector</code> containing the offset from animations, this will be generated if {@consts.ANIMATIONS_OFFSET_AIM}=true</p>
+<td class="doc"><p><code>vector</code> containing the rotation offset from the current frame, this will be factored into the gun's direction if {@consts.ANIMATIONS_OFFSET_AIM}=true</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.animation_translation">animation_translation</var><a class="permalink" href="#gun.animation_translation" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>vector</code> containing the translational/positional offset from the current frame</p>
 </td>
 </tr>
 <tr>
@@ -257,11 +280,6 @@ offsets are changed after update, this will not be updated automatically until t
 </td>
 </tr>
 <tr>
-<td class="name"><var id="lvl1_fields.properties.firemode_inventory_overlays">firemode_inventory_overlays</var><a class="permalink" href="#lvl1_fields.properties.firemode_inventory_overlays" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> <a href="../class/gun.html#gun.properties.firemode_inventory_overlays">list of corresponding images for firemodes</a></p>
-</td>
-</tr>
-<tr>
 <td class="name"><var id="lvl1_fields.properties.recoil">recoil</var><a class="permalink" href="#lvl1_fields.properties.recoil" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> <a href="../class/gun.html#gun.properties.recoil">defines the guns recoil</a></p>
 </td>
@@ -292,28 +310,18 @@ offsets are changed after update, this will not be updated automatically until t
 </td>
 </tr>
 <tr>
-<td class="name"><var id="lvl1_fields.properties.ammo_handler">ammo_handler</var><a class="permalink" href="#lvl1_fields.properties.ammo_handler" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>Ammo_handler</code> the class (based on) ammo_handler to create an instance of and use. Default is <code>Guns4d.ammo_handler</code></p>
+<td class="name"><var id="lvl1_fields.properties.sounds">sounds</var><a class="permalink" href="#lvl1_fields.properties.sounds" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> <a href="../class/gun.html#gun.properties.sounds">defines sounds to be used by functions of the gun</a></p>
 </td>
 </tr>
 <tr>
-<td class="name"><var id="lvl1_fields.properties.part_handler">Part_handler</var><a class="permalink" href="#lvl1_fields.properties.part_handler" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>Part_handler</code> Part_handler class to use. Default is <code>Guns4d.part_handler</code></p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.sprite_scope">sprite_scope</var><a class="permalink" href="#lvl1_fields.properties.sprite_scope" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>Sprite_scope</code> sprite scope class to use</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.crosshair">crosshair</var><a class="permalink" href="#lvl1_fields.properties.crosshair" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>Dynamic_crosshair</code> crosshair class to use</p>
+<td class="name"><var id="lvl1_fields.properties.inventory">inventory</var><a class="permalink" href="#lvl1_fields.properties.inventory" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> <a href="../class/gun.html#gun.properties.inventory">inventory related attributes</a></p>
 </td>
 </tr>
 <tr>
 <td class="name"><var id="lvl1_fields.properties.initial_vertical_rotation">initial_vertical_rotation</var><a class="permalink" href="#lvl1_fields.properties.initial_vertical_rotation" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>starting vertical rotation of the gun</p>
+<td class="doc"><p><code>float</code> starting vertical rotation of the gun</p>
 </td>
 </tr>
 <tr>
@@ -332,16 +340,6 @@ offsets are changed after update, this will not be updated automatically until t
 </td>
 </tr>
 <tr>
-<td class="name"><var id="lvl1_fields.properties.inventory_image_magless">inventory_image_magless</var><a class="permalink" href="#lvl1_fields.properties.inventory_image_magless" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>string</code> inventory image for when the gun has no magazine</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="lvl1_fields.properties.inventory_image">inventory_image</var><a class="permalink" href="#lvl1_fields.properties.inventory_image" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>string</code> inventory image for when the gun is loaded. This is added automatically during construction.</p>
-</td>
-</tr>
-<tr>
 <td class="name"><var id="lvl1_fields.properties.reload">reload</var><a class="permalink" href="#lvl1_fields.properties.reload" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p>an ordered list of reloading states used by default_controls.</p>
 <p>the default reload states for a magazine operated weapon, copied from the m4.</p>
@@ -356,7 +354,7 @@ offsets are changed after update, this will not be updated automatically until t
 </tr>
 <tr>
 <td class="name"><var id="lvl1_fields.properties.model_bounding_box">model_bounding_box</var><a class="permalink" href="#lvl1_fields.properties.model_bounding_box" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>a table {x1,y1,z1,x2,y2,z2} specifying the bounding box of the model. The first 3 (x1,y1,z1) are the lower of their counterparts. This is autogenerated if not present.</p>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> (optional) a table <code>{x1,y1,z1, x2,y2,z2}</code> specifying the bounding box of the model. The first 3 (x1,y1,z1) are the lower of their counterparts. This is autogenerated from the model when not present, reccomended that you leave nil.</p>
 </td>
 </tr>
 <tr>
@@ -377,6 +375,79 @@ offsets are changed after update, this will not be updated automatically until t
 <tr>
 <td class="name"><var id="lvl1_fields.properties.touch_control_actions">touch_control_actions</var><a class="permalink" href="#lvl1_fields.properties.touch_control_actions" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> containing a list of actions for touch screen users passed to <a href="../module/Control_handler.html">Control_handler</a></p>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="section">
+<h2 class="table" id="gun.properties.inventory">properties.inventory
+
+<a class="permalink" href="#gun.properties.inventory" title="Permalink to this definition">¶</a>
+</h2>
+<div class="inner">
+<div class="see">See also <a href="../class/gun.html#lvl1_fields.properties">properties</a></div>
+
+<div class="synopsis">
+<table class="fields compact">
+<tr>
+<td class="name"><var id="gun.properties.inventory.render_size">render_size</var><a class="permalink" href="#gun.properties.inventory.render_size" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>the size in meters to render the gun in it's inventory opened with /guns4d_inv</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.inventory.render_image">render_image</var><a class="permalink" href="#gun.properties.inventory.render_image" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>the image of the gun in it's inventory opened with /guns4d_inv</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.inventory.firemode_inventory_overlays">firemode_inventory_overlays</var><a class="permalink" href="#gun.properties.inventory.firemode_inventory_overlays" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>table of firemodes and their overlays in the player's inventory when the gun is on that firemode</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.inventory.inventory_image_magless">inventory_image_magless</var><a class="permalink" href="#gun.properties.inventory.inventory_image_magless" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>string</code> (optional) inventory image for when the gun has no magazine</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.inventory.inventory_image">inventory_image</var><a class="permalink" href="#gun.properties.inventory.inventory_image" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>string</code> inventory image for when the gun is loaded. This is added automatically during construction.</p>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="section">
+<h2 class="table" id="gun.properties.subclsses">properties.subclasses
+
+<a class="permalink" href="#gun.properties.subclsses" title="Permalink to this definition">¶</a>
+</h2>
+<div class="inner">
+<div class="see">See also <a href="../class/gun.html#lvl1_fields.properties">properties</a></div>
+
+<div class="synopsis">
+<table class="fields compact">
+<tr>
+<td class="name"><var id="gun.properties.subclsses.ammo_handler">ammo_handler</var><a class="permalink" href="#gun.properties.subclsses.ammo_handler" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>Ammo_handler</code> the class (based on) ammo_handler to create an instance of and use. Default is <code>Guns4d.ammo_handler</code></p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.subclsses.part_handler">part_handler</var><a class="permalink" href="#gun.properties.subclsses.part_handler" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../class/gun.html#gun.properties.subclsses.part_handler"><code>part_handler</code></a> Part_handler class to use. Default is <code>Guns4d.part_handler</code></p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.subclsses.sprite_scope">sprite_scope</var><a class="permalink" href="#gun.properties.subclsses.sprite_scope" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>Sprite_scope</code> sprite scope class to use. Nil by default, inherit Sprite_scope for class (<strong>documentation needed, reccomended contact for help if working with it</strong>)</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="gun.properties.subclsses.crosshair">crosshair</var><a class="permalink" href="#gun.properties.subclsses.crosshair" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><code>Dynamic_crosshair</code> crosshair class to use. Nil by default, set to <code>Guns4d.Dynamic_crosshair</code> for a generic circular expanding reticle.</p>
 </td>
 </tr>
 </table>
@@ -465,41 +536,6 @@ offsets are changed after update, this will not be updated automatically until t
 </tr>
 <tr>
 <td class="name"><var id="gun.properties.firemodes."auto"">"auto"</var><a class="permalink" href="#gun.properties.firemodes."auto"" title="Permalink to this definition">¶</a></td>
-</tr>
-</table>
-</div>
-</div>
-</div>
-<div class="section">
-<h2 class="table" id="gun.properties.firemode_inventory_overlays">properties.firemode_inventory_overlays
-
-<a class="permalink" href="#gun.properties.firemode_inventory_overlays" title="Permalink to this definition">¶</a>
-</h2>
-<div class="inner">
-<p>Defines the overlay on the gun item for each firemode. These are selected automatically by firemode string. Defaults are as follows:
-<div class="see">See also <a href="../class/gun.html#lvl1_fields.properties">properties</a></div>
-
-<div class="synopsis">
-<table class="fields compact">
-<tr>
-<td class="name"><var id="gun.properties.firemode_inventory_overlays.single">single</var><a class="permalink" href="#gun.properties.firemode_inventory_overlays.single" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>singlefire default: &quot;inventory_overlay_single.png&quot;</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="gun.properties.firemode_inventory_overlays.auto">auto</var><a class="permalink" href="#gun.properties.firemode_inventory_overlays.auto" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>automatic default: &quot;inventory_overlay_auto.png&quot;</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="gun.properties.firemode_inventory_overlays.burst">burst</var><a class="permalink" href="#gun.properties.firemode_inventory_overlays.burst" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>burstfire default: &quot;inventory_overlay_burst.png&quot;</p>
-</td>
-</tr>
-<tr>
-<td class="name"><var id="gun.properties.firemode_inventory_overlays.safe">safe</var><a class="permalink" href="#gun.properties.firemode_inventory_overlays.safe" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p>safe default: &quot;inventory_overlay_safe.png&quot; (unimplemented firemode)</p>
-</td>
 </tr>
 </table>
 </div>
@@ -663,7 +699,7 @@ this means that increasing it decreases the time it takes for the angular veloci
 </tr>
 <tr>
 <td class="name"><var id="gun.properties.charging.draw_sound">draw_sound</var><a class="permalink" href="#gun.properties.charging.draw_sound" title="Permalink to this definition">¶</a></td>
-<td class="doc"><p><code>string</code> name of the sound to play from sounds. Default &quot;draw&quot;</p>
+<td class="doc"><p><code>string</code> name of the sound to play from <a href="../class/gun.html#gun.properties.sounds">sounds</a>. Default &quot;draw&quot;</p>
 </td>
 </tr>
 </table>
@@ -730,6 +766,21 @@ this means that increasing it decreases the time it takes for the angular veloci
 </td>
 </tr>
 <tr>
+<td class="name"><var id="gun.properties.visuals.attached_objects">attached_objects</var><a class="permalink" href="#gun.properties.visuals.attached_objects" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>objects that are attached to the gun. This is especially useful for attachments</p>
+<h5>Example</h5>
+<pre><code class="language-lua">my_object = {
+    textures = {&quot;blank.png&quot;},
+    visual_size = {x=1,y=1,z=1},
+    offset = {x=0,y=0,z=0},
+    bone = &quot;main&quot;,
+    backface_culling = false,
+    glow = 0
+}
+</code></pre>
+</td>
+</tr>
+<tr>
 <td class="name"><var id="gun.properties.visuals.backface_culling">backface_culling</var><a class="permalink" href="#gun.properties.visuals.backface_culling" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p>toggles backface culling. Default true</p>
 </td>
@@ -748,6 +799,27 @@ should be in the format <code>{x=integer,y=integer}</code></p>
 </code></pre>
 <p>There are other animations which are variable which are not listed here, these are usually defined by properties such as:
 reload, <a href="../class/gun.html#gun.properties.charging.draw_animation">draw_animation</a></p>
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="section">
+<h2 class="table" id="gun.properties.sounds">properties.sounds
+
+<a class="permalink" href="#gun.properties.sounds" title="Permalink to this definition">¶</a>
+</h2>
+<div class="inner">
+<p>other fields are defined by other properties such as <a href="../class/gun.html#gun.properties.charging.draw_sound">properties.charging.draw_sound</a> and <a href="../class/gun.html#lvl1_fields.properties.reload">properties.reload</a>
+<div class="see">See also <a href="../class/gun.html#lvl1_fields.properties">properties</a></div>
+<div class="see">See also <a href="../module/play_sound.html#guns4d_soundspec">soundspec</a></div>
+
+<div class="synopsis">
+<table class="fields compact">
+<tr>
+<td class="name"><var id="gun.properties.sounds.fire">fire</var><a class="permalink" href="#gun.properties.sounds.fire" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p>sound player when firing the weapon</p>
 </td>
 </tr>
 </table>
@@ -877,6 +949,11 @@ note rotations are in degrees, and translations are in meters.</p>
 <tr>
 <td class="name"><var id="lvl1_fields.consts.ARM_LEFT_BONE">ARM_LEFT_BONE</var><a class="permalink" href="#lvl1_fields.consts.ARM_LEFT_BONE" title="Permalink to this definition">¶</a></td>
 <td class="doc"><p><code>string</code>=&quot;left_aimpoint&quot;, the bone which the left arm aims at to</p>
+</td>
+</tr>
+<tr>
+<td class="name"><var id="lvl1_fields.consts.VERSION">VERSION</var><a class="permalink" href="#lvl1_fields.consts.VERSION" title="Permalink to this definition">¶</a></td>
+<td class="doc"><p><a href="../module/misc_helpers.html#table"><code>table</code></a> version of 4dguns this gun is made for. If left empty it will be assumed it is before 1.3.</p>
 </td>
 </tr>
 </table>

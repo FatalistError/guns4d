@@ -296,25 +296,32 @@ local function reregister_item(self, props)
 end
 --accept a chain of indices where the value from old_index overrides new_index
 local function warn_deprecation(gun, field, new_field)
-    minetest.log("warning", "Guns4d: `"..gun.."` deprecated use of field `"..field.."` use `"..new_field.."` instead.")
+    minetest.log("warning", "Guns4d: `"..gun.."` deprecated use of field `"..field.."` in properties. Use `"..new_field.."` instead.")
 end
-local function patch_old_gun(self, minor_version)
+local function patch_deprecated(self, minor_version)
     local props = self.properties
-    --minor version 2 changes...
-    if minor_version==2 then
-        if props.firemode_inventory_overlays then
-            warn_deprecation(self.name, "firemode_inventory_overlays", "inventory.firemode_inventory_overlays")
-            for i, _ in pairs(props.firemode_inventory_overlays) do
-                props.inventory.firemode_inventory_overlays[i] = props.firemode_inventory_overlays[i]
-            end
-        end
-        for _, i in pairs {"ammo_handler", "part_handler", "crosshair", "sprite_scope"} do
-            if props[i] then
-                warn_deprecation(self.name, i, "subclasses."..i)
-                props.subclasses[i] = props[i]
-            end
+    --1.2->1.3 (probably missing some.)
+    if props.firemode_inventory_overlays then
+        warn_deprecation(self.name, "firemode_inventory_overlays", "inventory.firemode_inventory_overlays")
+        for i, _ in pairs(props.firemode_inventory_overlays) do
+            props.inventory.firemode_inventory_overlays[i] = props.firemode_inventory_overlays[i]
         end
     end
+    for _, i in pairs {"ammo_handler", "part_handler", "crosshair", "sprite_scope"} do
+        if props[i] then
+            warn_deprecation(self.name, i, "subclasses."..i)
+            props.subclasses[i] = props[i]
+        end
+    end
+    if self.properties.inventory_image then
+        self.properties.inventory.inventory_image = self.properties.inventory_image
+        warn_deprecation(self.name, "inventory_image", "inventory.inventory_image")
+    end
+    if self.properties.inventory_image_magless then
+        self.properties.inventory.inventory_image_magless = self.properties.inventory_image_magless
+        warn_deprecation(self.name, "inventory_image_magless", "inventory.inventory_image_magless")
+    end
+
 end
 --========================== MAIN CLASS CONSTRUCTOR ===============================
 
@@ -352,7 +359,7 @@ function gun_default:construct_base_class()
     end
     if self.consts.VERSION[2] < 3 then
         minetest.log("error", "Guns4d: `"..self.name.."` had minor version before `1.3.0` indicating that this gun likely has no versioning. Attempting patches for `1.2.0`...")
-        patch_old_gun(self, 2)
+        patch_deprecated(self, 2)
     end
 
     self.properties = leef.class.proxy_table.new(self.properties)
