@@ -3,7 +3,7 @@ Guns4d = {
     players = {},
     handler_by_ObjRef = {},
     gun_by_ObjRef = {}, --used for getting the gun object by the ObjRef of the gun
-    version = {1, 3, 0}
+    version = {1, 3, 1}
 }
 --default config values, config will be added soon:tm:
 Guns4d.config = {
