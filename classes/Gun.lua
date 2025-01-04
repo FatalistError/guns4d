@@ -26,7 +26,7 @@ local Vec = vector
 --
 -- *Please note:* there are likey undocumented fields that are used in internal functions. If you find one, please make an issue on Github.
 --
--- @class gun
+-- @class gun.gun
 -- @display Gun
 -- @compact
 -- @field properties @{lvl1_fields.properties|properties} which define the vast majority of gun attributes and may change accross instances
