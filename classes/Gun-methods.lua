@@ -14,6 +14,7 @@ end
 --
 -- @tparam float dt
 function gun_default:update(dt)
+    --print(self.subclass_instances)
     assert(self.instance, "attempt to call object method on a class")
     if not self:has_entity() then self:add_entity() self:clear_animation() end
     --player look rotation. I'm going to keep it real, I don't remember what this math does. Player handler just stores the player's rotation from MT in degrees, which is for some reason inverted
@@ -60,12 +61,28 @@ function gun_default:regenerate_properties()
     for i, func in pairs(self.property_modifiers) do
         func(self)
     end
+    self:repair_subclasses()
     self.properties = leef.class.proxy_table.new(self.properties)
-    self:update_visuals()
+    self:regenerate_visuals()
 end
-
+function gun_default:repair_subclasses()
+    for i, base_class in pairs(self.properties.subclasses) do
+        local inst = self.subclass_instances[i]
+        -- check to see if doesnt exist or isn't the right class
+        if (not inst) or (inst.base_class~=base_class) then
+            --if it does exist, delete it.
+            if (inst) and inst.prepare_deletion then
+                inst:prepare_deletion()
+                print("deleted")
+            end
+            --create the right class
+            print("regenerated a class: ".. base_class.name)
+            self.subclass_instances[i] = base_class:new({gun=self})
+        end
+    end
+end
 --- not typically called every step, updates the gun object's visuals
-function gun_default:update_visuals()
+function gun_default:regenerate_visuals()
     local props = self.properties
     self.entity:set_properties({
         mesh = props.visuals.mesh,
@@ -578,7 +595,7 @@ function gun_default:add_entity()
     self.entity = minetest.add_entity(self.player:get_pos(), "guns4d:gun_entity")
     local props = self.properties
     Guns4d.gun_by_ObjRef[self.entity] = self
-    self:update_visuals()
+    self:regenerate_visuals()
 end
 local tmp_mat4_rot = mat4.identity()
 local ip_time = Guns4d.config.gun_axial_interpolation_time
@@ -915,7 +932,7 @@ end
 
 --- ready the gun to be deleted
 function gun_default:prepare_deletion()
-    self.released = true
+    print("prepare_deletion", debug.getinfo(2).short_src, debug.getinfo(2).linedefined)
     assert(self.instance, "attempt to call object method on a class")
     if self:has_entity() then self.entity:remove() end
 

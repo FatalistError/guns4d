@@ -172,27 +172,50 @@ end
 --@section table
 
 --copy everything
-function Guns4d.table.deep_copy(tbl, copy_metatable, indexed_tables)
-    if not indexed_tables then indexed_tables = {} end
+--[[function Guns4d.table.deep_copy(tbl, copy_metatable, indexed_tables)
     local new_table = {}
-    local metat = getmetatable(tbl)
-    if metat then
-        if copy_metatable then
-            setmetatable(new_table, metat)
-        end
-    end
+    if not indexed_tables then indexed_tables = {[tbl]=new_table} end
     for i, v in pairs(tbl) do
+        --print(type(v), i, v)
         if type(v) == "table" then
             if not indexed_tables[v] then
-                indexed_tables[v] = true
-                new_table[i] = Guns4d.table.deep_copy(v, copy_metatable)
+                new_table[i] = Guns4d.table.deep_copy(v, copy_metatable, indexed_tables)
+                indexed_tables[v] = new_table[i]
+            else
+                new_table[i] = indexed_tables[v]
             end
         else
             new_table[i] = v
         end
     end
+    if copy_metatable then setmetatable(new_table, getmetatable(tbl)) end
     return new_table
+end]]
+
+
+function Guns4d.table.deep_copy(in_value, copy_metatable, copied_list)
+    if not copied_list then copied_list = {} end
+    if copied_list[in_value] then return copied_list[in_value] end
+    if type(in_value)~="table" then return in_value end
+    local out = {}
+    copied_list[in_value] = out
+    for i, v in pairs(in_value) do
+        out[i] = Guns4d.table.deep_copy(v, copy_metatable, copied_list)
+    end
+    if copy_metatable then
+        setmetatable(out, getmetatable(in_value))
+    end
+    return out
 end
+local test = {}
+test.gay = {
+    gay = {
+        behind_me = {hell=1, test=test},
+        h = 1,
+        dead = "ten"
+    }
+}
+print(dump(Guns4d.table.deep_copy(test)))
 
 
 function Guns4d.table.contains(tbl, value)

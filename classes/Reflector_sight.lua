@@ -87,7 +87,6 @@ function Reflector_sight:update(dt)
         else
             distance = 0
         end
-        minetest.chat_send_all(distance)
         self.entity:set_properties({
             textures = {
                 blank,

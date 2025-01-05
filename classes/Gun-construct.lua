@@ -92,8 +92,10 @@ function gun_default:construct_instance()
     assert(self.handler, "no player handler object provided")
     --instantiate some tables for runtime data
     self.property_modifiers = {}
+    self.attached_objects = {}
     self.subclass_instances = {}
     self.particle_spawners = {}
+    self.gun_translation = vector.new()
     initialize_physics(self)
 
     --initialize important stuff
@@ -110,6 +112,7 @@ function gun_default:construct_instance()
         self.subclass_instances.part_handler = self.properties.subclasses.part_handler:new({
             gun = self
         })
+        self:regenerate_properties()
     end
 
     --initialize special subclasses

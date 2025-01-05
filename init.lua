@@ -57,16 +57,17 @@ end
 minetest.rmdir(modpath.."/temp", true)
 minetest.mkdir(modpath.."/temp")
 
-dofile(modpath.."/misc_helpers.lua")
-dofile(modpath.."/item_entities.lua")
-dofile(modpath.."/play_sound.lua")
-dofile(modpath.."/visual_effects.lua")
-dofile(modpath.."/default_controls.lua")
-dofile(modpath.."/touch_support.lua")
-dofile(modpath.."/block_values.lua")
-dofile(modpath.."/ammo_api.lua")
-dofile(modpath.."/menus_and_guides.lua")
-local path = modpath .. "/classes"
+local path = modpath .. "/common"
+dofile(path.."/misc_helpers.lua")
+dofile(path.."/item_entities.lua")
+dofile(path.."/play_sound.lua")
+dofile(path.."/visual_effects.lua")
+dofile(path.."/default_controls.lua")
+dofile(path.."/touch_support.lua")
+dofile(path.."/block_values.lua")
+dofile(path.."/ammo_api.lua")
+dofile(path.."/menus_and_guides.lua")
+path = modpath .. "/classes"
 dofile(path.."/Bullet_hole.lua")
 dofile(path.."/Bullet_ray.lua")
 dofile(path.."/Control_handler.lua")

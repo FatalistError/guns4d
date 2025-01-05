@@ -81,33 +81,34 @@ function Part_handler:construct()
             end
         end
         --initialize attachments
-        if meta:get_string("guns4d_attachments") == "" then
-            self.parts = {}
-            for i, partdef in pairs(self.gun.properties.inventory.part_slots) do
-                --set the size of the virtual inventory slot
-                inv:set_size(i, partdef.slots or 1)
-                self.parts[i] = {}
-                if type(partdef.default)=="string" then
-                    self:add_attachment(partdef.default)
+        if self.gun.properties.inventory.part_slots then
+            if meta:get_string("guns4d_attachments") == "" then
+                self.parts = {}
+                for i, partdef in pairs(self.gun.properties.inventory.part_slots) do
+                    --set the size of the virtual inventory slot
+                    inv:set_size(i, partdef.slots or 1)
+                    self.parts[i] = {}
+                    if type(partdef.default)=="string" then
+                        self:add_attachment(partdef.default)
+                    end
                 end
-            end
-            meta:set_string("guns4d_attachments", core.serialize(self.parts))
-        else
-            self.parts = core.deserialize(meta:get_string("guns4d_attachments"))
-            for slotname, slot in pairs(self.parts) do
-                --set the size of the virtual inventory slot
-                inv:set_size(slotname, self.gun.properties.inventory.part_slots[slotname].slots or 1)
-                for i, stack in pairs(slot) do
-                    slot[i] = ItemStack(stack)
-                    if type(i) == "number" then
-                        inv:set_stack(slotname, i, slot[i])
-                    else
-                        slot[i] = nil
+                meta:set_string("guns4d_attachments", core.serialize(self.parts))
+            else
+                self.parts = core.deserialize(meta:get_string("guns4d_attachments"))
+                for slotname, slot in pairs(self.parts) do
+                    --set the size of the virtual inventory slot
+                    inv:set_size(slotname, self.gun.properties.inventory.part_slots[slotname].slots or 1)
+                    for i, stack in pairs(slot) do
+                        slot[i] = ItemStack(stack)
+                        if type(i) == "number" then
+                            inv:set_stack(slotname, i, slot[i])
+                        else
+                            slot[i] = nil
+                        end
                     end
                 end
             end
         end
-        self.gun:regenerate_properties()
     end
 end
 
@@ -196,5 +197,6 @@ function Part_handler:remove_attachment(index, slot)
 end
 
 function Part_handler:prepare_deletion()
+    print("prepare_deletion", debug.getinfo(2).short_src, debug.getinfo(2).linedefined)
     core.remove_detached_inventory(self.invstring)
 end
