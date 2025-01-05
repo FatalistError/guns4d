@@ -64,22 +64,29 @@ function Ammo_handler:update_meta(bullets)
     end
     self.handler.player:set_wielded_item(self.gun.itemstack)
 end
+local mat4 = leef.math.mat4
+local m1 = mat4.identity()
 function Ammo_handler:get_magazine_bone_info()
     local gun = self.gun
     local handler = self.gun.handler
-    local node = leef.b3d_nodes.get_node_by_name(gun.b3d_model, gun.properties.visuals.magazine, true)
+    local node = leef.b3d_nodes.get_node_by_name(gun.b3d_model, gun.consts.MAG_BONE, true)
     --get trans of first frame
     if not node then
-        minetest.log("error", "improperly set gun magazine bone name, could not properly calculate magazine transformation.")
+        minetest.log("warning", "improperly set gun magazine bone name, could not properly calculate magazine transformation.")
         return self.gun.pos, vector.new(), vector.new()
     end
-    local pos1 = vector.new(leef.b3d_nodes.get_node_global_position(nil, node, true, math.floor(gun.animation_data.current_frame)))
-    local pos2 = vector.new(leef.b3d_nodes.get_node_global_position(nil, node, true, gun.animation_data.current_frame))
-    local vel = (pos2-pos1)*((gun.animation_data.current_frame-math.floor(gun.animation_data.current_frame))/gun.animation_data.fps)+self.gun.player:get_velocity()
-    local pos = self.gun:get_pos(pos2*gun.properties.visual_scale)+self.gun.handler:get_pos()
-    --[[so I tried to get the rotation before, and it actually turns out that was... insanely difficult? Why? I don't know, the rotation behavior was beyond unexpected, I tried implementing it with quats and
-    matrices and neither worked. I'm done, I've spent countless hours on this, and its fuckin stupid to spend a SECOND more on this pointless shit. It wouldnt even look that much better!]]
-    return pos, vel
+
+    --local pos1 = vector.new(leef.b3d_nodes.get_node_global_position(nil, node, true, math.floor(gun.animation_data.current_frame)))
+    --local pos2 = vector.new(leef.b3d_nodes.get_node_global_position(nil, node, true))
+
+    local rest_t, _ = leef.b3d_nodes.get_node_global_transform(node, gun.animation_data.current_frame, gun.properties.visuals.animations.loaded.x)
+    local t, _ = leef.b3d_nodes.get_node_global_transform(node, gun.animation_data.current_frame, 1)
+    t = mat4.multiply(m1, t, self.gun:get_rotation_transform(m1))
+    local scale = gun.properties.visuals.scale
+    local pos = gun.handler:get_pos()+self.gun:get_pos({x=t[13]*scale, y=t[14]*scale, z=t[15]*scale})
+    --local vel = (pos2-pos1)*((gun.animation_data.current_frame-math.floor(gun.animation_data.current_frame))/gun.animation_data.fps)+self.gun.player:get_velocity()
+    local rot = vector.new(mat4.multiply(mat4.identity(), t, rest_t:invert(rest_t)):get_rot_luanti_entity())
+    return pos, vector.new(), rot
 end
 --use a round, called when the gun is shot. Returns a bool indicating success.
 function Ammo_handler:spend_round()
@@ -274,14 +281,10 @@ function Ammo_handler:unload_magazine(to_ground)
         end
         --eject leftover or full stack
         if remaining:get_count() > 0 then
-            local pos, vel = self:get_magazine_bone_info()
+            local pos, vel, rot = self:get_magazine_bone_info()
             local object = minetest.add_item(pos, remaining)
             object:set_velocity(vel)
-            vector.new(-1,-1,1)
-            --look I'm not going to pretend I understand how fucking broken minetest's coordinate systems are, and I'm so fucking done with this shit, so this is good enough
-            object:set_rotation(vector.multiply(vector.dir_to_rotation(self.gun:get_dir()), vector.new(-1,1,0))+vector.new(0,math.pi,0))
-            --object:set_rotation(rot)
-            --object:add_velocity(vector.rotate({x=.6,y=-.3,z=.4}, {x=0,y=-self.handler.look_rotation.y*math.pi/180,z=0}))
+            object:set_rotation(vector.new())
         end
         self.ammo.loaded_mag = "empty"
         self.ammo.next_bullet = "empty"
