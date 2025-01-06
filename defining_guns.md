@@ -1,4 +1,4 @@
-
+# Defining guns
 # The basic structure
 
 The appearance and handling of guns by default are defined by two table fields: their @{lvl1_fields.consts|consts} and their @{lvl1_fields.properties|properties}.
