@@ -27,4 +27,8 @@
   * added `visuals.attached_objects` property to define attached entities
   * added `attached_objects` field
   * made `get_pos` capable of accounting for animation translations
+  *
+# changelog 1.3.2
+* #### crash with magazine unloading
+* #### other bugfixes
 
