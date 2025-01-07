@@ -103,7 +103,7 @@ local gun_default = {
         infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
         --- `int`=3 how many rounds in burst using when firemode is at "burst"
         burst = 3,
-        --- `table` containing a list of actions for PC users passed to @{Control_handler}. `__replace_only = true` in this table.
+        --- `table` containing a list of actions for PC users passed to @{Control_handler}. `__replace_only = true` in this table, meaning if the table exists in the new definition, it will be replaced.
         pc_control_actions = { --used by control_handler
             __replace_only = true,
             aim = Guns4d.default_controls.aim,
@@ -113,7 +113,7 @@ local gun_default = {
             firemode = Guns4d.default_controls.firemode,
             jump_cancel_ads = Guns4d.default_controls.jump_cancel_ads
         },
-        --- `table` containing a list of actions for touch screen users passed to @{Control_handler}. `__replace_only = true` in this table.
+        --- `table` containing a list of actions for touch screen users passed to @{Control_handler}. `__replace_only = true` in this table, meaning if the table exists in the new definition, it will be replaced.
         touch_control_actions = {
             __replace_only = true,
             aim = Guns4d.default_touch_controls.aim,
@@ -372,7 +372,7 @@ local gun_default = {
             --      }
             attached_objects = {},
             --- toggles backface culling. Default true
-            backface_culling = true,
+            backface_culling = false,
             --- a table of animations. Indexes define the name of the animation to be refrenced by other functions of the gun.
             -- should be in the format `{x=integer,y=integer}`
             -- @example

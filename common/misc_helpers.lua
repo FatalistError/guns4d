@@ -207,7 +207,7 @@ function Guns4d.table.deep_copy(in_value, copy_metatable, copied_list)
     end
     return out
 end
-local test = {}
+--[[local test = {}
 test.gay = {
     gay = {
         behind_me = {hell=1, test=test},
@@ -215,7 +215,7 @@ test.gay = {
         dead = "ten"
     }
 }
-print(dump(Guns4d.table.deep_copy(test)))
+print(dump(Guns4d.table.deep_copy(test)))]]
 
 
 function Guns4d.table.contains(tbl, value)
@@ -273,118 +273,79 @@ function Guns4d.table.tostring(tbl, shallow, list_length_lim, depth_limit, table
     end
     return str..string.sub(initial_string, 1, -5).."}"
 end
---[[function Guns4d.table.tostring_structure_only(tbl, shallow, tables, depth)
-    --create a list of tables that have been tostringed in this chain
-    if not table then return "nil" end
-    if not tables then tables = {this_table = tbl} end
-    if not depth then depth = 0 end
-    depth = depth + 1
-    local str = ""
-    local initial_string = "\n"
-    for i = 1, depth do
-        initial_string = initial_string .. "    "
-    end
-    if depth > 20 then
-        return "(TABLE): depth limited reached (20 nested tables)"
-    end
-    local iterations = 0
-    if tbl.name then
-        str = str..initial_string.."[\"name\"] = \""..tbl.name.."\","
-    end
-    if tbl.type then
-        str = str..initial_string.."[\"type\"] = \""..tbl.type.."\","
-    end
-    for i, v in pairs(tbl) do
-        iterations = iterations + 1
-        local val_type = type(v)
-        if val_type == "table" then
-            local contains = table_contains(tables, v)
-            --to avoid infinite loops, make sure that the table has not been tostringed yet
-            if not contains then
-                tables[parse_index(i).." ["..tostring(v).."]"] = v
-                str = str..initial_string..parse_index(i).."("..tostring(v)..") = "..Guns4d.table.tostring_structure_only(v, shallow, tables, depth)..","
-            elseif type(v) == "table" then
-                str = str..initial_string..parse_index(i).." = "..tostring(v)
-            else
-                str = str..initial_string..parse_index(i).." = "..tostring(v).." ("..tostring(v).."),"
-            end
-        end
-    end
-    if iterations == 0 then
-        return "{}"
-    elseif iterations > 100 then
-        return "table too long"
-    end
-    return "{"..str..string.sub(initial_string, 1, -5).."}"
-end]]
+
 
 --these need to be documented flags:
---__no_copy                       --the replacing (table) will not be copied, and the field containing it will be a reference to the orginal table found in replacement
---__replace_old_table = true      --the replacing table declares that the old table should be replaced with the new one
---__replace_only = true           --the original table declares that it should be replaced with the new one
+--__replace_old_table = true      --the replacing table declares that the old table should be replaced with the new one (if present)
+--__replace_only = true           --the original table declares that it should be replaced with the new one (if present)
 --[field] = "__redact_field"      --the field will be nil even if it existed in the old table
 
 --replace fields (and fill sub-tables) in `tbl` with elements in `replacement`. Recursively iterates all sub-tables. use property __replace_old_table=true for subtables that don't want to be overfilled.
-function Guns4d.table.fill(to_fill, replacement, overwrite_original, indexed_tables)
-    if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
-    local fill_table = to_fill
-    if not overwrite_original then
-        fill_table = Guns4d.table.deep_copy(to_fill)
+
+local redact_field = "__redact_field"
+function Guns4d.table.fill(to_fill, replacement, copy_metatable, traversed)
+    if replacement == redact_field then return nil end
+    if type(replacement)~="table" then return replacement end
+    if (not to_fill) or (replacement.__replace_old_table) or (to_fill.__replace_only) then return Guns4d.table.deep_copy(replacement, copy_metatable, traversed) end
+    if not traversed then traversed = {} end
+    if traversed[replacement] then return traversed[replacement] end
+    local out = {}
+    traversed[replacement] = out
+    for i, value in pairs(replacement) do
+        out[i] = Guns4d.table.fill(to_fill[i], value, copy_metatable, traversed)
+        if type(out[i])=="table" then out[i].__replace_old_table = nil end
     end
-    for i, v in pairs(replacement) do
-        if fill_table[i] then --check if it actually exists in the table we're filling
-
-            local replacement_type = type(v)
-            if replacement_type == "table" then
-
-                if (type(fill_table[i]) == "table") then
-                    --only need to check if it's been indexed if we're iterating downward into it where it could loop.
-                    if (not indexed_tables[v]) and (not replacement[i].__replace_old_table) and (not fill_table[i].__replace_only) then
-                        indexed_tables[v] = true
-                        --get the original table and not the copy otherwise
-                        fill_table[i] = Guns4d.table.fill(fill_table[i], replacement[i], true, indexed_tables)
-                    elseif not replacement[i].__no_copy then
-                        fill_table[i] = Guns4d.table.deep_copy(replacement[i])
-                    end
-
-                elseif not replacement[i].__no_copy then --if it's allowed to be copyed, since there's no table to fill in, we just copy it.
-                    fill_table[i] = Guns4d.table.deep_copy(replacement[i])
-                else
-                    fill_table[i] = replacement[i]
-                end
-
-                --cant modify the original table
-                if not replacement[i].__no_copy then
-                    fill_table[i].__no_copy = nil
-                    fill_table[i].__replace_old_table = nil
-                    fill_table[i].__replace_only = nil
-                end
-
-            elseif replacement[i] ~= "__redact_field" then
-                fill_table[i] = replacement[i]
-            end
-
-        else
-            fill_table[i] = replacement[i]
+    for i, v in pairs(to_fill) do
+        if (not out[i]) and (not replacement[i]~=redact_field) then
+            out[i] = Guns4d.table.deep_copy(to_fill[i], copy_metatable, traversed)
         end
     end
-    return fill_table
+
+    if copy_metatable then
+        setmetatable(out, getmetatable(to_fill))
+    end
+    return out
 end
---for class based OOP, ensure values containing a table in btbl are tables in a_tbl- instantiate, but do not fill.
---[[function table.instantiate_struct(tbl, btbl, indexed_tables)
-    if not indexed_tables then indexed_tables = {} end --store tables to prevent circular referencing
-    for i, v in pairs(btbl) do
-        if type(v) == "table" and not indexed_tables[v] then
-            indexed_tables[v] = true
-            if not tbl[i] then
-                tbl[i] = table.instantiate_struct({}, v, indexed_tables)
-            elseif type(tbl[i]) == "table" then
-                tbl[i] = table.instantiate_struct(tbl[i], v, indexed_tables)
-            end
-        end
-    end
-    return tbl
-end]]
+
+--[[local test = {}
+test.gay = {
+        behind_me = {
+            hell=1,
+            circular_reference=test,
+            redacted_field = "not redacted"
+        },
+        h = 1,
+        dead = "ten",
+        unchanged_variable = "unchanged_variable",
+        table_to_replace = {
+            __replace_only = true,
+            nil_var = false
+        },
+        table_to_replace2 ={
+            nil_var = false
+        }
+    }
+local test2 = {}
+test2.gay = {
+    behind_me = {
+        hell=1,
+        circular_reference=test2,
+        original_table=test,
+        redacted_field = "__redact_field"
+    },
+    h = 2,
+    dead = "twelve",
+    no_russian = true,
+    nobody = {},
+    table_to_replace = {
+        death = 1
+    },
+    table_to_replace2 = {
+        __replace_old_table = true
+    }
+}
+print(dump(Guns4d.table.fill(test, test2)))]]
+
 function Guns4d.table.shallow_copy(t)
     local new_table = {}
     for i, v in pairs(t) do

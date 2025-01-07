@@ -73,10 +73,8 @@ function gun_default:repair_subclasses()
             --if it does exist, delete it.
             if (inst) and inst.prepare_deletion then
                 inst:prepare_deletion()
-                print("deleted")
             end
             --create the right class
-            print("regenerated a class: ".. base_class.name)
             self.subclass_instances[i] = base_class:new({gun=self})
         end
     end
@@ -932,7 +930,6 @@ end
 
 --- ready the gun to be deleted
 function gun_default:prepare_deletion()
-    print("prepare_deletion", debug.getinfo(2).short_src, debug.getinfo(2).linedefined)
     assert(self.instance, "attempt to call object method on a class")
     if self:has_entity() then self.entity:remove() end
 

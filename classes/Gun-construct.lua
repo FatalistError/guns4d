@@ -127,6 +127,7 @@ function gun_default:construct_instance()
             })
         end
     end
+    self.control_handler = self.handler.control_handler
     self.part_handler = self.subclass_instances.part_handler
 
     if self.custom_construct then self:custom_construct() end

@@ -149,14 +149,15 @@ end
 function controls:toggle_touchscreen_mode(active)
     if active~=nil then self.touchscreen=active else self.touchscreen = not self.touchscreen end
     self.handler.touchscreen = self.touchscreen
-    for i, action in pairs((self.touchscreen and self.actions_pc) or self.actions_touch) do
+    --[[for i, action in pairs((self.touchscreen and self.actions_pc) or self.actions_touch) do
         if (i~="on_use") and (i~="on_secondary_use") then
             action.timer = action.timer or 0
             action.data = nil --no need to store excess data
         end
-    end
-    for i, action in pairs((self.touchscreen and self.actions_touch) or self.actions_pc) do
-        if(i~="on_use") and (i~="on_secondary_use") then
+    end]]
+    local actions = (self.touchscreen and self.actions_touch) or self.actions_pc
+    for i, action in pairs(actions) do
+        if (i~="on_use") and (i~="on_secondary_use") then
             action.timer = action.timer or 0
             action.data = {
                 timer = action.timer,
@@ -177,12 +178,19 @@ function controls.construct(def)
         def.actions_touch = Guns4d.table.deep_copy(def.gun.properties.touch_control_actions)
         def.busy_list = {}
         def.handler = Guns4d.players[def.player:get_player_name()]
-        --def.control_handler = def.handler.control_handler          has to be created afterwards so have the playerhandler add it to the fields.
+        --error("test")
+        for _, actions_list in pairs({def.actions_pc, def.actions_touch}) do
+            for i, action in pairs(actions_list) do
+                if (type(action)~="table") and (type(action)~="function") then
+                    actions_list[i] = nil
+                    print("action removed")
+                end
+            end
+            table.sort(actions_list, function(a,b)
+                return #a.conditions > #b.conditions
+            end)
+        end
         def:toggle_touchscreen_mode(def.touchscreen)
-
-        table.sort(def.actions_pc, function(a,b)
-            return #a.conditions > #b.conditions
-        end)
     end
 end
 Guns4d.control_handler = leef.class.new_class:inherit(Guns4d.control_handler)
