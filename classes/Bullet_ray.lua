@@ -4,7 +4,12 @@
 local ray = {
 
 
-
+    excluded_ents = {
+        ["__builtin:item"] = true,
+        ["guns4d:item"] = true,
+        ["guns4d:gun"] = true,
+        ["guns4d:reflector_sight]"] = true
+    },
 
     raw_blunt_damage = 0,
     blunt_penetration = nil, --if nil is half the energy of the gun
@@ -135,16 +140,19 @@ function ray:cast()
                 end
             end
             --if it's an object, make sure it's not the player object
-            --note that while it may seem like this will create a infinite hit loop, it resolves itself as the intersection_point of the next ray will be close enough as to skip the pointed. See first line of iterator.
-            if (hit.type == "object") and (hit.ref ~= self.player) and ((not self.last_pointed_object) or (hit.ref ~= self.last_pointed_object.ref)) then
-                end_pos = hit.intersection_point
-                if self.over_penetrate then
-                    pointed_object = hit
-                    break
-                else
-                    pointed_object = hit
-                    continue = false
-                    break
+            if (hit.type == "object") and hit.ref then
+                local luaent = hit.ref:get_luaentity().name
+                if (not self.excluded_ents[luaent.name]) and (hit.ref ~= self.player) and ((not self.last_pointed_object) or (hit.ref ~= self.last_pointed_object.ref)) then
+                    print(luaent.name)
+                    end_pos = hit.intersection_point
+                    if self.over_penetrate then
+                        pointed_object = hit
+                        break
+                    else
+                        pointed_object = hit
+                        continue = false
+                        break
+                    end
                 end
             end
         end

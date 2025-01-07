@@ -26,22 +26,20 @@ function player_handler:update(dt)
             --initialize important player data
             self.itemstack = self.wielded_item
             self.inventory = player:get_inventory()
-            --initialize our handlers
+
+            --create the gun
             if self.gun then --delete gun object if present
                 self.gun:prepare_deletion()
+                self.gun = nil
             end
             self.gun = held_gun:new({itemstack=self.wielded_item, handler=self}) --this will set itemstack meta, and create the gun based off of meta and other data.
+
             if self.player_model_handler then --if player_model_handler present, then delete
                 self.player_model_handler:prepare_deletion()
                 self.player_model_handler = nil
             end
             self.player_model_handler = Guns4d.player_model_handler.get_handler(self:get_properties().mesh):new({player=self.player})
-
-            print("gun initializing")
-            print(dump(Guns4d.control_handler:new({player=player, gun=self.gun, touchscreen=self.touchscreen})))
             self.control_handler = Guns4d.control_handler:new({player=player, gun=self.gun, touchscreen=self.touchscreen})
-
-            print("hello??? <=====================================================================================")
             self.gun.control_handler=self.control_handler
             --set_hud_flags
             player:hud_set_flags({wielditem = false, crosshair = false})
@@ -66,7 +64,6 @@ function player_handler:update(dt)
             self.walking = self:get_is_walking()
         end
     elseif self.gun then
-        print("control_handler nilled")
         self.control_handler = nil
         --delete gun object
         self.gun:prepare_deletion()

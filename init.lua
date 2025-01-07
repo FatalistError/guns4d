@@ -155,11 +155,6 @@ setmetatable(Guns4d.gun_by_ObjRef, {
 local player_handler = Guns4d.player_handler
 local objref_mtable
 minetest.register_on_joinplayer(function(player)
-    local pname = player:get_player_name()
-    Guns4d.players[pname] = player_handler:new({player=player}) --player handler does just what it sounds like- see classes/Player_handler
-    Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname]
-    --set the FOV to a predictable value
-    player:set_fov(Guns4d.config.default_fov)
     --ObjRef overrides will be integrated into leef (eventually TM)
     if not objref_mtable then
         objref_mtable = getmetatable(player)
@@ -257,13 +252,18 @@ end)
 --[[minetest.after(0, function()
 
 end)]]
+minetest.register_on_joinplayer(function(player)
+    local pname = player:get_player_name()
+    Guns4d.players[pname] = player_handler:new({player=player}) --player handler does just what it sounds like- see classes/Player_handler
+    Guns4d.handler_by_ObjRef[player] = Guns4d.players[pname]
+    player:set_fov(Guns4d.config.default_fov)
+end)
 minetest.register_on_leaveplayer(function(player)
     local pname = player:get_player_name()
     Guns4d.players[pname]:prepare_deletion()
     Guns4d.players[pname] = nil
     Guns4d.handler_by_ObjRef[player] = nil
 end)
-
 --ticks are rarely used, but still ideal for rare checks with minimal overhead.
 TICK = 0
 minetest.register_globalstep(function(dt)
@@ -276,13 +276,5 @@ minetest.register_globalstep(function(dt)
             handler = player_handler:new({player=player})
         end
         handler:update(dt)
-            --[[minetest.get_player_by_name(player):hud_add({
-                hud_elem_type = "compass",
-                text = "gay.png",
-                scale = {x=10, y=10},
-                alignment = {x=0,y=0},
-                offset = {x=-.5,y=-.5},
-                direction = 0
-            })]]
     end
 end)
