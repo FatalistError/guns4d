@@ -16,13 +16,13 @@ Guns4d.ammo = {
     registered_bullets = {},
     registered_magazines = {}
 }
-function Guns4d.ammo.on_hit_player(bullet, force_mmRHA)
-end
+
 function Guns4d.ammo.register_bullet(def)
     assert(def.itemstring, "no itemstring")
     assert(minetest.registered_items[def.itemstring], "no item '"..def.itemstring.."' found. Must be a registered item (check dependencies?)")
     Guns4d.ammo.registered_bullets[def.itemstring] = Guns4d.table.fill(Default_bullet, def)
 end
+
 function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     meta = meta or itemstack:get_meta()
     meta:set_string("guns4d_loaded_bullets", minetest.serialize({}))
@@ -42,6 +42,7 @@ function Guns4d.ammo.initialize_mag_data(itemstack, meta)
     Guns4d.ammo.update_mag(nil, itemstack, meta)
     return itemstack
 end
+
 function Guns4d.ammo.update_mag(def, itemstack, meta)
     def = def or Guns4d.ammo.registered_magazines[itemstack:get_name()]
     meta = meta or itemstack:get_meta()
@@ -57,6 +58,7 @@ function Guns4d.ammo.update_mag(def, itemstack, meta)
     end
     return itemstack
 end
+
 function Guns4d.ammo.register_magazine(def)
     def = Guns4d.table.fill(Default_mag, def)
     assert(def.accepted_bullets, "missing property def.accepted_bullets. Need specified bullets to allow for loading")

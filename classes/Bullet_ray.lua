@@ -1,19 +1,27 @@
+
+
+
 local ray = {
-    history = {},
-    state = "free",
-    --pos = pos,
-    last_node = "",
-    bullet_hole_class = Guns4d.bullet_hole,
-    --last_dir
-    --exit_direction = dir,
-    --range_left = def.bullet.range,
-    --energy = def.bullet.penetration_RHA
-    --raw_sharp_damage = 0,
-    --raw_blunt_damage = 0,
-    --sharp_penetration = 0,
+
+
+
+
+    raw_blunt_damage = 0,
+    blunt_penetration = nil, --if nil is half the energy of the gun
+    raw_sharp_damage = 0,
+    sharp_penetration = 0,
+    supersonic_energy = Guns4d.config.minimum_supersonic_energy_assumption,
+    pass_sound_mixing_factor = Guns4d.config.default_pass_sound_mixing_factor, --determines the ratio to use based on energy
+    iteration_distance = Guns4d.config.default_penetration_iteration_distance,
+    energy = 0,
+    pellets = 1, --the "number of bullets"
+    wall_penetration = true, --is set to false by default if pellets are greater then one.
+    spread = 0, --defaults to 1 if pellets > 0 but spread not defined.
     sharp_to_blunt_conversion_factor = .5, -- 1mmRHA is converted to 1mPA of blunt force
     blunt_damage_groups = {}, --minetest.deserialize(Guns4d.config.default_blunt_groups), --these are multiplied by blunt_damage
     sharp_damage_groups = {}, --minetest.deserialize(Guns4d.config.default_sharp_groups),
+
+
     pass_sounds = {
         --[1] will be preferred if present
         supersonic = {
@@ -42,17 +50,13 @@ local ray = {
         },
     },
     --whizz_sound_players = {}, needs to be instantiated anyway
-    supersonic_energy = Guns4d.config.minimum_supersonic_energy_assumption,
     pass_sound_max_distance = 6,
     mix_supersonic_and_subsonic_sounds = Guns4d.config.mix_supersonic_and_subsonic_sounds,
-    pass_sound_mixing_factor = Guns4d.config.default_pass_sound_mixing_factor, --determines the ratio to use based on energy
-    damage = 0,
-    energy = 0,
     spread_deviation = 1, --deviation of the standard distribution represented. The lower the closer to the center of the spread a pellet is more likely to be.
-    spread = 0, --defaults to 1 if pellets present but spread not defined.
-    pellets = 1,
-    wall_penetration = true, --turns off by default if pellets are greater then one.
-    iteration_distance = Guns4d.config.default_penetration_iteration_distance,
+    history = {},
+    state = "free",
+    last_node = "",
+    bullet_hole_class = Guns4d.bullet_hole,
 }
 
 --find (valid) edge. Slabs or other nodeboxes that are not the last hit position are not considered (to account for holes) TODO: update to account for hollow nodes
@@ -382,27 +386,8 @@ function ray:simple_cast(pos, dir)
 end
 function ray.construct(def)
     if def.instance then
-        --these asserts aren't necessary, probably drags down performance a tiny bit.
-
-        --[[assert(def.player, "no player")
-        assert(def.pos, "no position")
-        assert(def.dir, "no direction")
-
-        assert(def.gun, "no Gun object")
-        assert(def.range, "no range")
-        assert(def.energy, "no energy")
-        assert(def.energy_dropoff, "no energy dropoff")]]
-
         assert((not (def.blunt_penetration and def.energy)) or (def.blunt_penetration < def.energy), "blunt penetration may not be greater than energy! Blunt penetration is in Joules/Megapascals, energy is also in Joules.")
 
-        --guns4d mmRHA is used in traditional context.
-        --assert((not def.blunt_damage_groups) or not def.blunt_damage_groups["guns4d_mmRHA"], "guns4d_mmRHA damage group is not used in a traditional context. To increase penetration, increase sharp_penetration field.")
-        --assert((not def.blunt_damage_groups) or not def.blunt_damage_groups["guns4d_Pa"], "guns4d_Pa is not used in a traditional context. To increase blunt penetration, increase blunt_penetration field.")
-
-
-        def.raw_sharp_damage = def.raw_sharp_damage or 0
-        def.raw_blunt_damage = def.raw_blunt_damage or 0
-        def.sharp_penetration = def.sharp_penetration or 0
         if def.sharp_penetration==0 then
             def.blunt_penetration = def.blunt_penetration or def.energy/2
         else

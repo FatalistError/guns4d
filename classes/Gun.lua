@@ -4,11 +4,13 @@ local Vec = vector
 
 --- class fields
 --
--- ## Defining a gun:
---
--- **method documentation coming soon** (or never...)
---
--- *Please note:* there are likey undocumented fields that are used in internal functions. If you find one, please make an issue on Github.
+-- (this class found in `Guns4d.gun`)
+-- the following fields (placed anywhere) are used to perform special actions:
+
+-- @example
+--      __no_copy                       --the replacing (table) will not be copied, and the field containing it will be a reference to the orginal table found in replacement
+--      __replace_old_table = true      --the replacing table declares that the old table should be replaced with the new one
+--      __replace_only = true           --the original table declares that it should be replaced with the new one
 --
 -- @class gun
 -- @display gun
@@ -101,8 +103,9 @@ local gun_default = {
         infinite_inventory_overlay = "inventory_overlay_inf_ammo.png",
         --- `int`=3 how many rounds in burst using when firemode is at "burst"
         burst = 3,
-        --- `table` containing a list of actions for PC users passed to @{Control_handler}
+        --- `table` containing a list of actions for PC users passed to @{Control_handler}. `__replace_only = true` in this table.
         pc_control_actions = { --used by control_handler
+            __replace_only = true,
             aim = Guns4d.default_controls.aim,
             auto = Guns4d.default_controls.auto,
             reload = Guns4d.default_controls.reload,
@@ -110,8 +113,9 @@ local gun_default = {
             firemode = Guns4d.default_controls.firemode,
             jump_cancel_ads = Guns4d.default_controls.jump_cancel_ads
         },
-        --- `table` containing a list of actions for touch screen users passed to @{Control_handler}
+        --- `table` containing a list of actions for touch screen users passed to @{Control_handler}. `__replace_only = true` in this table.
         touch_control_actions = {
+            __replace_only = true,
             aim = Guns4d.default_touch_controls.aim,
             auto = Guns4d.default_touch_controls.auto,
             reload = Guns4d.default_touch_controls.reload,

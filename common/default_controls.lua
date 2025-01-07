@@ -1,4 +1,5 @@
---- a default control system for aiming, reloading, firing, reloading, and more.
+--- default controls used by the gun. Can be used to handle reloading
+-- @module default_controls
 
 Guns4d.default_controls = {
     controls = {}
@@ -81,6 +82,10 @@ end
 
 
 local reload_actions = {}
+
+-- @function Guns4d.default_controls.register_reloading_state_type
+-- @tparam string name
+-- @param def table
 function Guns4d.default_controls.register_reloading_state_type(name, def)
     assert(type(def)=="table", "improper definition type")
     assert(type(def.on_completion)=="function", "action has no completion function") --return a bool (or nil) indicating wether to progress. Nil returns the function (breaking out of the reload cycle.)
@@ -108,21 +113,11 @@ reg_mstate("unload_mag", {
 
 reg_mstate("store", {
     on_completion = function(gun, ammo_handler, next_state)
-        --[[local pause = false
-        --needs to happen before so we don't detect the ammo we just unloaded
-        if not ammo_handler:inventory_has_ammo() then
-            pause=true
-        end]]
         if gun.properties.ammo.magazine_only and (ammo_handler.ammo.loaded_mag ~= "empty") then
             ammo_handler:unload_magazine()
         else
             ammo_handler:unload_all()
         end
-        --if there's no ammo make hold so you don't reload the same ammo you just unloaded.
-        --[[if pause then
-            return
-        end
-        return true]]
     end,
     validation_check = function(gun, ammo_handler, next_state)
         if gun.properties.ammo.magazine_only and (ammo_handler.ammo.loaded_mag == "empty") then
