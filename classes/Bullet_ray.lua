@@ -141,7 +141,7 @@ function ray:cast()
             end
             --if it's an object, make sure it's not the player object
             if (hit.type == "object") and hit.ref then
-                local luaent = hit.ref:get_luaentity().name
+                local luaent = hit.ref:get_luaentity()
                 if (not self.excluded_ents[luaent.name]) and (hit.ref ~= self.player) and ((not self.last_pointed_object) or (hit.ref ~= self.last_pointed_object.ref)) then
                     print(luaent.name)
                     end_pos = hit.intersection_point
