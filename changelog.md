@@ -1,5 +1,8 @@
-# changelog 1.3.4
+# changelog 1.3.5
 * #### reworked the table proxy system to allow for better changes to properties while active
+
+# changelog 1.3.4
+* #### bug fixes?
 
 # changelog 1.3.3
 * #### changes unkown
