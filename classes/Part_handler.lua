@@ -197,6 +197,6 @@ function Part_handler:remove_attachment(index, slot)
 end
 
 function Part_handler:prepare_deletion()
-    print("prepare_deletion", debug.getinfo(2).short_src, debug.getinfo(2).linedefined)
+    --print("prepare_deletion", debug.getinfo(2).short_src, debug.getinfo(2).linedefined)
     core.remove_detached_inventory(self.invstring)
 end

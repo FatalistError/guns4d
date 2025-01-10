@@ -174,16 +174,15 @@ function controls.construct(def)
         assert(def.gun.properties.touch_control_actions, "no actions for touchscreen controls provided")
         assert(def.player, "no player provided")
         --instantiate controls (as we will be adding to the table)
+        print(dump(def))
         def.actions_pc = Guns4d.table.deep_copy(def.gun.properties.pc_control_actions)
         def.actions_touch = Guns4d.table.deep_copy(def.gun.properties.touch_control_actions)
         def.busy_list = {}
         def.handler = Guns4d.players[def.player:get_player_name()]
-        --error("test")
         for _, actions_list in pairs({def.actions_pc, def.actions_touch}) do
             for i, action in pairs(actions_list) do
                 if (type(action)~="table") and (type(action)~="function") then
                     actions_list[i] = nil
-                    print("action removed")
                 end
             end
             table.sort(actions_list, function(a,b)

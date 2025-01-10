@@ -547,7 +547,7 @@ local gun_default = {
         VERSION = {1, 2, 0}
     },
 }
-gun_default._properties_unsafe = gun_default.properties
+gun_default._PROPERTIES_UNSAFE = gun_default.properties
 gun_default.properties = leef.class.proxy_table.new(gun_default.properties)
 gun_default._consts_unsafe = gun_default.consts
 gun_default.consts = leef.class.proxy_table.new(gun_default.consts)

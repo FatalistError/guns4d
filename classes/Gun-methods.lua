@@ -55,14 +55,33 @@ function gun_default:update(dt)
     self:update_transforms()
 end
 
+local function recursive_unset_overrides(proxy, accessed)
+    if not accessed then accessed = {} end
+    if accessed[proxy] then return end
+    accessed[proxy]=true
+    local overrides = proxy.__LEEF_PROXY_OVERRIDES
+    local original = leef.class.proxy_table.objects_by_proxy
+    for i, v in pairs(overrides) do
+        if (type(v)=="table") then
+            if (v.__LEEF_PROXY_PARENT==original[i]) then
+                recursive_unset_overrides(proxy, accessed)
+            else
+                overrides[i]=nil
+            end
+        else
+            overrides[i] = nil
+        end
+    end
+end
 function gun_default:regenerate_properties()
-    self._properties_unsafe = Guns4d.table.deep_copy(self.base_class.properties)
-    self.properties = self._properties_unsafe
-    for i, func in pairs(self.property_modifiers) do
+    --self._PROPERTIES_UNSAFE = Guns4d.table.deep_copy(self.base_class.properties)
+    self.PROXY_MODE_SAFE = false
+    recursive_unset_overrides(self.properties)
+    for _, func in pairs(self.property_modifiers) do
         func(self)
     end
+    self.PROXY_MODE_SAFE = true
     self:repair_subclasses()
-    self.properties = leef.class.proxy_table.new(self.properties)
     self:regenerate_visuals()
 end
 function gun_default:repair_subclasses()
@@ -74,7 +93,6 @@ function gun_default:repair_subclasses()
             if (inst) and inst.prepare_deletion then
                 inst:prepare_deletion()
             end
-            --create the right class
             self.subclass_instances[i] = base_class:new({gun=self})
         end
     end

@@ -88,6 +88,7 @@ local function initialize_animation_tracking_data(self)
     self.animation_translation = vector.new()
 end
 
+
 function gun_default:construct_instance()
     assert(self.handler, "no player handler object provided")
     --instantiate some tables for runtime data
@@ -104,10 +105,16 @@ function gun_default:construct_instance()
     self:add_entity()
     initialize_tracking_meta(self)
 
-    --initialize properties now that any attachments or ammo modifiers have been applied
-    self._properties_unsafe = Guns4d.table.deep_copy(self.base_class.properties) --we need this copy because proxy tables dont prevent garbage collection
-    self.properties = leef.class.proxy_table.new(self._properties_unsafe)
-
+    --basically make the proxy table work as a temporary table for storing property changes without the need for reinstantiation
+    local newindex_handler
+    local proxy_set = leef.class.proxy_table.set_field_override
+    function newindex_handler(p,_,k,v)
+        assert(not self.PROXY_MODE_SAFE, "attempt to modify properties table when PROXY_MODE_SAFE is set to false")
+        --set the variable in this proxy, if its a table create a new one
+        proxy_set(p,k,v)
+    end
+    self.properties = leef.class.proxy_table.new(self.base_class._PROPERTIES_UNSAFE, newindex_handler)
+    self.PROXY_MODE_SAFE = true
     --initialize built in subclasses
     if self.properties.inventory and self.properties.inventory.part_slots then
         self.subclass_instances.part_handler = self.properties.subclasses.part_handler:new({
@@ -332,8 +339,8 @@ end
 
 function gun_default:construct_base_class()
 
-    self._properties_unsafe = Guns4d.table.fill(self.parent_class.properties, self.properties or {})
-    self.properties = self._properties_unsafe
+    self._PROPERTIES_UNSAFE = Guns4d.table.fill(self.parent_class.properties, self.properties or {})
+    self.properties = self._PROPERTIES_UNSAFE
     self._consts_unsafe = Guns4d.table.fill(self.parent_class.consts, self.consts or {})
     self.consts = self._consts_unsafe
 
