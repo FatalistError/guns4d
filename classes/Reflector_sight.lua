@@ -73,7 +73,6 @@ function Reflector_sight:update(dt)
 
 
         offset = mat4.mul_vec4({}, mat4.invert(mat4.identity(), m1), {intersect.x-offset.x, intersect.y-offset.y, intersect.z-offset.z, 0})
-        print(offset[1], offset[2], offset.z)
 
         local dist_x = ((width/2)-deadzone)-math.abs(offset[1])
         local dist_y = ((height/2)-deadzone)-math.abs(offset[2])

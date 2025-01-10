@@ -1,4 +1,8 @@
-# changelog
+# changelog 1.3.4
+* #### reworked the table proxy system to allow for better changes to properties while active
+
+# changelog 1.3.3
+* #### changes unkown
 
 # changelog 1.3.2
 * #### crash with magazine unloading
