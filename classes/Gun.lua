@@ -1,4 +1,3 @@
--- @module gun
 
 local Vec = vector
 
@@ -6,14 +5,18 @@ local Vec = vector
 --
 -- (this class found in `Guns4d.gun`)
 -- the following fields (placed anywhere) are used to perform special actions:
-
 -- @example
 --      __no_copy                       --the replacing (table) will not be copied, and the field containing it will be a reference to the orginal table found in replacement
 --      __replace_old_table = true      --the replacing table declares that the old table should be replaced with the new one
 --      __replace_only = true           --the original table declares that it should be replaced with the new one
 --
--- @class gun
+
+--- @class gun
+--
+-- the following is documentation of gun fields. Methods are currently not present in this list.
+--
 -- @display gun
+-- @see defining_guns
 -- @compact
 -- @field properties @{lvl1_fields.properties|properties} which define the vast majority of gun attributes and may change accross instances
 -- @field consts @{lvl1_fields.consts|constants} which define gun attributes and should not be changed in an instance of the gun
@@ -33,7 +36,7 @@ local gun_default = {
     id = nil,
     --- `ObjRef` the gun entity
     gun_entity = nil,
-    --- list of registered guns, **DO NOT MODIFY** I really need a metatable for this class...
+    --- list of registered guns. Don't modify this it will break the entire mod (it shouldnt even be here i dont know why it is but im not going to fix it today lmao)
     _registered = {},
     --- `bool` is the bolt charged
     bolt_charged = false,
@@ -51,8 +54,6 @@ local gun_default = {
     rechamber_time = 0,
     --- `int` number of rounds left that need to be fired after a burst fire
     burst_queue = 0,
-    --- `function`
-    muzzle_flash = Guns4d.effects.muzzle_flash,
     --- `vec3` translation of the gun relative to the "gun" bone or the player axial rotation.
     gun_translation = nil, --vector.new()
     --- `table` indexed list of functions which are called when the gun's properties need to be built. This is used for things like attachments, etc.
@@ -83,10 +84,10 @@ local gun_default = {
         initial_vertical_rotation = -60,
         --- `float`=.5 max angular deviation (vertical) from breathing
         breathing_scale = .5,
-        --- `vector` the offset from the center of the muzzle flash. Used by fire()
-        flash_offset = Vec.new(),
-        --- `int`=600 The number of rounds (cartidges) this gun can throw per minute. Used by update(), fire() and default controls
+        --- `int`=600 The number of rounds (cartidges) this gun can throw per minute. Used by update(), attempt_fire() and default controls
         firerateRPM = 600,
+        --- `table` a table containing the `collisionbox` and `selection` of the item in the same format as recieved by minetest entities. On construction of the gun's base class this will be set to model_bounding_box. Probably needs to be a const.
+        item = {},
         --- an ordered list of reloading states used by @{default_controls}.
         --
         -- the default reload states for a magazine operated weapon, copied from the m4.
@@ -269,6 +270,9 @@ local gun_default = {
                 player_axial = 1
             },
         },
+        --[[spread = {
+
+        },]]
         --- properties.sway
         --
         -- **IMPORTANT**: expects fields to be tables containing a "gun_axial" and "player_axial" field. In the same format as @{gun.properties.recoil}
@@ -341,7 +345,7 @@ local gun_default = {
             magazine_only = false,
             --capacity = 0, --this is only needed if magazine_only = false
             --- `table` a list of accepted bullet itemstrings
-            accepted_bullets = {},
+            accepted_rounds = {},
             --- `table` a list of accepted magazine itemstrings
             accepted_magazines = {},
             --- `string` the mag the gun starts with. Set to "empty" for no mag, otherwise it defaults to accepted_magazines[1] (if present)
@@ -353,24 +357,31 @@ local gun_default = {
         -- @see lvl1_fields.properties|properties
         -- @compact
         visuals = {
+            --- `vector` the offset of the muzzle from the very front of the model. Probably should be a negative Y value on most guns. Used to position the object that particle spawners attach to
+            flash_offset = Vec.new(),
             --- name of mesh to display. Currently only supports b3d
             mesh = nil,
             --- list of textures to use.
             textures = {},
             --- scale multiplier. Default 1
             scale = 1,
-            --- objects that are attached to the gun. This is especially useful for attachments
+            --- objects that are attached to the gun. This is especially useful for attachments. By default has an invisible object `guns4d_muzzle_smoke` for the particlespawner to attach to.
+            -- if `mesh` is not present it will be drawn as a sprite
             --
             -- @example
             --      my_object = {
+            --          mesh = "obj.obg",
             --          textures = {"blank.png"},
             --          visual_size = {x=1,y=1,z=1},
             --          offset = {x=0,y=0,z=0},
-            --          bone = "main",
             --          backface_culling = false,
             --          glow = 0
             --      }
-            attached_objects = {},
+            attached_objects = {
+                guns4d_muzzle_smoke = {
+                    scale = .01
+                }
+            },
             --- toggles backface culling. Default true
             backface_culling = false,
             --- a table of animations. Indexes define the name of the animation to be refrenced by other functions of the gun.
@@ -431,7 +442,7 @@ local gun_default = {
             },
         },
     },
-    --- `vector` containing the rotation offset from the current frame, this will be factored into the gun's direction if {@consts.ANIMATIONS_OFFSET_AIM}=true
+    --- `vector` containing the rotation offset from the current frame, this will be factored into the gun's direction if @{consts.ANIMATIONS_OFFSET_AIM}=true
     animation_rotation = vector.new(),
     --- `vector` containing the translational/positional offset from the current frame
     animation_translation = vector.new(),
@@ -576,7 +587,6 @@ gun_default.construct = function(def)
     if def.instance then
         gun_default.construct_instance(def)
     elseif def.name ~= "__guns4d:default__" then
-        --print(dump(def))
         gun_default.construct_base_class(def)
     end
 end

@@ -17,7 +17,7 @@
 </div>
 <div class="group three">
 <div class="button iconleft"><a href="../manual/changelog.html" title="changelog"><img src="../img/i-left.svg?7653a2d" alt=""/><span>Previous</span></a></div>
-<div class="button iconright"><a href="../class/player_model_handler.html" title="player_model_handler"><span>Next</span><img src="../img/i-right.svg?7653a2d" alt=""/></a></div>
+<div class="button iconright"><a href="../manual/todo.html" title="todo"><span>Next</span><img src="../img/i-right.svg?7653a2d" alt=""/></a></div>
 </div>
 </div>
 <div class="sidebar">
@@ -38,24 +38,27 @@
 <ul>
 <li><a href="../manual/changelog.html">changelog 1.3.5</a></li>
 <li class="selected"><a href="../manual/defining_guns.html">Defining guns</a></li>
+<li><a href="../manual/todo.html">to-do</a></li>
+<li><a href="../manual/property_modifiers.html">Property modifiers</a></li>
 </ul>
 </div>
 <div class="classes">
 <div class="heading">Classes</div>
 <ul>
+<li><a href="../class/gun.html">gun</a></li>
 <li><a href="../class/player_model_handler.html">Player_model_handler.player_model_handler</a></li>
 </ul>
 </div>
 <div class="modules">
 <div class="heading">Modules</div>
 <ul>
+<li><a href="../module/ammo_api.html">ammo_api</a></li>
 <li><a href="../module/default_controls.html">default_controls</a></li>
 <li><a href="../module/misc_helpers.html">misc_helpers</a></li>
 <li><a href="../module/play_sound.html">play_sound</a></li>
 <li><a href="../module/Bullet_hole.html">Bullet_hole</a></li>
 <li><a href="../module/Control_handler.html">Control_handler</a></li>
 <li><a href="../module/Gun-methods.html">Gun-methods</a></li>
-<li><a href="../module/Gun.html">Gun</a></li>
 </ul>
 </div>
 </div>
@@ -64,16 +67,17 @@
 <h1 id="defining_guns">Defining guns
 <a class="permalink" href="#defining_guns" title="Permalink to this definition">¶</a>
 </h1>
+<p>For a list of possible fields and properties, see <a href="../class/gun.html">the Gun class</a></p>
 
 <h1 id="the_basic_structure">The basic structure
 <a class="permalink" href="#the_basic_structure" title="Permalink to this definition">¶</a>
 </h1>
-<p>Guns are defined using the gun class</p>
-<p>The appearance and handling of guns by default are defined by two table fields: their <a href="../module/Gun.html#lvl1_fields.consts">consts</a> and their <a href="../module/Gun.html#lvl1_fields.properties">properties</a>.
-<a href="../module/Gun.html#lvl1_fields.properties">properties</a> define nearly everything, from how a gun handles to how it looks, what model it uses, etc.
-while <a href="../module/Gun.html#lvl1_fields.consts">consts</a> define attributes that should never change, like bones within the gun, framerates,</p>
+<p>Guns are defined using the <a href="../class/gun.html">gun</a> class</p>
+<p>The appearance and handling of guns by default are defined by two table fields: their <a href="../class/gun.html#lvl1_fields.consts">consts</a> and their <a href="../class/gun.html#lvl1_fields.properties">properties</a>.
+<a href="../class/gun.html#lvl1_fields.properties">properties</a> define nearly everything, from how a gun handles to how it looks, what model it uses, etc.
+while <a href="../class/gun.html#lvl1_fields.consts">consts</a> define attributes that should never change, like bones within the gun, framerates,</p>
 <p>wether the gun is allowed to have certain attributes at all. The other fields of the class define tracking variables or other important things for the internal workings.
-There are essentially only 3 fields you must define to register a gun: itemstring, name, and <a href="../module/Gun.html#lvl1_fields.properties">properties</a>.
+There are essentially only 3 fields you must define to register a gun: <a href="../class/gun.html#gun.itemstring">itemstring</a>, <a href="../class/gun.html#gun.name">name</a>, and <a href="../class/gun.html#lvl1_fields.properties">properties</a>.
 To hold the gun, the item defined in itemstring must actually exist, it will not automatically register. To have a functional gun however, more will need to be changed in terms of properties.
 it's reccomended that you take a look at existing mods (like guns4d_pack_1) for guidance</p>
 <p>Guns4d uses a class system for most moving parts- including the gun. New guns therefore are created with the <code>:inherit(def)</code> method,
@@ -92,7 +96,7 @@ and the gun can have an effect on the ammunition.</p>
 <a class="permalink" href="#subclasses" title="Permalink to this definition">¶</a>
 </h1>
 <p>subclasses are classes which are defined in <code>properties.subclasses</code> (where they will be instantiated on construction of the instance).
-The resulting instance will then be put (under the same name/index) into the gun instance's <code>subclass_instances</code> table which will then be iterated. If the subclass has an <code>update</code> field it will be called as a function. If the properties change and the subclass no longer exists, it will be destroyed the next time properties are regenerated. This is so that things like scopes or other subclasses can be removed automatically if they no longer are present. To add a subclass after construction, you can simply change the gun's properties using a property modifier by adding a function to <a href="../module/Gun.html#Gun.property_modifiers"><code>Gun.property_modifiers</code></a>.</p>
+The resulting instance will then be put (under the same name/index) into the gun instance's <code>subclass_instances</code> table which will then be iterated. If the subclass has an <code>update</code> field it will be called as a function. If the properties change and the subclass no longer exists, it will be destroyed the next time properties are regenerated. This is so that things like scopes or other subclasses can be removed automatically if they no longer are present. To add a subclass after construction, you can simply change the gun's properties using a property modifier by adding a function to <code>Gun.property_modifiers</code>. See property_modifiers.md.</p>
 
 </div>
 </div>

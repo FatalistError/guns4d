@@ -67,7 +67,6 @@ end
 -- @tparam table soundspecs_list a list a list of soundspecs optionally accompanied with fields to be used in all of them.
 -- @treturn integer guns4d sound handle, used by stop_sounds & get_sounds
 function Guns4d.play_sounds(soundspecs_list)
-    --print(dump(soundspecs_list))
     --support a list of sounds to play
     if not soundspecs_list[1] then --turn into iteratable format.
         soundspecs_list = {soundspecs_list}
@@ -110,7 +109,6 @@ function Guns4d.play_sounds(soundspecs_list)
             exclude_player_ref = soundspec.exclude_player
             soundspec.exclude_player = exclude_player_ref:get_player_name()
         end
-        --print(dump(soundspecs_list), i)
         if soundspec.to_player then soundspec.pos = nil end
         --play sound for all players outside min hear distance
         local original_gain = soundspec.gain or 1

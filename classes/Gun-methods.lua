@@ -1,8 +1,9 @@
--- @within Gun.gun
+--- @within gun
 -- @compact
 
 local gun_default = Guns4d.gun
 local mat4 = leef.math.mat4
+
 --I dont remember why I made this, used it though lmao
 function gun_default.multiplier_coefficient(multiplier, ratio)
     return 1+((multiplier*ratio)-ratio)
@@ -52,6 +53,7 @@ function gun_default:update(dt)
     end
 
     --finalize transforms
+    self:update_muzzle_smoke_ent()
     self:update_transforms()
 end
 
@@ -78,7 +80,7 @@ function gun_default:regenerate_properties()
     self.PROXY_MODE_SAFE = false
     recursive_unset_overrides(self.properties)
     for _, func in pairs(self.property_modifiers) do
-        func(self)
+        func(self.properties)
     end
     self.PROXY_MODE_SAFE = true
     self:repair_subclasses()
@@ -97,6 +99,20 @@ function gun_default:repair_subclasses()
         end
     end
 end
+function gun_default:update_muzzle_smoke_ent()
+    if self.attached_objects.guns4d_muzzle_smoke then
+        local ent = self.attached_objects.guns4d_muzzle_smoke
+        local b = self.model_bounding_box
+        local f = self.properties.visuals.flash_offset
+        local v = self.properties.visuals.scale
+        local v4  = mat4.mul_vec4({}, self.b3d_model.root_orientation_rest_inverse, {f.x/v,  f.y/v,  (b[3]+f.z)/v, 0})
+        local rotation = {self.b3d_model.root_orientation_rest_inverse:get_rot_irrlicht_bone()}
+
+        rotation = {x=rotation[1]*180/math.pi, y=rotation[2]*180/math.pi, z=rotation[3]*180/math.pi}
+        --local rotation = vector.new()
+        ent:set_attach(self.entity, self.consts.ROOT_BONE, {x=v4[1], y=v4[2], z=v4[3]}, rotation, nil)
+    end
+end
 --- not typically called every step, updates the gun object's visuals
 function gun_default:regenerate_visuals()
     local props = self.properties
@@ -112,48 +128,45 @@ function gun_default:regenerate_visuals()
         end
     end
     for i, attached in pairs(self.properties.visuals.attached_objects) do
-        if attached.mesh then
-            assert(type(attached)=="table", self.name..": `attached.objects` expects a list of tables, incorrect type given.")
-            local obj
-            if (not self.attached_objects[i]) or (not self.attached_objects[i]:is_valid()) then
-                obj = minetest.add_entity(self.handler:get_pos(), "guns4d:gun_entity")
-                self.attached_objects[i] = obj
-            else
-                obj = self.attached_objects[i]
-            end
-            obj:set_properties({
-                mesh = attached.mesh,
-                textures = table.copy(attached.textures or self.properties.visuals.textures),
-                backface_culling = attached.backface_culling,
-                visual_size = {x=attached.scale or 1,  y=attached.scale or 1,  z=attached.scale or 1}
-            })
-            local offset
-            if attached.offset then
-                offset = attached.offset
-                offset = mat4.mul_vec4({}, self.b3d_model.root_orientation_rest_inverse, {offset.x, offset.y, offset.z, 0})
-                offset = {x=offset[1], y=offset[2], z=offset[3]}
-            end
-            local rotation
-            if attached.rotation then
-                rotation = attached.rotation
-                local rotm4 = mat4.set_rot_luanti_entity(mat4.identity(), rotation.x*math.pi/180, rotation.y*math.pi/180, rotation.z*math.pi/180)
-                rotm4 = self.b3d_model.root_orientation_rest_inverse*rotm4
-                rotation = {rotm4:get_rot_luanti_entity()}
-                rotation = {x=rotation[1]*180/math.pi, y=rotation[2]*180/math.pi, z=rotation[3]*180/math.pi}
-            else
-                rotation = {(self.b3d_model.root_orientation_rest_inverse):get_rot_luanti_entity()}
-                rotation = {x=rotation[1]*180/math.pi, y=rotation[2]*180/math.pi, z=rotation[3]*180/math.pi}
-            end
-            obj:set_attach(
-                self.entity,
-                self.consts.ROOT_BONE,
-                offset,
-                rotation
-                --true
-            )
+        assert(type(attached)=="table", self.name..": `attached.objects` expects a list of tables, incorrect type given.")
+        local obj
+        if (not self.attached_objects[i]) or (not self.attached_objects[i]:is_valid()) then
+            obj = minetest.add_entity(self.handler:get_pos(), "guns4d:gun_entity")
+            self.attached_objects[i] = obj
         else
-            minetest.log("error", "Guns4d: attached object had no mesh")
+            obj = self.attached_objects[i]
         end
+        obj:set_properties({
+            visual = (attached.mesh and "mesh") or "sprite", --if mesh present itll still be "mesh" since itll remain unchanged
+            mesh = attached.mesh,
+            --by default sprites get no textures, meshes get their parent textures.
+            textures = (attached.mesh and table.copy(attached.textures or self.properties.visuals.textures)) or table.copy(attached.textures or {"blank.png"} --[[{"blank.png","blank.png","blank.png","blank.png","blank.png","blank.png"}]]),
+            backface_culling = attached.backface_culling,
+            visual_size = {x=attached.scale or 1,  y=attached.scale or 1,  z=attached.scale or 1}
+        })
+        local offset
+        local rotation
+        if attached.offset then
+            offset = attached.offset
+            offset = mat4.mul_vec4({}, self.b3d_model.root_orientation_rest_inverse, {offset.x, offset.y, offset.z, 0})
+            offset = {x=offset[1], y=offset[2], z=offset[3]}
+        end
+        if attached.rotation then
+            rotation = attached.rotation
+            local rotm4 = mat4.set_rot_luanti_entity(mat4.identity(), rotation.x*math.pi/180, rotation.y*math.pi/180, rotation.z*math.pi/180)
+            rotation = {mat4.mul(mat4.identity(), {self.b3d_model.root_orientation_rest_inverse, rotm4}):get_rot_luanti_entity()}
+            rotation = {x=rotation[1]*180/math.pi, y=rotation[2]*180/math.pi, z=rotation[3]*180/math.pi}
+        else
+            rotation = {(self.b3d_model.root_orientation_rest_inverse):get_rot_luanti_entity()}
+            rotation = {x=rotation[1]*180/math.pi, y=rotation[2]*180/math.pi, z=rotation[3]*180/math.pi}
+        end
+        obj:set_attach(
+            self.entity,
+            self.consts.ROOT_BONE,
+            offset,
+            (attached.mesh and rotation) or nil
+            --true
+        )
     end
 end
 
@@ -161,18 +174,20 @@ end
 --- updates self.total_offsets which stores offsets for bones
 function gun_default:update_transforms()
     local total_offset = self.total_offsets
-    --axis rotations
-    total_offset.player_axial.x = 0; total_offset.player_axial.y = 0
-    total_offset.gun_axial.x = 0; total_offset.gun_axial.y = 0
-    --translations
-    total_offset.player_trans.x = 0; total_offset.player_trans.y = 0; total_offset.player_trans.z = 0
-    total_offset.gun_trans.x = 0; total_offset.gun_trans.y = 0; total_offset.gun_trans.z = 0
-    total_offset.look_trans.x = 0; total_offset.look_trans.y = 0; total_offset.look_trans.z = 0
-    --this doesnt work.
     for type, _ in pairs(total_offset) do
+        local this_total = total_offset[type]
+        --[[local old_x = this_offset.x
+        local old_y = this_offset.y
+        local old_z = this_offset.z]]
+        this_total.x = 0
+        this_total.y = 0
+        this_total.z = 0
         for i, offset in pairs(self.offsets) do
             if offset[type] and (self.consts.HAS_GUN_AXIAL_OFFSETS or type~="gun_axial") then
-                total_offset[type] = total_offset[type]+offset[type]
+                local this_offset = offset[type]
+                this_total.x = this_total.x+this_offset.x
+                this_total.y = this_total.y+this_offset.y
+                this_total.z = this_total.z+this_offset.z
             end
         end
     end
@@ -217,18 +232,18 @@ function gun_default:update_image_and_text_meta(meta)
     meta = meta or self.meta
     local ammo = self.ammo_handler.ammo
     --set the counter
-    if ammo.total_bullets == 0 then
+    if ammo.total_rounds == 0 then
         meta:set_string("count_meta", Guns4d.config.empty_symbol)
     else
         if Guns4d.config.show_gun_inv_ammo_count then
-            meta:set_string("count_meta", tostring(ammo.total_bullets))
+            meta:set_string("count_meta", tostring(ammo.total_rounds))
         else
             meta:set_string("count_meta", "F")
         end
     end
     --pick the image
     local image = self.properties.inventory.inventory_image
-    if (ammo.total_bullets > 0) and not ammo.magazine_psuedo_empty then
+    if (ammo.total_rounds > 0) and not ammo.magazine_psuedo_empty then
         image = self.properties.inventory.inventory_image
     elseif self.properties.inventory.inventory_image_magless and ( (ammo.loaded_mag == "empty") or (ammo.loaded_mag == "") or ammo.magazine_psuedo_empty) then
         image = self.properties.inventory.inventory_image_magless
@@ -264,6 +279,11 @@ function gun_default:draw()
     self.rechamber_time = props.charging.draw_time
 end
 
+--- plays the muzzle flash animation
+function gun_default:muzzle_flash()
+    Guns4d.effects.muzzle_flash(self)
+end
+
 --- attempt to fire the gun
 function gun_default:attempt_fire()
     assert(self.instance, "attempt to call object method on a class")
@@ -275,13 +295,13 @@ function gun_default:attempt_fire()
             local dir = self.dir
             local pos = self.pos
 
-            if not Guns4d.ammo.registered_bullets[spent_bullet] then
+            if not Guns4d.ammo.registered_ammo[spent_bullet] then
                 minetest.log("error", "unregistered bullet itemstring"..tostring(spent_bullet)..", could not fire gun (player:"..self.player:get_player_name()..")");
                 return false
             end
 
             --begin subtasks
-            local bullet_def = Guns4d.table.fill(Guns4d.ammo.registered_bullets[spent_bullet], {
+            local bullet_def = Guns4d.table.fill(Guns4d.ammo.registered_ammo[spent_bullet], {
                 player = self.player,
                 --we don't want it to be doing fuckshit and letting players shoot through walls.
                 pos = pos-((self.handler.control_handler.ads and dir*props.ads.offset.z) or dir*props.hip.offset.z),
@@ -459,30 +479,7 @@ function gun_default:update_look_offsets(dt)
     self.offsets.look.look_trans.z = fwd_offset
 end
 --============================================== positional info =====================================
---all of this dir shit needs to be optimized HARD
---[[function gun_default:get_gun_axial_dir()
-    assert(self.instance, "attempt to call object method on a class")
-    local rotation = self.total_offsets
-    local dir = vector.new(vector.rotate({x=0, y=0, z=1}, {y=0, x=rotation.gun_axial.x*math.pi/180, z=0}))
-    dir = vector.rotate(dir, {y=rotation.gun_axial.y*math.pi/180, x=0, z=0})
-    return dir
-end]]
---[[function gun_default:get_player_axial_dir(rltv)
-    assert(self.instance, "attempt to call object method on a class")
-    local handler = self.handler
-    local rotation = self.total_offsets
-    local dir = vector.new(vector.rotate({x=0, y=0, z=1}, {y=0, x=((rotation.player_axial.x)*math.pi/180), z=0}))
-    dir = vector.rotate(dir, {y=((rotation.player_axial.y)*math.pi/180), x=0, z=0})
-    if not rltv then
-        if (self.properties.subclasses.sprite_scope and handler.control_handler.ads) or (self.properties.subclasses.crosshair and not handler.control_handler.ads) then
-            --we need the head rotation in either of these cases, as that's what they're showing.
-            dir = vector.rotate(dir, {x=handler.look_rotation.x*math.pi/180,y=-handler.look_rotation.y*math.pi/180,z=0})
-        else
-            dir = vector.rotate(dir, {x=self.player_rotation.x*math.pi/180,y=self.player_rotation.y*math.pi/180,z=0})
-        end
-    end
-    return dir
-end]]
+
 
 local tmv3_rot = vector.new()
 local tmv4_in = {0,0,0,1}
@@ -609,7 +606,6 @@ end
 function gun_default:add_entity()
     assert(self.instance, "attempt to call object method on a class")
     self.entity = minetest.add_entity(self.player:get_pos(), "guns4d:gun_entity")
-    local props = self.properties
     Guns4d.gun_by_ObjRef[self.entity] = self
     self:regenerate_visuals()
 end
@@ -620,7 +616,6 @@ local ip_time2 = Guns4d.config.translation_interpolation_time
 --- updates the gun's entity
 function gun_default:update_entity()
     local obj = self.entity
-    local player = self.player
     local handler = self.handler
     local props = self.properties
     --attach to the correct bone, and rotate
@@ -647,7 +642,7 @@ function gun_default:update_entity()
     tmp_mat4_rot = mat4.mul(tmp_mat4_rot, {b3d.root_orientation_rest_inverse, rot, b3d.root_orientation_rest})
     local xr,yr,zr = tmp_mat4_rot:get_rot_irrlicht_bone()
 
-    obj:set_attach(player, handler.player_model_handler.bone_aliases.gun, nil, nil, visibility)
+    obj:set_attach(self.player, handler.player_model_handler.bone_aliases.gun, nil, nil, visibility)
     obj:set_bone_override(self.consts.ROOT_BONE, {
         position = {
             vec = {x=pos.x/scale, y=pos.y/scale, z=pos.z/scale},
@@ -801,7 +796,7 @@ function gun_default:clear_animation()
         if self.ammo_handler.ammo.loaded_mag ~= "empty" then
             loaded = true
         end
-    elseif self.ammo_handler.ammo.total_bullets > 0 then
+    elseif self.ammo_handler.ammo.total_rounds > 0 then
         loaded = true
     end
     if loaded then

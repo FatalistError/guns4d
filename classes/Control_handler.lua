@@ -48,7 +48,7 @@ function controls:update(dt)
     local call_queue = {} --so I need to have a "call" queue so I can tell the functions the names of other active controls (busy_list)
     local busy_list = self.busy_list or {} --list of controls that have their conditions met. Has to be reset at END of update, so on_use and on_secondary_use can be marked
     local gun = self.gun
-    if not (gun.rechamber_time > 0 and gun.ammo_handler.ammo.next_bullet == "empty") then --check if the gun is being charged.
+    if not (gun.rechamber_time > 0 and gun.ammo_handler.ammo.chambered_round == "empty") then --check if the gun is being charged.
         for i, control in pairs(self:get_actions()) do
             if (i~="on_use") and (i~="on_secondary_use") then
                 local def = control
@@ -174,7 +174,6 @@ function controls.construct(def)
         assert(def.gun.properties.touch_control_actions, "no actions for touchscreen controls provided")
         assert(def.player, "no player provided")
         --instantiate controls (as we will be adding to the table)
-        print(dump(def))
         def.actions_pc = Guns4d.table.deep_copy(def.gun.properties.pc_control_actions)
         def.actions_touch = Guns4d.table.deep_copy(def.gun.properties.touch_control_actions)
         def.busy_list = {}

@@ -215,9 +215,9 @@ function player_model:prepare_deletion()
     end]]
     self:unset_look_offset()
     local player = self.player
-    player:set_bone_override(self.bone_aliases.arm_left, {})
-    player:set_bone_override(self.bone_aliases.arm_right, {})
-    player:set_bone_override(self.bone_aliases.head, {})
+    player:set_bone_override(self.bone_aliases.arm_left, {rotation = {vec={x=0,y=0,z=0},absolute=false,interpolation = 0}, position={vec={x=0,y=0,z=0},absolute=false,interpolation = 0}})
+    player:set_bone_override(self.bone_aliases.arm_right, {rotation = {vec={x=0,y=0,z=0},absolute=false,interpolation = 0}, position={vec={x=0,y=0,z=0},absolute=false,interpolation = 0}})
+    player:set_bone_override(self.bone_aliases.head, {rotation = {vec={x=0,y=0,z=0},absolute=false,interpolation = 0}, position={vec={x=0,y=0,z=0},absolute=false,interpolation = 0}})
     properties.mesh = self.old
     handler:set_properties(properties)
 end
@@ -348,7 +348,6 @@ function player_model.construct(def)
 
             def.offsets.relative[i] = vector.new(node.position[1], node.position[2], node.position[3])
             def.offsets.global[i] = vector.new(transform[13], transform[14], transform[15])/10 --4th column first 3 rows give us our global transform.
-            --print(i, leef.b3d_nodes.get_node_rotation(b3d_table, node, true, def.still_frame))
         end
         def.offsets.global.hipfire = vector.new(leef.b3d_nodes.get_node_global_position(b3d_table, def.bone_aliases.arm_right, true, def.still_frame))
 

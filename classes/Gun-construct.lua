@@ -37,9 +37,9 @@ local function initialize_ammo(self)
     self.subclass_instances.ammo_handler = self.ammo_handler
     --draw the gun if properties specify it
     if self.properties.require_draw_on_swap then
-        self.ammo_handler.ammo.next_bullet = "empty"
+        self.ammo_handler.ammo.chambered_round = "empty"
     end
-    minetest.after(0, function() if self.ammo_handler.ammo.total_bullets > 0 then self:draw() end end) --call this as soon as the gun is loaded in
+    minetest.after(0, function() if self.ammo_handler.ammo.total_rounds > 0 then self:draw() end end) --call this as soon as the gun is loaded in
     --update metadata
     self:update_image_and_text_meta()
     self.player:set_wielded_item(self.itemstack)
@@ -110,7 +110,6 @@ function gun_default:construct_instance()
     local proxy_set = leef.class.proxy_table.set_field_override
     function newindex_handler(p,_,k,v)
         assert(not self.PROXY_MODE_SAFE, "attempt to modify properties table when PROXY_MODE_SAFE is set to false")
-        --set the variable in this proxy, if its a table create a new one
         proxy_set(p,k,v)
     end
     self.properties = leef.class.proxy_table.new(self.base_class._PROPERTIES_UNSAFE, newindex_handler)
@@ -188,7 +187,6 @@ local function initialize_b3d_animation_data(self, props)
         root_rotation = {},
         root_translation = {}
     }
-    --print(table.tostring(self.b3d_model))
     --precalculate keyframe "samples" for intepolation.
     local left = leef.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_LEFT_BONE, true)
     local right = leef.b3d_nodes.get_node_by_name(self.b3d_model, self.consts.ARM_RIGHT_BONE, true)
@@ -209,7 +207,6 @@ local function initialize_b3d_animation_data(self, props)
         end
 
         --we compose it by the inverse because we need to get the global offset in rotation for the animation rotation offset. I really need to comment more often
-        --print(leef.b3d_nodes.get_node_rotation(nil, main, nil, -1))
         --delta rotation
         local this_transform, this_rotation = leef.b3d_nodes.get_node_global_transform(main, target_frame)
         local rest_transform, rest_rotation = leef.b3d_nodes.get_node_global_transform(main, props.visuals.animations.loaded.x)
@@ -310,7 +307,7 @@ end
 local function warn_deprecation(gun, field, new_field)
     minetest.log("warning", "Guns4d: `"..gun.."` deprecated use of field `"..field.."` in properties. Use `"..new_field.."` instead.")
 end
-local function patch_deprecated(self, minor_version)
+local function patch_deprecated(self)
     local props = self.properties
     --1.2->1.3 (probably missing some.)
     if props.firemode_inventory_overlays then
@@ -325,15 +322,22 @@ local function patch_deprecated(self, minor_version)
             props.subclasses[i] = props[i]
         end
     end
-    if self.properties.inventory_image then
-        self.properties.inventory.inventory_image = self.properties.inventory_image
+    if props.inventory_image then
+        props.inventory.inventory_image = props.inventory_image
         warn_deprecation(self.name, "inventory_image", "inventory.inventory_image")
     end
-    if self.properties.inventory_image_magless then
-        self.properties.inventory.inventory_image_magless = self.properties.inventory_image_magless
+    if props.inventory_image_magless then
+        props.inventory.inventory_image_magless = props.inventory_image_magless
         warn_deprecation(self.name, "inventory_image_magless", "inventory.inventory_image_magless")
     end
-
+    if props.ammo.accepted_bullets then
+        props.ammo.accepted_rounds = props.ammo.accepted_bullets
+        warn_deprecation(self.name, "ammo.accepted_bullets", "ammo.accepted_rounds")
+    end
+    if props.flash_offset then
+        props.visuals.flash_offset = props.flash_offset
+        warn_deprecation(self.name, "flash_offset", "visuals.flash_offset")
+    end
 end
 --========================== MAIN CLASS CONSTRUCTOR ===============================
 
@@ -343,6 +347,17 @@ function gun_default:construct_base_class()
     self.properties = self._PROPERTIES_UNSAFE
     self._consts_unsafe = Guns4d.table.fill(self.parent_class.consts, self.consts or {})
     self.consts = self._consts_unsafe
+
+    --versioning and backwards compatibility stuff
+    assert(self.consts.VERSION[1]==Guns4d.version[1], "Guns4d gun `"..self.name.." has major version mismatch")
+    if self.consts.VERSION[1] ~= Guns4d.version[1] then
+        minetest.log("error", "Guns4d gun `"..self.name.."` major version mismatch")
+    end
+    if self.consts.VERSION[2] ~= Guns4d.version[2] then
+        minetest.log("warning", "Guns4d gun `"..self.name.."` minor version mismatch")
+    end
+    patch_deprecated(self)
+
 
     local props = self.properties
     validate_controls(props)
@@ -355,23 +370,13 @@ function gun_default:construct_base_class()
         reregister_item(self, props)
     end
     --create sets. This may need to be put in instances of modifications can change accepted ammos
-    self.accepted_bullets = {}
-    for _, v in pairs(self.properties.ammo.accepted_bullets) do
-        self.accepted_bullets[v] = true
+    self.accepted_rounds = {}
+    for _, v in pairs(self.properties.ammo.accepted_rounds) do
+        self.accepted_rounds[v] = true
     end
     self.accepted_magazines = {}
     for _, v in pairs(self.properties.ammo.accepted_magazines) do
         self.accepted_magazines[v] = true
-    end
-
-    --versioning and backwards compatibility stuff
-    assert(self.consts.VERSION[1]==Guns4d.version[1], "Guns4d gun `"..self.name.." has major version mismatch")
-    if self.consts.VERSION[1] ~= Guns4d.version[1] then
-        minetest.log("error", "Guns4d gun `"..self.name.."` minor version mismatch")
-    end
-    if self.consts.VERSION[2] < 3 then
-        minetest.log("error", "Guns4d: `"..self.name.."` had minor version before `1.3.0` indicating that this gun likely has no versioning. Attempting patches for `1.2.0`...")
-        patch_deprecated(self, 2)
     end
 
     self.properties = leef.class.proxy_table.new(self.properties)

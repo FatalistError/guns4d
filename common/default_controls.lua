@@ -167,7 +167,7 @@ reg_mstate("load_cartridge_once", {
         return true
     end,
     validation_check = function(gun, ammo_handler, next_state)
-        if (ammo_handler.ammo.total_bullets<gun.properties.ammo.capacity) and ammo_handler:inventory_has_ammo(true) then
+        if (ammo_handler.ammo.total_rounds<gun.properties.ammo.capacity) and ammo_handler:inventory_has_ammo(true) then
             return true
         else
             return false
@@ -179,7 +179,7 @@ reg_mstate("load_cartridge", {
         return not ammo_handler:load_single_cartridge() --it returns wether the cartidge could be loaded
     end,
     validation_check = function(gun, ammo_handler, next_state)
-        if (ammo_handler.ammo.total_bullets<gun.properties.ammo.capacity) and ammo_handler:inventory_has_ammo(true) then
+        if (ammo_handler.ammo.total_rounds<gun.properties.ammo.capacity) and ammo_handler:inventory_has_ammo(true) then
             return true
         else
             return false
@@ -192,7 +192,7 @@ reg_mstate("charge", {
         return
     end,
     validation_check = function(gun, ammo_handler, next_state)
-        if (ammo_handler.ammo.next_bullet ~= "empty") or (ammo_handler.ammo.total_bullets == 0) then
+        if (ammo_handler.ammo.chambered_round ~= "empty") or (ammo_handler.ammo.total_rounds == 0) then
             return false
         else
             return true
@@ -301,8 +301,6 @@ Guns4d.default_controls.reload = {
                 sounds.pos = gun.pos
                 data.played_sounds = {gun:play_sounds(sounds)}
             end
-            --print(dump(next_state_index))
-            --end
         elseif interrupted then
             local this_state = props.reload[data.state]
             if this_state and reload_actions[this_state.action].interrupt then

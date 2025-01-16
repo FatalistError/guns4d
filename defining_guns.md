@@ -1,4 +1,7 @@
 # Defining guns
+
+For a list of possible fields and properties, see @{gun|the Gun class}
+
 # The basic structure
 
 Guns are defined using the @{gun} class
@@ -27,4 +30,4 @@ and the gun can have an effect on the ammunition.
 # Subclasses
 
 subclasses are classes which are defined in `properties.subclasses` (where they will be instantiated on construction of the instance).
-The resulting instance will then be put (under the same name/index) into the gun instance's `subclass_instances` table which will then be iterated. If the subclass has an `update` field it will be called as a function. If the properties change and the subclass no longer exists, it will be destroyed the next time properties are regenerated. This is so that things like scopes or other subclasses can be removed automatically if they no longer are present. To add a subclass after construction, you can simply change the gun's properties using a property modifier by adding a function to `Gun.property_modifiers`.
+The resulting instance will then be put (under the same name/index) into the gun instance's `subclass_instances` table which will then be iterated. If the subclass has an `update` field it will be called as a function. If the properties change and the subclass no longer exists, it will be destroyed the next time properties are regenerated. This is so that things like scopes or other subclasses can be removed automatically if they no longer are present. To add a subclass after construction, you can simply change the gun's properties using a property modifier by adding a function to `Gun.property_modifiers`. See property_modifiers.md.

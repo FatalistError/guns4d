@@ -176,7 +176,6 @@ end
     local new_table = {}
     if not indexed_tables then indexed_tables = {[tbl]=new_table} end
     for i, v in pairs(tbl) do
-        --print(type(v), i, v)
         if type(v) == "table" then
             if not indexed_tables[v] then
                 new_table[i] = Guns4d.table.deep_copy(v, copy_metatable, indexed_tables)
@@ -215,7 +214,7 @@ test.gay = {
         dead = "ten"
     }
 }
-print(dump(Guns4d.table.deep_copy(test)))]]
+]]
 
 
 function Guns4d.table.contains(tbl, value)
@@ -344,7 +343,7 @@ test2.gay = {
         __replace_old_table = true
     }
 }
-print(dump(Guns4d.table.fill(test, test2)))]]
+]]
 
 function Guns4d.table.shallow_copy(t)
     local new_table = {}
@@ -407,7 +406,6 @@ local e = 2.7182818284590452353602874713527 --I don't know how to find it otherw
 --deviation just changes the distribution, range is the maximum spread
 function Guns4d.math.angular_normal_distribution(deviation)
     local x=math.random()
-    --print(x)
     --positive only normal distribution
     local a = 1/(deviation*math.sqrt(2*math.pi))
     local exp = -.5*(x/deviation)^2

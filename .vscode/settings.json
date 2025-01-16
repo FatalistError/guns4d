@@ -6,9 +6,13 @@
         "player_api",
         "ItemStack",
         "leef",
-        "core"
+        "core",
+        "spriteguns"
     ],
     "Lua.diagnostics.disable": [
-        "undefined-field"
+        "undefined-field",
+        "inject-field",
+        "assign-type-mismatch",
+        "need-check-nil"
     ]
 }

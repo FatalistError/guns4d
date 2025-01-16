@@ -137,7 +137,6 @@ function Part_handler:update_parts()
             slot[stackname] = stack:to_string()
         end
     end
-    --print(dump(new_meta))
     meta:set_string("guns4d_attachments", core.serialize(new_meta))
     self.handler.player:set_wielded_item(self.gun.itemstack)
 end
@@ -169,13 +168,11 @@ function Part_handler:can_add(itemstack, slotname)
     local itemname = itemstack:get_name()
     local props = self.gun.properties
     --if props.inventory.part_slots[slotname][index] then return false end
-    --print(slot, dump(self.parts))
     if
         (not self:has_part(slotname, itemname)) and (props.inventory.part_slots[slotname].allowed)
     then
         --check if it's allowed, group check required
         for i, v in pairs(props.inventory.part_slots[slotname].allowed) do
-            --print(v, name)
             if v==itemname then
                 return true
             end
@@ -197,6 +194,5 @@ function Part_handler:remove_attachment(index, slot)
 end
 
 function Part_handler:prepare_deletion()
-    --print("prepare_deletion", debug.getinfo(2).short_src, debug.getinfo(2).linedefined)
     core.remove_detached_inventory(self.invstring)
 end

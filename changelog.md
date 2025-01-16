@@ -1,5 +1,13 @@
+# changelog 1.3.6
+* #### fix/rework muzzle flash effect
+* #### fix player hit registration
+* #### crash fix?
+
 # changelog 1.3.5
 * #### reworked the table proxy system to allow for better changes to properties while active
+* #### refactor of ammo naming conventions
+* #### crash fix
+* #### remove broken fade in/out of sprite scopes
 
 # changelog 1.3.<1-4>
 * #### bug fixes?
@@ -20,6 +28,7 @@
   * `Part_handler`
     * completed (expansion later)
     * facilitates attachments
+    * (note, renamed from Attachment_handler to Part_handler from previous version(s))
   * `Physics_system`
     * inactive
     * future implementation for automatic translation

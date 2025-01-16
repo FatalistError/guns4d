@@ -87,7 +87,6 @@ function Sprite_scope:update()
                 --relative_pos = gun:get_dir(true)
             end
             local hud_pos = Guns4d.math.rltv_point_to_hud(relative_pos, 80/self.magnification, ratio)
-            --print(i, hud_pos.x, hud_pos.y)
             self.player:hud_change(v, "position", {x=hud_pos.x+.5, y=hud_pos.y+.5})
             local z = relative_pos.z
             self.player:hud_change(v, "scale", {x=(image.scale.x/z)*1-vec4_dir[2], y=(image.scale.y/z)*1-vec4_dir[1]})
@@ -108,7 +107,11 @@ function Sprite_scope:update()
                 factor = (factor - ((angle-def.misalignment_opacity_threshold_angle)/def.misalignment_opacity_maximum_angle))
             end
         end
-        self.player:hud_change(v, "text", tex.."^[opacity:"..tostring(math.ceil((25.5*control_handler.ads_location))*10))
+        if control_handler.ads then
+            self.player:hud_change(v, "text", tex--[[.."^[opacity:"..tostring(math.ceil((25.5*control_handler.ads_location))*10)]])
+        else
+            self.player:hud_change(v, "text", "blank.png")
+        end
     end
 end
 function Sprite_scope:prepare_deletion()

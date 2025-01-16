@@ -1,48 +1,56 @@
 local Ammo_handler = leef.class.new_class:inherit({
     name = "Ammo_handler",
-    construct = function(def)
-        if def.instance then
-            assert(def.gun, "no gun")
-            def.handler = def.gun.handler
-            def.inventory = def.handler.inventory
-            local meta = def.gun.meta
-            local gun = def.gun
-            def.ammo = {}
+
+    construct = function(self)
+        if self.instance then
+            assert(self.gun, "no gun")
+            self.handler = self.gun.handler
+            self.inventory = self.handler.inventory
+            local meta = self.gun.meta
+            local gun = self.gun
+            self.ammo = {}
             if gun.properties.ammo then
                 --this is pretty inefficient it's been built on. Refactor later maybe.
                 local spawn_with = meta:get_int("guns4d_spawn_with_ammo")
-                if (meta:get_string("guns4d_loaded_bullets") == "")  and  ((spawn_with > 0) or (Guns4d.config.interpret_initial_wear_as_ammo)) then
-                    local bullets = (spawn_with > 0 and spawn_with) or (1-(def.gun.itemstack:get_wear()/65535))
+                if (meta:get_string("guns4d_loaded_rounds") == "")  and  ((spawn_with > 0) or (Guns4d.config.interpret_initial_wear_as_ammo)) then
+                    local rounds = (spawn_with > 0 and spawn_with) or (1-(self.gun.itemstack:get_wear()/65535))
                     if gun.properties.ammo.magazine_only then
                         local magname = gun.properties.ammo.accepted_magazines[1]
-                        bullets = math.floor(Guns4d.ammo.registered_magazines[magname].capacity*bullets)
-                        def.ammo.loaded_mag = magname
-                        def.ammo.loaded_bullets = {
-                            [Guns4d.ammo.registered_magazines[magname].accepted_bullets[1]] = bullets
+                        rounds = math.floor(Guns4d.ammo.registered_magazines[magname].capacity*rounds)
+                        self.ammo.loaded_mag = magname
+                        self.ammo.loaded_rounds = {
+                            [Guns4d.ammo.registered_magazines[magname].accepted_rounds[1]] = rounds
                         }
                     else
-                        def.ammo.loaded_mag = "empty"
-                        def.ammo.loaded_bullets = gun.properties.accepted_bullets[1]
+                        self.ammo.loaded_mag = "empty"
+                        self.ammo.loaded_rounds = gun.properties.accepted_rounds[1]
                     end
-                    def.ammo.total_bullets = bullets
+                    self.ammo.total_rounds = rounds
                     gun.itemstack:set_wear(0)
                     meta:set_int("guns4d_spawn_with_ammo", 0)
-                    def:update_meta()
+                    self:update_meta()
                 else
                     --create or reinitialize ammo data
-                    if meta:get_string("guns4d_loaded_bullets") == "" then
+                    if meta:get_string("guns4d_loaded_rounds") == "" then
                         local ammo_props = gun.properties.ammo
-                        def.ammo.loaded_mag = ammo_props.initial_mag or (ammo_props.accepted_magazines and ammo_props.accepted_magazines[1]) or "empty"
-                        def.ammo.next_bullet = "empty"
-                        def.ammo.total_bullets = 0
-                        def.ammo.loaded_bullets = {}
-                        def:update_meta()
+                        self.ammo.loaded_mag = ammo_props.initial_mag or (ammo_props.accepted_magazines and ammo_props.accepted_magazines[1]) or "empty"
+                        self.ammo.chambered_round = "empty"
+                        self.ammo.total_rounds = 0
+                        self.ammo.loaded_rounds = {}
+                        self:update_meta()
                     else
-                        def.ammo.loaded_mag = meta:get_string("guns4d_loaded_mag")
-                        def.ammo.loaded_bullets = minetest.deserialize(meta:get_string("guns4d_loaded_bullets"))
-                        def.ammo.total_bullets = meta:get_int("guns4d_total_bullets") --TODO: REMOVE TOTAL_BULLETS AS A META
-                        def.ammo.next_bullet = meta:get_string("guns4d_next_bullet")
+                        self.ammo.loaded_mag = meta:get_string("guns4d_loaded_mag")
+                        self.ammo.loaded_rounds = minetest.deserialize(meta:get_string("guns4d_loaded_rounds"))
+                        self.ammo.total_rounds = meta:get_int("guns4d_total_rounds") --TODO: REMOVE total_rounds AS A META
+                        self.ammo.chambered_round = meta:get_string("guns4d_chambered_round")
                     end
+                end
+                local ammo = self.ammo
+                self.gun.property_modifiers["ammo_handler"] = function(gun)
+                    local round_mod = (Guns4d.ammo.registered_ammo[ammo.chambered_round] and Guns4d.ammo.registered_ammo[ammo.chambered_round].modifier) or nil
+                    local magazine_mod = (Guns4d.ammo.registered_magazines[ammo.loaded_mag] and Guns4d.ammo.registered_magazines[ammo.loaded_mag].modifier) or nil
+                    if round_mod then round_mod(gun) end
+                    if magazine_mod then magazine_mod(gun) end
                 end
             end
         end
@@ -51,13 +59,13 @@ local Ammo_handler = leef.class.new_class:inherit({
 Guns4d.ammo_handler = Ammo_handler
 --spend the round, return false if impossible.
 --updates all properties based on the ammo table, bullets string can be passed directly to avoid duplication (when needed)
-function Ammo_handler:update_meta(bullets)
+function Ammo_handler:update_meta(rounds)
     assert(self.instance, "attempt to call object method on a class")
     local meta = self.gun.meta
     meta:set_string("guns4d_loaded_mag", self.ammo.loaded_mag)
-    meta:set_string("guns4d_loaded_bullets", bullets or minetest.serialize(self.ammo.loaded_bullets))
-    meta:set_int("guns4d_total_bullets", self.ammo.total_bullets)
-    meta:set_string("guns4d_next_bullet", self.ammo.next_bullet)
+    meta:set_string("guns4d_loaded_rounds", rounds or minetest.serialize(self.ammo.loaded_rounds))
+    meta:set_int("guns4d_total_rounds", self.ammo.total_rounds)
+    meta:set_string("guns4d_chambered_round", self.ammo.chambered_round)
     self.ammo.magazine_psuedo_empty = false
     if self.gun.ammo_handler then --if it's a first occourance it cannot work.
         self.gun:update_image_and_text_meta(meta)
@@ -91,47 +99,47 @@ end
 --use a round, called when the gun is shot. Returns a bool indicating success.
 function Ammo_handler:spend_round()
     assert(self.instance, "attempt to call object method on a class")
-    local bullet_spent = self.ammo.next_bullet
+    local round_spent = self.ammo.chambered_round
     local meta = self.gun.meta
     --subtract the bullet
-    if (self.ammo.total_bullets > 0) and (bullet_spent ~= "empty") then
+    if (self.ammo.total_rounds > 0) and (round_spent ~= "empty") then
         --only actually subtract the round if infinite_ammo is false.
         if not self.handler.infinite_ammo then
-            self.ammo.loaded_bullets[bullet_spent] = self.ammo.loaded_bullets[bullet_spent]-1
-            if self.ammo.loaded_bullets[bullet_spent] == 0 then self.ammo.loaded_bullets[bullet_spent] = nil end
-            self.ammo.total_bullets = self.ammo.total_bullets - 1
-            if (self.ammo.total_bullets == 0) and (self.gun.properties.charging.bolt_charge_mode == "catch") then
+            self.ammo.loaded_rounds[round_spent] = self.ammo.loaded_rounds[round_spent]-1
+            if self.ammo.loaded_rounds[round_spent] == 0 then self.ammo.loaded_rounds[round_spent] = nil end
+            self.ammo.total_rounds = self.ammo.total_rounds - 1
+            if (self.ammo.total_rounds == 0) and (self.gun.properties.charging.bolt_charge_mode == "catch") then
                 self.gun.bolt_charged = true
             end
         end
             --set the new current bullet
-        if next(self.ammo.loaded_bullets) then
-            self.ammo.next_bullet = Guns4d.math.weighted_randoms(self.ammo.loaded_bullets)
-            meta:set_string("guns4d_next_bullet", self.ammo.next_bullet)
+        if next(self.ammo.loaded_rounds) then
+            self.ammo.chambered_round = Guns4d.math.weighted_randoms(self.ammo.loaded_rounds)
+            meta:set_string("guns4d_chambered_round", self.ammo.chambered_round)
         else
-            self.ammo.next_bullet = "empty"
-            meta:set_string("guns4d_next_bullet", "empty")
+            self.ammo.chambered_round = "empty"
+            meta:set_string("guns4d_chambered_round", "empty")
             if self.gun.properties.charging.bolt_charge_mode == "catch" then
                 self.gun.bolt_charged = true
             end
         end
 
         self:update_meta()
-        return bullet_spent
+        return round_spent
     end
 end
 function Ammo_handler:can_spend_round()
-    local bullet_spent = self.ammo.next_bullet
-    if (self.ammo.total_bullets > 0) and (bullet_spent ~= "empty") then
+    local round_spent = self.ammo.chambered_round
+    if (self.ammo.total_rounds > 0) and (round_spent ~= "empty") then
         return true
     end
     return false
 end
 function Ammo_handler:chamber_round()
-    self.ammo.next_bullet = Guns4d.math.weighted_randoms(self.ammo.loaded_bullets) or "empty"
+    self.ammo.chambered_round = Guns4d.math.weighted_randoms(self.ammo.loaded_rounds) or "empty"
 end
 local function tally_ammo_from_meta(meta)
-    local string = meta:get_string("guns4d_loaded_bullets")
+    local string = meta:get_string("guns4d_loaded_rounds")
     if string=="" then return 0 end
     local count = 0
     for i, v in pairs(minetest.deserialize(string)) do
@@ -153,7 +161,7 @@ function Ammo_handler:load_magazine()
     local highest_ammo = -1
     local gun = self.gun
     local gun_accepts = gun.accepted_magazines
-    if self.ammo.loaded_mag ~= "empty" or self.ammo.total_bullets > 0 then
+    if self.ammo.loaded_mag ~= "empty" or self.ammo.total_rounds > 0 then
         --it's undefined, make assumptions.
         self:unload_all()
     end
@@ -161,7 +169,7 @@ function Ammo_handler:load_magazine()
         if gun_accepts[v:get_name()] then
             local mag_meta = v:get_meta()
             --intiialize data if it doesn't exist so it doesnt kill itself
-            if mag_meta:get_string("guns4d_loaded_bullets") == "" then
+            if mag_meta:get_string("guns4d_loaded_rounds") == "" then
                 Guns4d.ammo.initialize_mag_data(v)
                 inv:set_stack("main", i, v)
             end
@@ -169,8 +177,8 @@ function Ammo_handler:load_magazine()
             if ammo > highest_ammo then
                 highest_ammo = ammo
                 local has_unaccepted = false
-                for bullet, _ in pairs(minetest.deserialize(mag_meta:get_string("guns4d_loaded_bullets"))) do
-                    if not gun.accepted_bullets[bullet] then
+                for bullet, _ in pairs(minetest.deserialize(mag_meta:get_string("guns4d_loaded_rounds"))) do
+                    if not gun.accepted_rounds[bullet] then
                         has_unaccepted = true
                         break
                     end
@@ -184,16 +192,16 @@ function Ammo_handler:load_magazine()
         local magstack_meta = magstack:get_meta()
         --get the ammo stuff
 
-        local bullet_string = magstack_meta:get_string("guns4d_loaded_bullets")
+        local bullet_string = magstack_meta:get_string("guns4d_loaded_rounds")
         local ammo = self.ammo
         ammo.loaded_mag = magstack:get_name()
-        ammo.loaded_bullets = minetest.deserialize(bullet_string)
-        ammo.total_bullets = tally_ammo(ammo.loaded_bullets)
+        ammo.loaded_rounds = minetest.deserialize(bullet_string)
+        ammo.total_rounds = tally_ammo(ammo.loaded_rounds)
         if self.gun.bolt_charged or (self.gun.properties.charging.bolt_charge_mode == "none") then
-            ammo.next_bullet = Guns4d.math.weighted_randoms(ammo.loaded_bullets) or "empty"
+            ammo.chambered_round = Guns4d.math.weighted_randoms(ammo.loaded_rounds) or "empty"
             self.gun.bolt_charged = false
         else
-            ammo.next_bullet = "empty"
+            ammo.chambered_round = "empty"
         end
         self:update_meta()
         inv:set_stack("main", magstack_index, "")
@@ -205,9 +213,9 @@ function Ammo_handler:load_single_cartridge()
     local gun = self.gun
     local ammo = self.ammo
     local bullet
-    if self.ammo.total_bullets >= gun.properties.ammo.capacity then return false end
+    if self.ammo.total_rounds >= gun.properties.ammo.capacity then return false end
     for i, v in pairs(inv:get_list("main")) do
-        if gun.accepted_bullets[v:get_name()] then
+        if gun.accepted_rounds[v:get_name()] then
             self:update_meta()
             bullet = v:get_name()
             v:take_item(1)
@@ -216,13 +224,13 @@ function Ammo_handler:load_single_cartridge()
         end
     end
     if bullet then
-        ammo.loaded_bullets[bullet] = (ammo.loaded_bullets[bullet] or 0)+1
-        ammo.total_bullets = ammo.total_bullets+1
+        ammo.loaded_rounds[bullet] = (ammo.loaded_rounds[bullet] or 0)+1
+        ammo.total_rounds = ammo.total_rounds+1
         if self.gun.bolt_charged or (self.gun.properties.charging.bolt_charge_mode == "none") then
-            ammo.next_bullet = Guns4d.math.weighted_randoms(ammo.loaded_bullets) or "empty"
+            ammo.chambered_round = Guns4d.math.weighted_randoms(ammo.loaded_rounds) or "empty"
             self.gun.bolt_charged = false
         else
-            ammo.next_bullet = "empty"
+            ammo.chambered_round = "empty"
         end
         self:update_meta()
         return true
@@ -236,7 +244,7 @@ function Ammo_handler:inventory_has_ammo(only_cartridges)
         if (not only_cartridges) and gun.accepted_magazines[v:get_name()] and (tally_ammo_from_meta(v:get_meta())>0) then
             return true
         end
-        if ((only_cartridges or not gun.properties.ammo.magazine_only) and gun.accepted_bullets[v:get_name()]) then
+        if ((only_cartridges or not gun.properties.ammo.magazine_only) and gun.accepted_rounds[v:get_name()]) then
             return true
         end
     end
@@ -267,8 +275,8 @@ function Ammo_handler:unload_magazine(to_ground)
         local magmeta = magstack:get_meta()
         local gunmeta = self.gun.meta
         --set the mag's meta before updating ours and adding the item.
-        magmeta:set_string("guns4d_loaded_bullets", gunmeta:get_string("guns4d_loaded_bullets"))
-        --magmeta:set_string("guns4d_total_bullets", gunmeta:get_string("guns4d_total_bullets"))
+        magmeta:set_string("guns4d_loaded_rounds", gunmeta:get_string("guns4d_loaded_rounds"))
+        --magmeta:set_string("guns4d_total_rounds", gunmeta:get_string("guns4d_total_rounds"))
         if not Guns4d.ammo.registered_magazines[magstack:get_name()] then minetest.log("error", "player `"..self.gun.player:get_player_name().."` ejected an unregistered magazine: `"..magstack:get_name().." `from a gun") else
             magstack = Guns4d.ammo.update_mag(nil, magstack, magmeta)
         end
@@ -287,9 +295,9 @@ function Ammo_handler:unload_magazine(to_ground)
             object:set_rotation(vector.new())
         end
         self.ammo.loaded_mag = "empty"
-        self.ammo.next_bullet = "empty"
-        self.ammo.total_bullets = 0
-        self.ammo.loaded_bullets = {}
+        self.ammo.chambered_round = "empty"
+        self.ammo.total_rounds = 0
+        self.ammo.loaded_rounds = {}
         self:update_meta()
     end
 end
@@ -297,7 +305,7 @@ end
 function Ammo_handler:unload_all(to_ground)
     assert(self.instance, "attempt to call object method on a class")
     local inv = self.handler.inventory
-    for i, v in pairs(self.ammo.loaded_bullets) do
+    for i, v in pairs(self.ammo.loaded_rounds) do
         local leftover
         --if to_ground is true throw it to the ground
         if to_ground then
@@ -321,8 +329,8 @@ function Ammo_handler:unload_all(to_ground)
         end
     end
     self.ammo.loaded_mag = "empty"
-    self.ammo.next_bullet = "empty"
-    self.ammo.total_bullets = 0
-    self.ammo.loaded_bullets = {}
+    self.ammo.chambered_round = "empty"
+    self.ammo.total_rounds = 0
+    self.ammo.loaded_rounds = {}
     self:update_meta()
 end
