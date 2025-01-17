@@ -62,7 +62,7 @@ function Guns4d.show_guide(player, page)
     minetest.show_formspec(player:get_player_name(), "guns4d:guide", form)
 end
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if formname == "guns4d:guide" then
+    if formname == "guns4d:guide" and not fields.quit then
         if (fields.page_number and tonumber(fields.page_number)) or not fields.page_number then
             fields.page_number = fields.page_number or 1
             local num = tonumber(fields.page_number)+((fields.page_next and 1) or (fields.page_back and -1) or 0)
