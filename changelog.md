@@ -2,6 +2,7 @@
 * #### fix/rework muzzle flash effect
 * #### fix player hit registration
 * #### crash fix?
+* #### fixed guide books apparently being inescapable.
 
 # changelog 1.3.5
 * #### reworked the table proxy system to allow for better changes to properties while active
