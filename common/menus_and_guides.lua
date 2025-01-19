@@ -3,8 +3,6 @@ minetest.register_tool("guns4d:guide_book", {
     description = "mysterious gun related manual",
     inventory_image = "guns4d_guide.png",
     on_use = function(itemstack, player, pointed)
-        local hud_flags = player:hud_get_flags()
-        guide_players_wielditem[player]=hud_flags.wielditem
         Guns4d.show_guide(player,1)
     end,
     on_place = function(itemstack, player, pointed_thing)
@@ -39,7 +37,11 @@ local pages = {
     --
 }
 function Guns4d.show_guide(player, page)
-    player:hud_set_flags({wielditem=false})
+    if not guide_players_wielditem[player] then
+        local hud_flags = player:hud_get_flags()
+        guide_players_wielditem[player]=hud_flags.wielditem
+        player:hud_set_flags({wielditem=false})
+    end
     local form = pages[page]
     form = "\
     formspec_version[6]\
@@ -62,17 +64,16 @@ function Guns4d.show_guide(player, page)
     minetest.show_formspec(player:get_player_name(), "guns4d:guide", form)
 end
 minetest.register_on_player_receive_fields(function(player, formname, fields)
-    if formname == "guns4d:guide" and not fields.quit then
-        if (fields.page_number and tonumber(fields.page_number)) or not fields.page_number then
+    if formname == "guns4d:guide" then
+        if fields.quit then
+            player:hud_set_flags({wielditem=guide_players_wielditem[player]})
+            guide_players_wielditem[player]=nil
+        elseif (fields.page_number and tonumber(fields.page_number)) or not fields.page_number then
             fields.page_number = fields.page_number or 1
             local num = tonumber(fields.page_number)+((fields.page_next and 1) or (fields.page_back and -1) or 0)
             Guns4d.show_guide(player,
                 (pages[num] and num)   or   ((num > 1) and #pages)   or   1
             )
-        end
-        if fields.quit then
-            player:hud_set_flags({wielditem=guide_players_wielditem[player]})
-            guide_players_wielditem[player]=nil
         end
     end
 end)
